@@ -3,6 +3,8 @@
 import Image from "next/image";
 import Navbar from '@/app/components/navbar';
 import Player from '@/app/components/player/Player';
+import ErrorBoundary from '@/app/components/ErrorBoundary';
+import BrowserCompatWarning from '@/app/components/BrowserCompatWarning';
 import { useState } from 'react';
 
 interface AudioTrack {
@@ -141,6 +143,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-black relative page-scroll">
+      <BrowserCompatWarning />
       <Navbar 
         isPlaying={isPlaying}
         currentTrack={currentTrack}
@@ -159,13 +162,15 @@ export default function Home() {
           <Header onPlayClick={handlePlayClick} />
         </main>
       )}
-      <Player 
-        isVisible={isPlayerVisible} 
-        onClose={handleClosePlayer}
-        onPlayingChange={handlePlayingChange}
-        onTrackChange={handleTrackChange}
-        onSleepTimerChange={handleSleepTimerChange}
-      />
+      <ErrorBoundary>
+        <Player 
+          isVisible={isPlayerVisible} 
+          onClose={handleClosePlayer}
+          onPlayingChange={handlePlayingChange}
+          onTrackChange={handleTrackChange}
+          onSleepTimerChange={handleSleepTimerChange}
+        />
+      </ErrorBoundary>
     </div>
   );
 }
