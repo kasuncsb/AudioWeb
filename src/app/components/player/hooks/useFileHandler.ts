@@ -46,7 +46,9 @@ const parseLrcFormat = (lrcContent: string): LyricLine[] => {
     
     // Extract all timestamps from a line (supports multiple timestamps for the same text)
     // Matches: [mm:ss.xx], [mm:ss:xxx], [mm:ss]
-    // Note: Hours format not supported as it's rare in audio files
+    // Note: Hours format [hh:mm:ss] not currently supported. This covers most music
+    // files, but may need enhancement for podcasts/audiobooks exceeding 99 minutes.
+    // TODO: Add hours format support if needed for long-form content
     const timestampRegex = /\[(\d{1,2}):(\d{2})(?:[:.](\d{2,3}))?\]/g;
     const timestamps: number[] = [];
     let match;

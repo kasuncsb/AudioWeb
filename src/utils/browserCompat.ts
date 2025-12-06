@@ -41,11 +41,13 @@ export function isFileAPISupported(): boolean {
 
 /**
  * Check if Drag and Drop API is supported
+ * Checks for comprehensive drag and drop event support
  */
 export function isDragDropSupported(): boolean {
   const div = typeof document !== 'undefined' ? document.createElement('div') : null;
   return div !== null && 
-    ('draggable' in div || ('ondragstart' in div && 'ondrop' in div));
+    ('draggable' in div || 
+     ('ondragstart' in div && 'ondrop' in div && 'ondragover' in div));
 }
 
 /**

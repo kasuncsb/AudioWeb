@@ -18,18 +18,21 @@ export default function BrowserCompatWarning() {
       setCompatResult(result);
       
       // Check if user previously dismissed warnings (for this session)
-      try {
-        const sessionDismissed = sessionStorage.getItem('compat-warning-dismissed');
-        if (sessionDismissed === 'true') {
-          setDismissed(true);
-        }
-      } catch (error) {
-        // SessionStorage may not be available in private/incognito mode or when
-        // storage is disabled. This is expected behavior, so we continue without
-        // persistence and show the warning.
-        if (error instanceof DOMException) {
-          // Expected errors: SecurityError, QuotaExceededError
-          console.debug('SessionStorage unavailable:', error.name);
+      // Check existence first to avoid exception overhead in unsupported environments
+      if (typeof sessionStorage !== 'undefined') {
+        try {
+          const sessionDismissed = sessionStorage.getItem('compat-warning-dismissed');
+          if (sessionDismissed === 'true') {
+            setDismissed(true);
+          }
+        } catch (error) {
+          // SessionStorage may not be available in private/incognito mode or when
+          // storage is disabled. This is expected behavior, so we continue without
+          // persistence and show the warning.
+          if (error instanceof DOMException) {
+            // Expected errors: SecurityError, QuotaExceededError
+            console.debug('SessionStorage unavailable:', error.name);
+          }
         }
       }
     }
@@ -37,13 +40,17 @@ export default function BrowserCompatWarning() {
 
   const handleDismiss = () => {
     setDismissed(true);
-    try {
-      sessionStorage.setItem('compat-warning-dismissed', 'true');
-    } catch (error) {
-      // SessionStorage may not be available - warning will reappear on refresh
-      // in private mode, but that's acceptable behavior
-      if (error instanceof DOMException) {
-        console.debug('Cannot persist dismissal:', error.name);
+    
+    // Persist dismissal if sessionStorage is available
+    if (typeof sessionStorage !== 'undefined') {
+      try {
+        sessionStorage.setItem('compat-warning-dismissed', 'true');
+      } catch (error) {
+        // SessionStorage may not be available - warning will reappear on refresh
+        // in private mode, but that's acceptable behavior
+        if (error instanceof DOMException) {
+          console.debug('Cannot persist dismissal:', error.name);
+        }
       }
     }
   };
