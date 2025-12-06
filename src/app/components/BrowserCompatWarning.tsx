@@ -18,16 +18,25 @@ export default function BrowserCompatWarning() {
       setCompatResult(result);
       
       // Check if user previously dismissed warnings (for this session)
-      const sessionDismissed = sessionStorage.getItem('compat-warning-dismissed');
-      if (sessionDismissed === 'true') {
-        setDismissed(true);
+      try {
+        const sessionDismissed = sessionStorage.getItem('compat-warning-dismissed');
+        if (sessionDismissed === 'true') {
+          setDismissed(true);
+        }
+      } catch (error) {
+        // SessionStorage may not be available in private mode or when disabled
+        // Silently ignore and show warning
       }
     }
   }, []);
 
   const handleDismiss = () => {
     setDismissed(true);
-    sessionStorage.setItem('compat-warning-dismissed', 'true');
+    try {
+      sessionStorage.setItem('compat-warning-dismissed', 'true');
+    } catch (error) {
+      // SessionStorage may not be available - continue anyway
+    }
   };
 
   // Don't show anything if compatible or dismissed

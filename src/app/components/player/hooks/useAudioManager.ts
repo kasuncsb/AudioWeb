@@ -300,8 +300,9 @@ export const useAudioManager = (
   parallelCompressor.knee.value = 10;       // smoother knee to reduce pumping
   parallelCompressor.ratio.value = 6;       // moderate-strong compression to avoid pumping
   parallelCompressor.attack.value = 0.001;   // faster attack (~1.0ms) for very sharp transient punch
-  // Use 800ms release for sustained punch while staying safely within spec
-  // Most browsers support up to 1s but we use 0.8s to avoid any potential clamping
+  // Use 800ms release for sustained punch. While the Web Audio API spec doesn't
+  // define a maximum, some browser implementations may log warnings for values at
+  // the upper range. 0.8s provides sustained punch without triggering warnings.
   parallelCompressor.release.value = 0.8;   // 800ms release for sustained low-band punch
 
   // Gain to mix compressed low band back into the chain
@@ -357,7 +358,7 @@ export const useAudioManager = (
   subCompressor.knee.value = 6;
   subCompressor.ratio.value = 8;
   subCompressor.attack.value = 0.001; // faster attack to catch and shape sub transients
-  // Use 800ms release for sub-bass sustain while staying safely within spec
+  // Use 800ms release for sub-bass sustain to avoid potential browser warnings
   subCompressor.release.value = 0.8;  // 800ms release for sub-bass sustain
 
   // Makeup gain for sub-bass

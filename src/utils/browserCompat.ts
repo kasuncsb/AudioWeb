@@ -131,7 +131,8 @@ export function checkBrowserCompatibility(): BrowserCompatibilityResult {
   }
   
   // Check if at least one major audio format is supported
-  const hasMajorFormat = audioFormats.mp3 || audioFormats.aac || audioFormats.ogg || audioFormats.wav;
+  const majorFormats = ['mp3', 'aac', 'ogg', 'wav'] as const;
+  const hasMajorFormat = majorFormats.some(format => audioFormats[format]);
   if (!hasMajorFormat) {
     errors.push('No major audio formats are supported by your browser. The player will not work properly.');
   }
