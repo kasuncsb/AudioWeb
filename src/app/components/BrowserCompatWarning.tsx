@@ -24,8 +24,13 @@ export default function BrowserCompatWarning() {
           setDismissed(true);
         }
       } catch (error) {
-        // SessionStorage may not be available in private mode or when disabled
-        // Silently ignore and show warning
+        // SessionStorage may not be available in private/incognito mode or when
+        // storage is disabled. This is expected behavior, so we continue without
+        // persistence and show the warning.
+        if (error instanceof DOMException) {
+          // Expected errors: SecurityError, QuotaExceededError
+          console.debug('SessionStorage unavailable:', error.name);
+        }
       }
     }
   }, []);
@@ -35,7 +40,11 @@ export default function BrowserCompatWarning() {
     try {
       sessionStorage.setItem('compat-warning-dismissed', 'true');
     } catch (error) {
-      // SessionStorage may not be available - continue anyway
+      // SessionStorage may not be available - warning will reappear on refresh
+      // in private mode, but that's acceptable behavior
+      if (error instanceof DOMException) {
+        console.debug('Cannot persist dismissal:', error.name);
+      }
     }
   };
 

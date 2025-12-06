@@ -6,6 +6,9 @@ import { EQUALIZER_BANDS } from '@/config/constants';
 
 const logger = createLogger('AudioManager');
 
+// Audio processing constants
+const SUSTAINED_RELEASE_TIME = 0.8; // 800ms - for parallel compression sustain
+
 // Professional Studio-Level Web Audio API Chain
 // Complete signal flow for audiophile-grade sound processing
 interface AudioChain {
@@ -300,10 +303,10 @@ export const useAudioManager = (
   parallelCompressor.knee.value = 10;       // smoother knee to reduce pumping
   parallelCompressor.ratio.value = 6;       // moderate-strong compression to avoid pumping
   parallelCompressor.attack.value = 0.001;   // faster attack (~1.0ms) for very sharp transient punch
-  // Use 800ms release for sustained punch. While the Web Audio API spec doesn't
-  // define a maximum, some browser implementations may log warnings for values at
-  // the upper range. 0.8s provides sustained punch without triggering warnings.
-  parallelCompressor.release.value = 0.8;   // 800ms release for sustained low-band punch
+  // Use sustained release time for low-band punch. While the Web Audio API spec
+  // doesn't define a maximum, some browser implementations may log warnings for
+  // values at the upper range. This value provides sustained punch without warnings.
+  parallelCompressor.release.value = SUSTAINED_RELEASE_TIME;
 
   // Gain to mix compressed low band back into the chain
   const parallelGain = audioContext.createGain();
@@ -358,8 +361,8 @@ export const useAudioManager = (
   subCompressor.knee.value = 6;
   subCompressor.ratio.value = 8;
   subCompressor.attack.value = 0.001; // faster attack to catch and shape sub transients
-  // Use 800ms release for sub-bass sustain to avoid potential browser warnings
-  subCompressor.release.value = 0.8;  // 800ms release for sub-bass sustain
+  // Use sustained release time for sub-bass to avoid potential browser warnings
+  subCompressor.release.value = SUSTAINED_RELEASE_TIME;
 
   // Makeup gain for sub-bass
   const subMakeupGain = audioContext.createGain();

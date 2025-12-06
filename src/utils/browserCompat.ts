@@ -7,12 +7,18 @@ import { createLogger } from './logger';
 
 const logger = createLogger('BrowserCompat');
 
+// Type definition for webkit-prefixed AudioContext
+interface WindowWithWebkit extends Window {
+  webkitAudioContext?: typeof AudioContext;
+}
+
 /**
  * Check if Web Audio API is supported
  */
 export function isWebAudioSupported(): boolean {
   return typeof window !== 'undefined' && 
-    (window.AudioContext !== undefined || (window as any).webkitAudioContext !== undefined);
+    (window.AudioContext !== undefined || 
+     (window as WindowWithWebkit).webkitAudioContext !== undefined);
 }
 
 /**
