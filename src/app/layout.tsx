@@ -1,21 +1,24 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ScrollStyles } from "./components/scrollstyles";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-const inter = Inter({ subsets: ["latin"] });
+// Use system fonts as fallback when Google Fonts are unavailable
+// This ensures the app builds and works in all environments
+const fontConfig = {
+  geistSans: {
+    variable: "--font-geist-sans",
+    className: "font-sans",
+  },
+  geistMono: {
+    variable: "--font-geist-mono", 
+    className: "font-mono",
+  },
+  inter: {
+    className: "font-sans",
+  },
+};
 
 export const metadata: Metadata = {
   title: "AudioWeb - Play Audio Files Online",
@@ -77,7 +80,10 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="AudioWeb" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${inter.className} antialiased`}
+        className={`${fontConfig.geistSans.variable} ${fontConfig.geistMono.variable} ${fontConfig.inter.className} antialiased`}
+        style={{
+          fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+        }}
       >
         <ScrollStyles />
         {children}

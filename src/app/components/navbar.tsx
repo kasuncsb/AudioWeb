@@ -7,9 +7,8 @@ import { AboutPopup } from './about';
 import { SupportPopup } from './contact';
 import { NowPlayingBar } from './NowPlayingBar';
 
-// Import Inter font from Google Fonts (add this to your _app.tsx or layout if not already)
-import { Inter } from 'next/font/google';
-const inter = Inter({ subsets: ['latin'] });
+// Use system fonts instead of Google Fonts for offline builds
+const inter = { className: 'font-sans' };
 
 interface AudioTrack {
   id: string;

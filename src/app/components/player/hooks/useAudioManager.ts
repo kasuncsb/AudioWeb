@@ -300,10 +300,9 @@ export const useAudioManager = (
   parallelCompressor.knee.value = 10;       // smoother knee to reduce pumping
   parallelCompressor.ratio.value = 6;       // moderate-strong compression to avoid pumping
   parallelCompressor.attack.value = 0.001;   // faster attack (~1.0ms) for very sharp transient punch
-  // Use a sensible in-range release for sustained low-band punch. WebAudio
-  // compressors expect values in seconds where the nominal range is [0, 1].
-  // Pick a value that gives sustain but avoids browser clamping warnings.
-  parallelCompressor.release.value = 1;   // 1000ms (max allowed) release for sustained low-band punch
+  // Use 800ms release for sustained punch while staying safely within spec
+  // Most browsers support up to 1s but we use 0.8s to avoid any potential clamping
+  parallelCompressor.release.value = 0.8;   // 800ms release for sustained low-band punch
 
   // Gain to mix compressed low band back into the chain
   const parallelGain = audioContext.createGain();
@@ -358,8 +357,8 @@ export const useAudioManager = (
   subCompressor.knee.value = 6;
   subCompressor.ratio.value = 8;
   subCompressor.attack.value = 0.001; // faster attack to catch and shape sub transients
-  // Use a conservative in-range release for sub-bass sustain
-  subCompressor.release.value = 1;  // 1000ms (max allowed) release for sub-bass sustain
+  // Use 800ms release for sub-bass sustain while staying safely within spec
+  subCompressor.release.value = 0.8;  // 800ms release for sub-bass sustain
 
   // Makeup gain for sub-bass
   const subMakeupGain = audioContext.createGain();
@@ -514,6 +513,27 @@ export const useAudioManager = (
     return () => {
       audio.removeEventListener('play', initAudioChain);
       if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);
+      
+      // Cleanup audio chain on unmount to prevent memory leaks
+      const chain = audioChainRef.current;
+      if (chain && chain.connected) {
+        try {
+          // Close audio context to free resources
+          if (chain.context.state !== 'closed') {
+            chain.context.close().catch(() => {
+              // Ignore errors during cleanup
+            });
+          }
+          // Mark as disconnected to prevent further use
+          chain.connected = false;
+          // Remove from storage
+          if (audio) {
+            audioChainStorage.delete(audio);
+          }
+        } catch (error) {
+          logger.warn('Error during audio chain cleanup:', error);
+        }
+      }
     };
   }, [volume]);
 

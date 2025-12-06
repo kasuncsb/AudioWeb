@@ -14,6 +14,7 @@ import {
   getQualityDescription,
   sanitizeFilename,
   extractTrackNumber,
+  validateFileSize,
 } from '@/utils/audioUtils';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES, PERFORMANCE } from '@/config/constants';
 
@@ -43,21 +44,35 @@ const parseLrcFormat = (lrcContent: string): LyricLine[] => {
       continue;
     }
     
-    // Extract lyrics text from timestamp lines - handle various timestamp formats
-    const timestampMatch = line.match(/^\[(\d{1,2}):(\d{2})\.(\d{2})\]\s*(.*)$/) || 
-                          line.match(/^\[(\d{1,2}):(\d{2}):(\d{2})\]\s*(.*)$/) ||
-                          line.match(/^\[(\d{1,2}):(\d{2})\]\s*(.*)$/);
+    // Extract all timestamps from a line (supports multiple timestamps for the same text)
+    // Matches: [mm:ss.xx], [mm:ss:xx], [mm:ss], [hh:mm:ss.xx]
+    const timestampRegex = /\[(\d{1,2}):(\d{2})(?:[:.](\d{2,3}))?\]/g;
+    const timestamps: number[] = [];
+    let match;
     
-    if (timestampMatch) {
-      const minutes = parseInt(timestampMatch[1]);
-      const seconds = parseInt(timestampMatch[2]);
-      const milliseconds = timestampMatch[3] ? parseInt(timestampMatch[3]) : 0;
-      const text = timestampMatch[timestampMatch.length - 1].trim();
-      
-      if (text) {
-        const time = minutes * 60 + seconds + milliseconds / 100;
-        lyrics.push({ time, text });
+    while ((match = timestampRegex.exec(line)) !== null) {
+      const minutes = parseInt(match[1]);
+      const seconds = parseInt(match[2]);
+      // Handle both 2-digit (centiseconds) and 3-digit (milliseconds) formats
+      let fractional = 0;
+      if (match[3]) {
+        const digits = match[3];
+        fractional = digits.length === 3 
+          ? parseInt(digits) / 1000  // milliseconds
+          : parseInt(digits) / 100;  // centiseconds
       }
+      const time = minutes * 60 + seconds + fractional;
+      timestamps.push(time);
+    }
+    
+    // Extract text after all timestamps
+    const text = line.replace(/\[(\d{1,2}):(\d{2})(?:[:.](\d{2,3}))?\]/g, '').trim();
+    
+    // Add an entry for each timestamp (multi-line support)
+    if (timestamps.length > 0 && text) {
+      timestamps.forEach(time => {
+        lyrics.push({ time, text });
+      });
     }
   }
   
@@ -293,7 +308,22 @@ export const useFileHandler = (
     setUploadState({ active: true, total: files.length, processed: 0, currentFile: '', items: [] });
     
     // Separate audio and lyrics files using utility functions
-    const audioFiles = Array.from(files).filter(file => isAudioFile(file));
+    const audioFiles = Array.from(files).filter(file => {
+      if (!isAudioFile(file)) return false;
+      
+      // Validate file size (500MB limit)
+      const validation = validateFileSize(file, 500);
+      if (!validation.valid) {
+        logger.warn(`Skipping ${file.name}: ${validation.error}`);
+        setUploadState(prev => ({
+          ...prev,
+          items: [...prev.items, { name: file.name, status: 'error', error: validation.error }]
+        }));
+        return false;
+      }
+      
+      return true;
+    });
     const lrcFiles = Array.from(files).filter(file => isLyricsFile(file));
 
     logger.info(`Found ${audioFiles.length} audio files and ${lrcFiles.length} lyrics files`);
