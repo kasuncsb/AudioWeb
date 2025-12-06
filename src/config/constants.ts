@@ -134,134 +134,152 @@ export const AUDIO_QUALITY = {
 
 /**
  * Equalizer frequency bands (10-band professional EQ)
- * ISO standard frequencies optimized for music production
- * Q values: 1.41 for precise peaking, 0.7 for smooth shelving
+ * Studio-grade frequencies and Q values inspired by PowerAmp, Viper4Android, and professional mastering
+ * Q values optimized for surgical control without artifacts:
+ * - Shelving (32Hz, 16kHz): Q=0.7 (Butterworth, natural roll-off)
+ * - Low bands (64-250Hz): Q=1.2 (tighter for bass clarity and punch)
+ * - Mid bands (500Hz-2kHz): Q=1.0 (wider for musical smoothness)
+ * - High-mid (4-8kHz): Q=1.3 (surgical for presence/clarity without harshness)
  */
 export const EQUALIZER_BANDS = [
   { frequency: 32, label: '32 Hz', description: 'Sub Bass', q: 0.7, key: 'band32' as const },
-  { frequency: 64, label: '64 Hz', description: 'Bass', q: 1.41, key: 'band64' as const },
-  { frequency: 125, label: '125 Hz', description: 'Bass/Low Mid', q: 1.41, key: 'band125' as const },
-  { frequency: 250, label: '250 Hz', description: 'Low Mid', q: 1.41, key: 'band250' as const },
-  { frequency: 500, label: '500 Hz', description: 'Mid', q: 1.41, key: 'band500' as const },
-  { frequency: 1000, label: '1 kHz', description: 'Mid', q: 1.41, key: 'band1k' as const },
-  { frequency: 2000, label: '2 kHz', description: 'Upper Mid', q: 1.41, key: 'band2k' as const },
-  { frequency: 4000, label: '4 kHz', description: 'Presence', q: 1.41, key: 'band4k' as const },
-  { frequency: 8000, label: '8 kHz', description: 'Brilliance', q: 1.41, key: 'band8k' as const },
+  { frequency: 64, label: '64 Hz', description: 'Bass', q: 1.2, key: 'band64' as const },
+  { frequency: 125, label: '125 Hz', description: 'Bass/Low Mid', q: 1.2, key: 'band125' as const },
+  { frequency: 250, label: '250 Hz', description: 'Low Mid', q: 1.15, key: 'band250' as const },
+  { frequency: 500, label: '500 Hz', description: 'Mid', q: 1.0, key: 'band500' as const },
+  { frequency: 1000, label: '1 kHz', description: 'Mid', q: 1.0, key: 'band1k' as const },
+  { frequency: 2000, label: '2 kHz', description: 'Upper Mid', q: 1.1, key: 'band2k' as const },
+  { frequency: 4000, label: '4 kHz', description: 'Presence', q: 1.3, key: 'band4k' as const },
+  { frequency: 8000, label: '8 kHz', description: 'Brilliance', q: 1.3, key: 'band8k' as const },
   { frequency: 16000, label: '16 kHz', description: 'Air', q: 0.7, key: 'band16k' as const },
 ] as const;
 
 /**
  * Equalizer presets with gain values for each band
- * Optimized for studio-level audio chain with compressor, exciter, and limiter
- * Gain values in dB (-12 to +12 for studio-grade control)
+ * Studio-grade curves inspired by PowerAmp, Viper4Android, and professional mastering
+ * Gain values in dB (-12 to +12) with refined curves for audiophile-grade sound
  * Order: 32Hz, 64Hz, 125Hz, 250Hz, 500Hz, 1kHz, 2kHz, 4kHz, 8kHz, 16kHz
- * Plus bassTone and trebleTone (bassTone drives low-end, trebleTone drives exciter)
+ * Plus bassTone and trebleTone for dedicated enhancement stages
  */
 export const EQUALIZER_PRESETS = {
   flat: {
     name: 'Flat',
-    description: 'No equalization - pure audio',
+    description: 'Reference - Pure uncolored audio',
     gains: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     bassTone: 0,
     trebleTone: 0,
   },
   rock: {
     name: 'Rock',
-    description: 'Punchy bass, scooped mids, aggressive highs',
-    gains: [4, 5, 3, 1, -1, 0, 2, 4, 5, 4],
-    bassTone: 6,  // Strong bass foundation
-    trebleTone: 7, // Aggressive treble with exciter
+    description: 'Powerful bass, scooped mids, crisp highs - PowerAmp inspired',
+    gains: [5.5, 4.5, 3, 0.5, -2, -1, 2, 4.5, 5.5, 4],
+    bassTone: 7,  // Tight, impactful bass
+    trebleTone: 7, // Crisp, aggressive treble
   },
   pop: {
     name: 'Pop',
-    description: 'Balanced with enhanced presence and sparkle',
-    gains: [2, 3, 2, 1, 0, 1, 3, 4, 3, 2],
-    bassTone: 4,  // Moderate bass
-    trebleTone: 5, // Bright with good exciter presence
+    description: 'Enhanced presence and sparkle - Radio ready',
+    gains: [3, 2.5, 1.5, 0.5, -0.5, 0, 2.5, 4, 4.5, 3],
+    bassTone: 5,  // Modern bass presence
+    trebleTone: 6, // Bright, polished highs
   },
   jazz: {
     name: 'Jazz',
-    description: 'Warm, natural with silky highs',
-    gains: [2, 3, 4, 3, 2, 1, 2, 3, 4, 5],
+    description: 'Warm, natural tonality with silky extension',
+    gains: [1.5, 2, 3, 2.5, 1.5, 0.5, 1.5, 3, 4.5, 5],
     bassTone: 3,  // Natural warmth
-    trebleTone: 4, // Smooth high-end extension
+    trebleTone: 5, // Smooth, extended highs
   },
   classical: {
     name: 'Classical',
-    description: 'Natural dynamics with extended air',
-    gains: [1, 2, 2, 1, 0, 1, 2, 4, 5, 6],
+    description: 'Natural dynamics, extended air - Studio monitor curve',
+    gains: [0.5, 1, 1.5, 1, 0, 0.5, 1.5, 3.5, 5, 6],
     bassTone: 2,  // Subtle foundation
-    trebleTone: 6, // Extended air frequencies
+    trebleTone: 6, // Spacious air
   },
   electronic: {
     name: 'Electronic',
-    description: 'Deep sub-bass with crystalline highs',
-    gains: [6, 6, 4, 2, 0, 1, 3, 4, 5, 4],
-    bassTone: 8,  // Maximum sub-bass impact
-    trebleTone: 6, // Crystal clarity
+    description: 'Deep sub-bass, crystalline highs - Club optimized',
+    gains: [7, 6.5, 5, 2.5, 0, 0.5, 2.5, 4, 5.5, 4.5],
+    bassTone: 9,  // Maximum sub-bass impact
+    trebleTone: 7, // Crystal clarity
   },
   vocal: {
     name: 'Vocal',
-    description: 'Optimized clarity and presence for voices',
-    gains: [-2, -1, 1, 3, 5, 4, 3, 3, 2, 1],
-    bassTone: -2, // Reduce bass rumble
-    trebleTone: 4, // Clear, articulate highs
+    description: 'Optimized clarity and intelligibility',
+    gains: [-2.5, -1.5, 0.5, 2.5, 4.5, 4, 3.5, 3, 2, 1],
+    bassTone: -2, // Clean low-end
+    trebleTone: 5, // Clear articulation
   },
   bass_boost: {
     name: 'Bass Boost',
-    description: 'Maximum low-end impact and power',
-    gains: [8, 7, 5, 3, 1, 0, 0, 1, 1, 0],
-    bassTone: 10, // Extreme bass with headroom
-    trebleTone: 2, // Balanced highs
+    description: 'Maximum low-end impact - Viper4Android inspired',
+    gains: [9, 8, 6, 3.5, 1, -0.5, -0.5, 0.5, 1, 0],
+    bassTone: 11, // Extreme bass with headroom
+    trebleTone: 2, // Controlled highs
   },
   treble_boost: {
     name: 'Treble Boost',
-    description: 'Crystal clear, enhanced high frequencies',
-    gains: [0, 0, 0, 1, 2, 3, 4, 6, 7, 6],
+    description: 'Enhanced detail and air frequencies',
+    gains: [-0.5, 0, 0, 0.5, 1.5, 2.5, 4, 6, 7.5, 6.5],
     bassTone: 0,  // Neutral bass
-    trebleTone: 9, // Maximum exciter engagement
+    trebleTone: 10, // Maximum clarity
   },
   acoustic: {
     name: 'Acoustic',
     description: 'Natural warmth with organic presence',
-    gains: [3, 4, 4, 3, 2, 2, 3, 4, 4, 3],
-    bassTone: 5,  // Warm body
-    trebleTone: 5, // Natural air
+    gains: [2.5, 3.5, 4, 3, 2, 1.5, 2.5, 4, 4.5, 3.5],
+    bassTone: 5,  // Warm, natural body
+    trebleTone: 6, // Organic air
   },
   lounge: {
     name: 'Lounge',
-    description: 'Smooth, relaxed, easy listening',
-    gains: [3, 4, 3, 2, 1, 0, 1, 2, 3, 2],
+    description: 'Smooth, relaxed - Easy listening curve',
+    gains: [3, 3.5, 3, 2, 1, 0, 0.5, 2, 3, 2.5],
     bassTone: 5,  // Comfortable warmth
-    trebleTone: 3, // Gentle highs
+    trebleTone: 4, // Gentle highs
   },
   podcast: {
     name: 'Podcast',
-    description: 'Optimized for spoken word clarity',
-    gains: [-3, -2, 0, 4, 6, 6, 4, 3, 1, 0],
-    bassTone: -3, // Remove low-end rumble
-    trebleTone: 4, // Clear articulation
+    description: 'Optimized for spoken word - Broadcast quality',
+    gains: [-3.5, -2.5, -0.5, 3.5, 5.5, 6, 4.5, 3, 1, 0],
+    bassTone: -3, // Remove rumble
+    trebleTone: 5, // Crisp speech
   },
   dance: {
     name: 'Dance',
-    description: 'Club-ready bass with energetic highs',
-    gains: [7, 7, 5, 2, 0, 1, 3, 4, 5, 3],
-    bassTone: 9,  // Powerful club bass
-    trebleTone: 6, // Energetic presence
+    description: 'Club-ready impact - EDM optimized',
+    gains: [8, 7.5, 6, 2.5, 0, 0.5, 3, 4.5, 5.5, 3.5],
+    bassTone: 10,  // Powerful club bass
+    trebleTone: 7, // Energetic highs
   },
   hip_hop: {
     name: 'Hip Hop',
-    description: 'Deep bass with punchy midrange',
-    gains: [7, 8, 6, 3, 1, 2, 2, 3, 2, 1],
-    bassTone: 8,  // Deep, powerful bass
-    trebleTone: 3, // Punchy but not harsh
+    description: 'Deep bass, punchy mids - Urban sound',
+    gains: [8, 8.5, 7, 3.5, 1, 1.5, 2, 3, 2.5, 1],
+    bassTone: 9,  // Deep, powerful bass
+    trebleTone: 4, // Punchy but smooth
   },
   metal: {
     name: 'Metal',
-    description: 'Aggressive with powerful dynamics',
-    gains: [5, 4, 3, -1, -2, 1, 3, 5, 6, 4],
-    bassTone: 6,  // Tight, powerful low-end
-    trebleTone: 7, // Aggressive, cutting highs
+    description: 'Aggressive power - Distortion ready',
+    gains: [6, 5, 3.5, -0.5, -2.5, 0, 3, 5.5, 6.5, 4.5],
+    bassTone: 7,  // Tight, powerful
+    trebleTone: 8, // Cutting edge
+  },
+  viper_clarity: {
+    name: 'Viper Clarity',
+    description: 'Viper4Android inspired - Enhanced detail retrieval',
+    gains: [2, 2.5, 2, 1, 0.5, 1.5, 3.5, 5, 6, 5.5],
+    bassTone: 4,  // Controlled bass
+    trebleTone: 8, // Maximum clarity
+  },
+  poweramp_audiophile: {
+    name: 'PowerAmp Audiophile',
+    description: 'PowerAmp inspired - Reference tuning',
+    gains: [1, 1.5, 2, 1.5, 0.5, 0, 1.5, 3, 4.5, 5],
+    bassTone: 3,  // Natural extension
+    trebleTone: 6, // Refined highs
   },
 } as const;
 

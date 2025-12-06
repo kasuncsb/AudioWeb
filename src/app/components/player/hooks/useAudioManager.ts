@@ -209,30 +209,31 @@ export const useAudioManager = (
         analyser.smoothingTimeConstant = 0.8;
         
         // ===== DYNAMICS STAGE =====
-        // Compressor - transparent dynamic range control
+        // Studio-grade compressor - transparent mastering-style compression
+        // Inspired by professional mastering compressors and PowerAmp/Viper4Android dynamics
   const compressor = audioContext.createDynamicsCompressor();
-  compressor.threshold.value = -24;    // Studio threshold
-  compressor.knee.value = 30;          // Soft knee
-  compressor.ratio.value = 4;          // Moderate ratio
-  compressor.attack.value = 0.012;     // 12ms attack - lets bass transients pass for punch
-  compressor.release.value = 0.25;     // 250ms release
+  compressor.threshold.value = -26;    // Lower threshold for more consistent dynamics
+  compressor.knee.value = 12;          // Medium-soft knee for musical compression
+  compressor.ratio.value = 3;          // Gentle ratio for transparency
+  compressor.attack.value = 0.008;     // 8ms attack - fast enough to control peaks, slow enough for transients
+  compressor.release.value = 0.18;     // 180ms release - responsive but musical
         
         // ===== ENHANCEMENT STAGE =====
-        // Exciter/Enhancer - adds harmonic richness and presence
+        // Studio-grade exciter/enhancer - adds harmonic richness and air
+        // Inspired by Viper4Android's ViPER Clarity and PowerAmp's tone controls
         const exciter = audioContext.createBiquadFilter();
         exciter.type = 'highshelf';
-        exciter.frequency.value = 8000;      // Enhance presence/air frequencies
-        exciter.Q.value = 0.707;
-        exciter.gain.value = 0;              // Disabled by default
+        exciter.frequency.value = 7000;      // Optimize for presence/brilliance sweet spot
+        exciter.Q.value = 0.8;               // Slightly wider for smoother enhancement
+        exciter.gain.value = 0;              // Disabled by default, controlled by trebleTone
 
-  // Dedicated Bass Punch filter (peaking around 56-65Hz)
+  // Studio-grade bass punch filter - optimized for impact and clarity
+  // Tuned to PowerAmp and Viper4Android bass enhancement characteristics
   const bassPunchFilter = audioContext.createBiquadFilter();
   bassPunchFilter.type = 'peaking';
-  // Move the peaking center lower for deeper punch, slightly narrower Q for weight
-  // Tune peaking to favor both deep sub and transient thump
-  bassPunchFilter.frequency.value = 50; // Punch center moved slightly up to catch transient energy
-  bassPunchFilter.Q.value = 1.2;        // focused but not too narrow
-  bassPunchFilter.gain.value = 0;       // Controlled by bassTone
+  bassPunchFilter.frequency.value = 55;  // Sweet spot for bass punch (between sub and mid-bass)
+  bassPunchFilter.Q.value = 1.3;         // Surgical Q for tight, focused impact
+  bassPunchFilter.gain.value = 0;        // Controlled by bassTone
         
         // ===== SPATIAL STAGE =====
         // Stereo Widener - stereo field control (placeholder for future expansion)
@@ -251,13 +252,14 @@ export const useAudioManager = (
         reverbMix.gain.value = 1.0;
         
         // ===== PROTECTION STAGE =====
-        // Limiter - brick-wall limiter for anti-clipping protection
+        // Studio-grade brick-wall limiter - transparent peak protection
+        // Inspired by professional mastering limiters (L2, Ozone, etc.)
         const limiter = audioContext.createDynamicsCompressor();
-        limiter.threshold.value = -1;        // Prevent clipping at -1dB
-        limiter.knee.value = 0;              // Hard knee (brick-wall)
-        limiter.ratio.value = 20;            // Hard limiting
-        limiter.attack.value = 0.001;        // 1ms attack (instant)
-        limiter.release.value = 0.1;         // 100ms release
+        limiter.threshold.value = -0.5;      // Tighter ceiling for maximum loudness
+        limiter.knee.value = 0;              // Hard knee (true brick-wall)
+        limiter.ratio.value = 20;            // Hard limiting ratio
+        limiter.attack.value = 0.0005;       // 0.5ms attack (near-instant)
+        limiter.release.value = 0.08;        // 80ms release - fast but musical
         
         // ===== OUTPUT STAGE =====
         // Loudness Auto Adjust - intelligent loudness normalization
@@ -281,28 +283,26 @@ export const useAudioManager = (
         } catch {}
 
   // ===== PARALLEL LOW-BAND PUNCH PATH =====
-  // Bandpass for low frequencies (32-64Hz focus)
+  // Studio-grade parallel compression for sustained bass impact
+  // Inspired by professional mastering techniques and Viper4Android's bass processing
   const lowBandFilter = audioContext.createBiquadFilter();
   lowBandFilter.type = 'bandpass';
-  // Focus the parallel band more on the deep sub-bass region for sustained body
-  lowBandFilter.frequency.value = 40; // center around 40Hz (covers ~32-64Hz)
-  // A slightly wider Q gives more audible energy while still isolating mids
-  lowBandFilter.Q.value = 1.6;        // balance isolation and energy
+  lowBandFilter.frequency.value = 45; // Optimized center for maximum bass impact
+  lowBandFilter.Q.value = 1.5;        // Balanced Q for punch without mud
 
-  // Additional lowpass to remove any higher-frequency leakage into the parallel path
+  // Studio-grade isolation filter for parallel path
   const lowBandLowpass = audioContext.createBiquadFilter();
   lowBandLowpass.type = 'lowpass';
-  // Tighter lowpass to keep the parallel path strictly under ~80Hz so mids/vocals aren't affected
-  lowBandLowpass.frequency.value = 80; // tighter cutoff to protect mids
-  lowBandLowpass.Q.value = 0.707;
+  lowBandLowpass.frequency.value = 85; // Optimized cutoff for bass clarity
+  lowBandLowpass.Q.value = 0.8;        // Slightly steeper for better isolation
 
-  // Parallel compressor to create sustained low-end punch
+  // Studio-grade parallel compressor - New York style compression
+  // Inspired by professional mastering and PowerAmp dynamics processing
   const parallelCompressor = audioContext.createDynamicsCompressor();
-  // Stronger, longer-release parallel compression to create a deep, sustained low-band punch
-  parallelCompressor.threshold.value = -18; // engage earlier on low peaks
-  parallelCompressor.knee.value = 10;       // smoother knee to reduce pumping
-  parallelCompressor.ratio.value = 6;       // moderate-strong compression to avoid pumping
-  parallelCompressor.attack.value = 0.001;   // faster attack (~1.0ms) for very sharp transient punch
+  parallelCompressor.threshold.value = -20; // Optimized threshold for consistent punch
+  parallelCompressor.knee.value = 8;        // Tighter knee for more punch character
+  parallelCompressor.ratio.value = 5;       // Moderate ratio for transparency
+  parallelCompressor.attack.value = 0.002;  // 2ms - fast transient response
   // Use sustained release time for low-band punch. While the Web Audio API spec
   // doesn't define a maximum, some browser implementations may log warnings for
   // values at the upper range. This value provides sustained punch without warnings.
@@ -312,14 +312,14 @@ export const useAudioManager = (
   const parallelGain = audioContext.createGain();
   parallelGain.gain.value = 0; // off by default; driven by bassTone
 
-  // Makeup gain to raise level of compressed low band before mixing
+  // Studio-grade makeup gain - compensate for compression
   const parallelMakeupGain = audioContext.createGain();
-  // Use a conservative default makeup gain to avoid overpowering the master.
-  parallelMakeupGain.gain.value = 2.0; // ~6dB boost by default
+  parallelMakeupGain.gain.value = 2.2; // ~6.8dB boost - optimized for parallel blend
 
-  // Soft saturation (waveshaper) on the parallel path to create harmonics and perceived loudness
+  // Studio-grade saturation - adds warmth and harmonic richness
+  // Inspired by analog mastering and Viper4Android's tube simulation
   const parallelSaturator = audioContext.createWaveShaper();
-  // create a gentle tanh curve
+  // Create optimized tanh curve for musical saturation
   const makeTanhCurve = (amount = 400) => {
     const samples = 4096;
     const curve = new Float32Array(samples);
@@ -329,10 +329,8 @@ export const useAudioManager = (
     }
     return curve;
   };
-  // Increase saturation for stronger perceived vibration on headphones and small drivers
-  // Increase saturator strength for greater perceived vibration on headphones
-  parallelSaturator.curve = makeTanhCurve(48); // stronger saturation for richer harmonics
-  parallelSaturator.oversample = '4x';
+  parallelSaturator.curve = makeTanhCurve(52); // Optimized for warm, rich harmonics
+  parallelSaturator.oversample = '4x';         // Maximum quality oversampling
 
   // Limiter on the parallel path to prevent extreme peaks from lifting master dynamics
   const parallelLimiter = audioContext.createDynamicsCompressor();
@@ -343,35 +341,36 @@ export const useAudioManager = (
   parallelLimiter.release.value = 0.1;
 
   // ===== SUB-BASS (VERY-LOW) PARALLEL PATH =====
-  // Dedicated sub-bass bandpass (20-40Hz) for very deep sustained vibration
+  // Studio-grade sub-bass enhancement - deep, controlled impact
+  // Inspired by professional subwoofer processing and Viper4Android's bass boost
   const subLowFilter = audioContext.createBiquadFilter();
   subLowFilter.type = 'bandpass';
-  subLowFilter.frequency.value = 28; // center low to emphasize 20-40Hz
-  subLowFilter.Q.value = 1.8;
+  subLowFilter.frequency.value = 30; // Optimized for maximum sub-bass impact
+  subLowFilter.Q.value = 1.7;        // Balanced Q for deep extension
 
-  // Lowpass to strictly limit this path to the sub region
+  // Studio-grade sub isolation filter
   const subLowLowpass = audioContext.createBiquadFilter();
   subLowLowpass.type = 'lowpass';
-  subLowLowpass.frequency.value = 60; // allow up to ~60Hz but attenuate mids
-  subLowLowpass.Q.value = 0.707;
+  subLowLowpass.frequency.value = 65; // Optimized cutoff for sub clarity
+  subLowLowpass.Q.value = 0.8;        // Steeper roll-off for better isolation
 
-  // Compressor specialized for sub-bass sustain
+  // Studio-grade sub-bass compressor - tight, controlled impact
   const subCompressor = audioContext.createDynamicsCompressor();
-  subCompressor.threshold.value = -20;
-  subCompressor.knee.value = 6;
-  subCompressor.ratio.value = 8;
-  subCompressor.attack.value = 0.001; // faster attack to catch and shape sub transients
+  subCompressor.threshold.value = -22; // Optimized threshold for sub control
+  subCompressor.knee.value = 5;        // Tighter knee for punch
+  subCompressor.ratio.value = 7;       // Strong but musical ratio
+  subCompressor.attack.value = 0.003;  // 3ms - fast sub transient response
   // Use sustained release time for sub-bass to avoid potential browser warnings
   subCompressor.release.value = SUSTAINED_RELEASE_TIME;
 
-  // Makeup gain for sub-bass
+  // Studio-grade sub makeup gain
   const subMakeupGain = audioContext.createGain();
-  subMakeupGain.gain.value = 2.0; // moderate default boost (~6dB)
+  subMakeupGain.gain.value = 2.3; // ~7.2dB boost - optimized for sub presence
 
-  // Sub-bass saturator to create perceivable harmonics on headphones
+  // Studio-grade sub saturation - creates perceivable harmonics
   const subSaturator = audioContext.createWaveShaper();
-  subSaturator.curve = makeTanhCurve(56); // stronger sub saturation for deep vibration
-  subSaturator.oversample = '4x';
+  subSaturator.curve = makeTanhCurve(60); // Optimized for deep, rich sub harmonics
+  subSaturator.oversample = '4x';         // Maximum quality
 
   // Limiter for sub-bass path
   const subLimiter = audioContext.createDynamicsCompressor();
@@ -589,21 +588,27 @@ export const useAudioManager = (
         }
       });
 
-      // Update exciter based on trebleTone
+      // Update studio-grade exciter based on trebleTone
+      // Optimized curve for PowerAmp/Viper4Android-style clarity enhancement
       const exciterGain = settings.enabled && settings.trebleTone > 0
-        ? Math.min(3, settings.trebleTone * 0.25) // Max +3dB
+        ? Math.min(3.5, settings.trebleTone * 0.28) // Max +3.5dB for more impact
+        : settings.enabled && settings.trebleTone < 0
+        ? Math.max(-2, settings.trebleTone * 0.15) // Subtle negative adjustment
         : 0;
       chain.exciter.gain.cancelScheduledValues(now);
       chain.exciter.gain.setValueAtTime(chain.exciter.gain.value, now);
-      chain.exciter.gain.linearRampToValueAtTime(exciterGain, now + 0.05);
+      chain.exciter.gain.linearRampToValueAtTime(exciterGain, now + 0.04);
 
-      // Update bass punch filter based on bassTone
+      // Update studio-grade bass punch filter based on bassTone
+      // Optimized for PowerAmp/Viper4Android-style bass impact
       const targetBassTone = settings.enabled ? settings.bassTone : 0;
-      const targetBassPunch = Math.max(0, Math.min(12, targetBassTone * 0.6)); // scale and clamp
+      const targetBassPunch = targetBassTone > 0
+        ? Math.min(12, targetBassTone * 0.65) // Enhanced positive scaling
+        : Math.max(-3, targetBassTone * 0.2);  // Subtle negative adjustment
       if (chain.bassPunchFilter) {
         chain.bassPunchFilter.gain.cancelScheduledValues(now);
         chain.bassPunchFilter.gain.setValueAtTime(chain.bassPunchFilter.gain.value, now);
-        chain.bassPunchFilter.gain.linearRampToValueAtTime(targetBassPunch, now + 0.07);
+        chain.bassPunchFilter.gain.linearRampToValueAtTime(targetBassPunch, now + 0.06);
       }
 
       // Update loudness normalization
