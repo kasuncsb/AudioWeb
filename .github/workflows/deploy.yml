@@ -69,23 +69,16 @@ jobs:
           port: ${{ secrets.SERVER_PORT || 22 }}
           script_stop: true
           script: |
-            echo "Waiting for container to become healthy..."
-            for i in $(seq 1 15); do
-              STATUS=$(docker inspect --format='{{.State.Health.Status}}' audioweb 2>/dev/null || echo "not found")
-              echo "Attempt $i/15: $STATUS"
-              if [ "$STATUS" = "healthy" ]; then
-                echo "Container is healthy!"
+            echo "Waiting for application to respond..."
+            for i in $(seq 1 10); do
+              if curl -sf http://localhost:8081/api/health > /dev/null 2>&1; then
+                echo "Application is healthy!"
                 docker ps | grep audioweb
                 exit 0
               fi
-              if [ "$STATUS" = "unhealthy" ]; then
-                echo "Container is unhealthy! Logs:"
-                docker logs audioweb --tail 50
-                exit 1
-              fi
-              sleep 5
+              echo "Attempt $i/10: waiting..."
+              sleep 3
             done
-            echo "Health check timed out. Logs:"
-            docker logs audioweb --tail 50
+            echo "Health check failed. Container logs:"
+            docker logs audioweb --tail 30
             exit 1
-            echo "Deployment verification complete!"
