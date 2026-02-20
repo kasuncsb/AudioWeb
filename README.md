@@ -5,7 +5,7 @@
 ![Next.js](https://img.shields.io/badge/Next.js-16.1.6-000000)
 ![React](https://img.shields.io/badge/React-19.2.4-F97316)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-2563EB)
-![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-4.x-10B981)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind%20CSS-4.x-7C3AED)
 
 A web-based audio player built with Next.js, React, and TypeScript. Runs entirely in the browser with no backend or account required.
 
