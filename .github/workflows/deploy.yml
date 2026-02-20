@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+permissions:
+  deployments: write
+  contents: read
+
 jobs:
   deploy:
     name: Build on Server and Deploy
@@ -92,7 +96,7 @@ jobs:
 
       - name: Update deployment status (failure)
         uses: bobheadxi/deployments@v1
-        if: failure()
+        if: failure() && steps.deployment.outputs.deployment_id != ''
         with:
           step: finish
           token: ${{ secrets.GITHUB_TOKEN }}
