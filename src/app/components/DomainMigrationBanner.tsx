@@ -41,7 +41,7 @@ export default function DomainMigrationBanner() {
             </span>
             <p className="ml-3 font-medium text-sm sm:text-base">
               <span className="inline">
-                <strong>We&apos;ve moved!</strong> This domain is no longer maintained. Please visit our new domain: 
+                <strong>Heads up:</strong> Visit us at our new home — 
               </span>
               <a 
                 href="https://aw.kasunc.uk" 
