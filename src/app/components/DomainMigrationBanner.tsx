@@ -52,20 +52,14 @@ export default function DomainMigrationBanner() {
               </a>
             </p>
           </div>
-          <div className="flex items-center gap-2 mt-2 sm:mt-0 sm:ml-3">
+          <div className="flex-shrink-0 mt-2 sm:mt-0 sm:ml-3">
             <button
               onClick={handleDismiss}
-              className="flex items-center justify-center px-3 py-2 rounded-md text-sm font-medium text-white border border-white/30 hover:bg-white/10 transition-colors cursor-pointer"
+              className="flex items-center justify-center px-4 py-2 rounded-md text-sm font-medium text-blue-600 bg-white hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-white cursor-pointer"
               aria-label="Dismiss banner"
             >
               Dismiss
             </button>
-            <a
-              href="https://aw.kasunc.uk"
-              className="flex items-center justify-center px-4 py-2 rounded-md text-sm font-medium text-blue-600 bg-white hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-white cursor-pointer"
-            >
-              Go to New Site
-            </a>
           </div>
         </div>
       </div>
