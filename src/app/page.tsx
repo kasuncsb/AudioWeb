@@ -97,6 +97,7 @@ export default function Home() {
   const [currentTrack, setCurrentTrack] = useState<AudioTrack | null>(null);
   const [nextTrack, setNextTrack] = useState<AudioTrack | null>(null);
   const [sleepTimer, setSleepTimer] = useState(0);
+  const [showVisualization, setShowVisualization] = useState(false);
 
   const handlePlayClick = () => {
     setIsPlayerVisible(true);
@@ -121,6 +122,10 @@ export default function Home() {
 
   const handleSleepTimerChange = (timer: number) => {
     setSleepTimer(timer);
+  };
+
+  const handleVisualizationChange = (visualization: boolean) => {
+    setShowVisualization(visualization);
   };
 
   const handlePlayPause = () => {
@@ -152,6 +157,7 @@ export default function Home() {
         onNext={handleNext}
         onPrevious={handlePrevious}
         onOpenPlayer={handleOpenPlayer}
+        showVisualization={showVisualization}
       />
       {/* Hide home content when Player is visible to prevent showing through navbar */}
       {!isPlayerVisible && (
@@ -165,6 +171,7 @@ export default function Home() {
         onPlayingChange={handlePlayingChange}
         onTrackChange={handleTrackChange}
         onSleepTimerChange={handleSleepTimerChange}
+        onVisualizationChange={handleVisualizationChange}
       />
     </div>
   );

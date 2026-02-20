@@ -27,6 +27,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "butterchurn": "^2.6.7",
+    "butterchurn-presets": "^2.4.7",
     "jsmediatags": "^3.9.7",
     "lottie-react": "^2.4.1",
     "music-metadata-browser": "^2.5.11",

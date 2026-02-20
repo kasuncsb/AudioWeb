@@ -21,10 +21,11 @@ import { BackButton } from './BackButton';
 import { LottieAnimation } from './LottieAnimation';
 import { LyricsDisplay } from './LyricsDisplay';
 import { PlayerStyles } from './PlayerStyles';
+import { MilkDropVisualizer } from './MilkDropVisualizer';
 import { getFileInputAcceptAttribute, revokeAllObjectURLs, revokeObjectURL } from '@/utils/audioUtils';
 import { UI_CONFIG, STORAGE_KEYS } from '@/config/constants';
 
-const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = false, onPlayingChange, onTrackChange, onSleepTimerChange }) => {
+const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = false, onPlayingChange, onTrackChange, onSleepTimerChange, onVisualizationChange }) => {
   // State management
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -80,6 +81,13 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
       onSleepTimerChange(sleepTimer);
     }
   }, [sleepTimer, onSleepTimerChange]);
+
+  // Notify parent component when visualization state changes
+  useEffect(() => {
+    if (onVisualizationChange) {
+      onVisualizationChange(showVisualization);
+    }
+  }, [showVisualization, onVisualizationChange]);
 
   // Shuffle utility function - reorders the playlist
   const shufflePlaylist = useCallback(() => {
@@ -260,7 +268,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
   }, [volume, isVolumeLoaded]);
 
   // Custom hooks
-  const { audioRef, handlePlayPause, handleSeek } = useAudioManager(
+  const { audioRef, handlePlayPause, handleSeek, getAnalyser, getAudioContext } = useAudioManager(
     playlist,
     currentTrackIndex,
     isPlaying,
@@ -402,6 +410,14 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
       onDragLeave={playlist.length > 0 ? handleDragLeave : undefined}
       onDrop={playlist.length > 0 ? handleDrop : undefined}
     >
+      {/* MilkDrop Visualization - Background layer */}
+      <MilkDropVisualizer
+        isActive={showVisualization && playlist.length > 0}
+        audioContext={getAudioContext()}
+        analyserNode={getAnalyser()}
+        trackTitle={currentTrack?.title}
+      />
+
       {/* Drag and Drop Overlay - Only show when tracks are loaded */}
       {playlist.length > 0 && isDragOver && (
         <div 
@@ -428,12 +444,13 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
       <main 
         className="w-full relative flex flex-col items-center justify-start pt-4 sm:pt-6 pb-4 sm:pb-6 overflow-y-auto custom-scrollbar-auto"
         style={{
-          background: 'rgba(20, 20, 28, 0.92)',
-          backdropFilter: 'blur(16px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(16px) saturate(180%)',
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='40' height='40' fill='white' fill-opacity='0'/%3E%3Ccircle cx='20' cy='20' r='1' fill='white' fill-opacity='0.04'/%3E%3C/svg%3E")`,
+          background: showVisualization ? 'transparent' : 'rgba(20, 20, 28, 0.92)',
+          backdropFilter: showVisualization ? 'none' : 'blur(16px) saturate(180%)',
+          WebkitBackdropFilter: showVisualization ? 'none' : 'blur(16px) saturate(180%)',
+          backgroundImage: showVisualization ? 'none' : `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='40' height='40' fill='white' fill-opacity='0'/%3E%3Ccircle cx='20' cy='20' r='1' fill='white' fill-opacity='0.04'/%3E%3C/svg%3E")`,
           backgroundBlendMode: 'overlay',
           height: 'calc(100vh - 4.5rem)', // Full height minus navbar
+          transition: 'background 0.5s ease, backdrop-filter 0.5s ease',
         }}
       >
         {/* Back Button */}

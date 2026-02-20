@@ -31,6 +31,7 @@ interface NavbarProps {
   onPrevious?: () => void;
   showNowPlaying?: boolean;
   onOpenPlayer?: () => void;
+  showVisualization?: boolean;
 }
 
 const Navbar: React.FC<NavbarProps> = ({ 
@@ -43,7 +44,8 @@ const Navbar: React.FC<NavbarProps> = ({
   onNext,
   onPrevious,
   showNowPlaying = false,
-  onOpenPlayer
+  onOpenPlayer,
+  showVisualization = false
 }) => {
   const [open, setOpen] = useState(false);
   const [logoPressed, setLogoPressed] = useState(false);
@@ -56,17 +58,18 @@ const Navbar: React.FC<NavbarProps> = ({
         className={`fixed top-0 left-0 w-full flex items-center justify-between px-4 md:px-16 z-50 ${inter.className}`}
         style={{
           height: '4.5rem', // Slightly taller for modern look
-          // iOS 18-like glassy background with subtle texture
-          background: 'rgba(30, 30, 40, 0.65)',
+          // iOS 18-like glassy background with subtle texture - more transparent when visualization active
+          background: showVisualization ? 'rgba(15, 15, 20, 0.35)' : 'rgba(30, 30, 40, 0.65)',
           backdropFilter: 'blur(16px) saturate(180%)',
           WebkitBackdropFilter: 'blur(16px) saturate(180%)',
-          borderBottom: '1px solid rgba(255,255,255,0.08)',
+          borderBottom: showVisualization ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.08)',
           boxShadow: '0 2px 24px 0 rgba(0,0,0,0.10)',
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='40' height='40' fill='white' fill-opacity='0'/%3E%3Ccircle cx='20' cy='20' r='1' fill='white' fill-opacity='0.04'/%3E%3C/svg%3E")`,
+          backgroundImage: showVisualization ? 'none' : `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='40' height='40' fill='white' fill-opacity='0'/%3E%3Ccircle cx='20' cy='20' r='1' fill='white' fill-opacity='0.04'/%3E%3C/svg%3E")`,
           backgroundBlendMode: 'overlay',
           // Remove border radius and margin to make it flush with the top
           borderRadius: 0,
           margin: 0,
+          transition: 'background 0.5s ease, border-bottom 0.5s ease',
         }}
       >
       {/* Left: Logo + Title - Hidden on mobile when mini player is active */}

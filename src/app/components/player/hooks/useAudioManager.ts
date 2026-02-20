@@ -525,11 +525,20 @@ export const useAudioManager = (
     return null;
   }, []);
 
+  const getAudioContext = useCallback(() => {
+    const chain = audioChainRef.current;
+    if (chain?.context && chain.connected) {
+      return chain.context;
+    }
+    return null;
+  }, []);
+
   return {
     audioRef,
     handlePlayPause,
     handleProgressChange,
     handleSeek,
     getAnalyser,
+    getAudioContext,
   };
 };
