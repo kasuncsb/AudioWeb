@@ -1,4 +1,4 @@
-name: Deploy to Production (Alternative)
+name: Deploy to Production
 
 on:
   push:
@@ -10,10 +10,22 @@ jobs:
   deploy:
     name: Build on Server and Deploy
     runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://aw.kasunc.uk
     
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Start deployment
+        uses: bobheadxi/deployments@v1
+        id: deployment
+        with:
+          step: start
+          token: ${{ secrets.GITHUB_TOKEN }}
+          env: production
+          ref: ${{ github.ref }}
 
       - name: Copy source files to server
         uses: appleboy/scp-action@v0.1.7
@@ -41,13 +53,13 @@ jobs:
             cd ~/Hosted/AudioWeb
             
             # Stop and remove old container
-            docker-compose down || true
+            docker compose down || true
             
             # Build the new image on the server
             docker build -t audioweb:${{ github.sha }} -t audioweb:latest .
             
             # Start new container
-            docker-compose up -d
+            docker compose up -d
             
             # Clean up old images
             docker image prune -f
@@ -66,3 +78,24 @@ jobs:
             timeout 60 bash -c 'until docker ps | grep audioweb | grep -q healthy; do sleep 2; done' || echo "Container started, health check skipped"
             docker ps | grep audioweb
             echo "Deployment verification complete!"
+
+      - name: Update deployment status (success)
+        uses: bobheadxi/deployments@v1
+        if: success()
+        with:
+          step: finish
+          token: ${{ secrets.GITHUB_TOKEN }}
+          status: ${{ job.status }}
+          env: ${{ steps.deployment.outputs.env }}
+          deployment_id: ${{ steps.deployment.outputs.deployment_id }}
+          env_url: https://aw.kasunc.uk
+
+      - name: Update deployment status (failure)
+        uses: bobheadxi/deployments@v1
+        if: failure()
+        with:
+          step: finish
+          token: ${{ secrets.GITHUB_TOKEN }}
+          status: ${{ job.status }}
+          env: ${{ steps.deployment.outputs.env }}
+          deployment_id: ${{ steps.deployment.outputs.deployment_id }}
