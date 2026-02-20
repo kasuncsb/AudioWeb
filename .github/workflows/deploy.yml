@@ -1,0 +1,79 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: |
+          docker build -t audioweb:${{ github.sha }} -t audioweb:latest .
+
+      - name: Save Docker image
+        run: |
+          docker save audioweb:latest | gzip > audioweb.tar.gz
+
+      - name: Copy files to server
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          source: "audioweb.tar.gz,docker-compose.yml"
+          target: "/tmp/audioweb-deploy"
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            cd /tmp/audioweb-deploy
+            
+            # Load the new image
+            docker load < audioweb.tar.gz
+            
+            # Move docker-compose to deployment directory
+            mkdir -p ~/Hosted/AudioWeb
+            mv docker-compose.yml ~/Hosted/AudioWeb/
+            cd ~/Hosted/AudioWeb
+            
+            # Stop and remove old container
+            docker-compose down || true
+            
+            # Start new container
+            docker-compose up -d
+            
+            # Clean up
+            docker image prune -f
+            rm -rf /tmp/audioweb-deploy
+            
+            echo "Deployment completed successfully!"
+
+      - name: Health check
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SERVER_PORT || 22 }}
+          script: |
+            # Wait for container to be healthy
+            timeout 60 bash -c 'until docker ps | grep audioweb | grep -q healthy; do sleep 2; done'
+            echo "Application is healthy and running!"

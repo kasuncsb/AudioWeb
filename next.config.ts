@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Docker optimization - standalone output
+  output: 'standalone',
+  
   webpack: (config) => {
     config.resolve.alias = {
       ...config.resolve.alias,

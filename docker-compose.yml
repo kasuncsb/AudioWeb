@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  audioweb:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: audioweb:latest
+    container_name: audioweb
+    restart: unless-stopped
+    ports:
+      - "8081:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+    networks:
+      - audioweb-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 40s
+
+networks:
+  audioweb-network:
+    driver: bridge
