@@ -48,7 +48,7 @@ export const SupportPopup: React.FC<SupportPopupProps> = ({ show, onClose }) => 
   };
 
   const handleEmailClick = () => {
-    window.location.href = 'mailto:kasuncsb@gmail.com?subject=AudioWeb Feedback';
+    window.location.href = 'mailto:me@kasunc.uk?subject=AudioWeb Feedback';
   };
 
   return (

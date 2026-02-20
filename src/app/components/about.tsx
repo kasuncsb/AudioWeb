@@ -292,7 +292,7 @@ export const AboutPopup: React.FC<AboutPopupProps> = ({ show, onClose, isPlaying
           {/* Action Buttons */}
           <div className="flex flex-col gap-3">
             <a
-              href="https://paypal.me/AnonymousVX22"
+              href="https://buymeacoffee.com/kasuncsb"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-yellow-500/20 hover:bg-yellow-500/30 border border-yellow-500/30 text-yellow-300 transition-all duration-200 hover:scale-105"
