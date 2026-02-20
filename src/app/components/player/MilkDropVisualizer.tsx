@@ -98,22 +98,22 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
     loadLibraries();
   }, [isActive, isLibraryLoaded]);
 
-  // Handle resize - fill entire viewport (including behind navbar for glassy effect)
+  // Handle resize - fill entire viewport
   const handleResize = useCallback(() => {
     const canvas = canvasRef.current;
     const visualizer = visualizerRef.current;
     
     if (canvas && visualizer) {
-      const width = window.innerWidth;
-      const height = window.innerHeight;
+      // Use visualViewport for actual visible area, fallback to window dimensions
+      const vv = window.visualViewport;
+      const width = vv ? vv.width : window.innerWidth;
+      const height = vv ? vv.height : window.innerHeight;
       
-      console.log('MilkDrop: Resize to', { width, height, pixelRatio: window.devicePixelRatio });
+      console.log('MilkDrop: Resize to', { width, height, source: vv ? 'visualViewport' : 'window' });
       
-      // Set canvas actual pixel dimensions
+      // Set canvas dimensions to actual visible viewport
       canvas.width = width * (window.devicePixelRatio || 1);
       canvas.height = height * (window.devicePixelRatio || 1);
-      
-      // Set canvas CSS dimensions
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
       
@@ -160,8 +160,10 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
         console.log('MilkDrop: Created local AudioContext');
       }
 
-      const width = window.innerWidth;
-      const height = window.innerHeight;
+      // Use visualViewport for actual visible area
+      const vv = window.visualViewport;
+      const width = vv ? vv.width : window.innerWidth;
+      const height = vv ? vv.height : window.innerHeight;
       
       // Set initial canvas size
       canvas.width = width * (window.devicePixelRatio || 1);
@@ -196,11 +198,17 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
       setIsInitialized(true);
       console.log('MilkDrop: Initialization complete');
 
-      // Add resize listener
+      // Add resize listeners - window and visualViewport
       window.addEventListener('resize', handleResize);
+      if (window.visualViewport) {
+        window.visualViewport.addEventListener('resize', handleResize);
+      }
 
       return () => {
         window.removeEventListener('resize', handleResize);
+        if (window.visualViewport) {
+          window.visualViewport.removeEventListener('resize', handleResize);
+        }
       };
     } catch (error) {
       console.error('Failed to initialize MilkDrop visualizer:', error);
@@ -411,12 +419,6 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
     <div 
       className="fixed inset-0"
       style={{ 
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        width: '100vw',
-        height: '100vh',
         zIndex: 0,
         pointerEvents: 'none',
         overflow: 'hidden',
@@ -430,8 +432,6 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
           position: 'absolute',
           top: 0,
           left: 0,
-          width: '100vw',
-          height: '100vh',
         }}
       />
       
