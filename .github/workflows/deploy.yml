@@ -15,7 +15,7 @@ jobs:
     name: Deploy on Server
     runs-on: ubuntu-latest
     environment:
-      name: production
+      name: Production
       url: https://aw.kasunc.uk
     
     steps:
@@ -55,7 +55,15 @@ jobs:
             # Start new container
             docker compose up -d
             
-            # Clean up old images
+            # Remove old SHA-tagged audioweb images (keep only latest and current SHA)
+            docker images --format '{{.Repository}}:{{.Tag}} {{.ID}}' | \
+              grep '^audioweb:' | \
+              grep -v 'audioweb:latest' | \
+              grep -v 'audioweb:${{ github.sha }}' | \
+              awk '{print $1}' | \
+              xargs -r docker rmi || true
+            
+            # Remove dangling images
             docker image prune -f
             
             echo "Deployment completed successfully!"
@@ -67,7 +75,25 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SERVER_PORT || 22 }}
+          script_stop: true
           script: |
-            timeout 60 bash -c 'until docker ps | grep audioweb | grep -q healthy; do sleep 2; done' || echo "Container started, health check skipped"
-            docker ps | grep audioweb
+            echo "Waiting for container to become healthy..."
+            for i in $(seq 1 15); do
+              STATUS=$(docker inspect --format='{{.State.Health.Status}}' audioweb 2>/dev/null || echo "not found")
+              echo "Attempt $i/15: $STATUS"
+              if [ "$STATUS" = "healthy" ]; then
+                echo "Container is healthy!"
+                docker ps | grep audioweb
+                exit 0
+              fi
+              if [ "$STATUS" = "unhealthy" ]; then
+                echo "Container is unhealthy! Logs:"
+                docker logs audioweb --tail 50
+                exit 1
+              fi
+              sleep 5
+            done
+            echo "Health check timed out. Logs:"
+            docker logs audioweb --tail 50
+            exit 1
             echo "Deployment verification complete!"
