@@ -49,19 +49,11 @@ jobs:
             # Stop and remove old container
             docker compose down || true
             
-            # Build the new image on the server
-            docker build -t audioweb:${{ github.sha }} -t audioweb:latest .
+            # Build the new image
+            docker build -t audioweb:latest .
             
             # Start new container
             docker compose up -d
-            
-            # Remove old SHA-tagged audioweb images (keep only latest and current SHA)
-            docker images --format '{{.Repository}}:{{.Tag}} {{.ID}}' | \
-              grep '^audioweb:' | \
-              grep -v 'audioweb:latest' | \
-              grep -v 'audioweb:${{ github.sha }}' | \
-              awk '{print $1}' | \
-              xargs -r docker rmi || true
             
             # Remove dangling images
             docker image prune -f
