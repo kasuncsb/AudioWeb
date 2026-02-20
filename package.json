@@ -1,9 +1,9 @@
 {
   "name": "audioweb",
-  "version": "6.6.0",
+  "version": "7.0.0",
   "description": "A modern, feature-rich web-based audio player built with Next.js, React, and TypeScript",
   "author": "KasunCSB",
-  "homepage": "https://audioweb.vercel.app",
+  "homepage": "https://aw.kasunc.uk",
   "repository": {
     "type": "git",
     "url": "https://github.com/KasunCSB/AudioWeb.git"
@@ -27,24 +27,28 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@vercel/analytics": "^1.5.0",
-    "@vercel/speed-insights": "^1.2.0",
+    "@vercel/analytics": "^1.6.1",
+    "@vercel/speed-insights": "^1.3.1",
     "jsmediatags": "^3.9.7",
     "lottie-react": "^2.4.1",
     "music-metadata-browser": "^2.5.11",
-    "next": "^16.0.1",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "next": "^16.1.6",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4"
   },
   "devDependencies": {
-    "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "15.3.4",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "@eslint/eslintrc": "^3.3.3",
+    "@tailwindcss/postcss": "^4.2.0",
+    "@types/node": "^25.3.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "eslint": "^9.39.2",
+    "eslint-config-next": "^16.1.6",
+    "tailwindcss": "^4.2.0",
+    "typescript": "~5.8.3"
+  },
+  "overrides": {
+    "minimatch": ">=10.2.1",
+    "ajv": ">=8.18.0"
   }
 }

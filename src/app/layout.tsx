@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Inter } from "next/font/google";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ScrollStyles } from "./components/scrollstyles";
+import DomainMigrationBanner from "./components/DomainMigrationBanner";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -37,10 +38,10 @@ export const metadata: Metadata = {
   title: "AudioWeb",
     description: "A modern web-based music player for playing your favorite audio files directly in your browser.",
     siteName: "AudioWeb",
-    url: "https://audioweb.vercel.app",
+    url: "https://aw.kasunc.uk",
     images: [
       {
-        url: "https://audioweb.vercel.app/images/aw-banner.png",
+        url: "https://aw.kasunc.uk/images/aw-banner.png",
         width: 1280,
         height: 720,
   alt: "AudioWeb Logo",
@@ -51,7 +52,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
   title: "AudioWeb",
     description: "A modern web-based music player for playing your favorite audio files directly in your browser.",
-    images: ["https://audioweb.vercel.app/images/aw-banner.png"],
+    images: ["https://aw.kasunc.uk/images/aw-banner.png"],
   },
 };
 
@@ -68,7 +69,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <link rel="canonical" href="https://audioweb.vercel.app" />
+        <link rel="canonical" href="https://aw.kasunc.uk" />
         <link rel="manifest" href="/manifest.json" />
         <meta name="theme-color" content="#14141c" />
         <meta name="mobile-web-app-capable" content="yes" />
@@ -79,6 +80,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${inter.className} antialiased`}
       >
+        <DomainMigrationBanner />
         <ScrollStyles />
         {children}
         <Analytics />
