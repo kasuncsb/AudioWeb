@@ -1,7 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
-import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ScrollStyles } from "./components/scrollstyles";
 import DomainMigrationBanner from "./components/DomainMigrationBanner";
 import "./globals.css";
@@ -83,8 +81,6 @@ export default function RootLayout({
         <DomainMigrationBanner />
         <ScrollStyles />
         {children}
-        <Analytics />
-        <SpeedInsights />
       </body>
     </html>
   );
