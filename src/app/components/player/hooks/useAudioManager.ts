@@ -159,6 +159,13 @@ export const useAudioManager = (
           eagerAudioContextRef.current = audioContext;
         }
 
+        // The eager context was created on mount (no user gesture) so it starts in
+        // 'suspended' state. The 'play' event fires inside a user-gesture call stack,
+        // which is exactly the right moment the browser allows AudioContext.resume().
+        if (audioContext.state === 'suspended') {
+          audioContext.resume().catch((e) => logger.warn('AudioContext resume failed:', e));
+        }
+
         // Create MediaElementSource (can only be done once per element)
         const source = audioContext.createMediaElementSource(audio);
 
