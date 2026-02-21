@@ -474,18 +474,17 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
             <BackButton asPage={asPage} onClose={onClose} />
           </div>
 
-          {/* Visualizer Preset Navigation Control */}
+          {/* Visualizer Preset Navigation Control (Desktop floating) */}
           {showVisualization && availablePresets.length > 0 && (
-            <div className="absolute bottom-4 right-4 md:right-8 z-50 pointer-events-auto">
+            <div className="hidden md:block absolute bottom-8 right-8 z-50 pointer-events-auto">
               <button
                 onClick={() => setShowVisualizerPopup(true)}
-                className="group flex flex-col items-end gap-1 px-4 py-2 hover:bg-white/5 rounded-xl transition-all duration-300"
+                className="group flex flex-col items-end text-right gap-1 px-4 py-2 hover:bg-white/5 rounded-xl transition-all duration-300"
                 title="Visualizer Settings"
               >
                 <div className="flex items-center gap-2 text-white/50 group-hover:text-white/80 transition-colors text-xs font-medium uppercase tracking-widest">
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                   <span>Visualizer Preset</span>
                 </div>
@@ -695,6 +694,23 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                         currentTime={currentTime}
                       />
                     </div>
+
+                    {/* Mobile Visualizer Settings Button (Below Lyrics) */}
+                    {showVisualization && availablePresets.length > 0 && (
+                      <div className="w-full flex justify-center pt-2 pb-8">
+                        <button
+                          onClick={() => setShowVisualizerPopup(true)}
+                          className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all active:scale-95"
+                        >
+                          <svg className="w-4 h-4 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                          </svg>
+                          <span className="text-white/80 text-sm font-medium truncate max-w-[200px]">
+                            {visualizerSettings.activePreset ? `Preset: ${visualizerSettings.activePreset}` : 'Visualizer Settings'}
+                          </span>
+                        </button>
+                      </div>
+                    )}
                   </>
                 ) : null}
               </div>

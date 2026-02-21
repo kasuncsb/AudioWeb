@@ -203,6 +203,31 @@ export const PlayerStyles = () => (
       display: none;
     }
 
+    /* Visible Themed Scrollbar */
+    .custom-scrollbar-themed {
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+    }
+
+    .custom-scrollbar-themed::-webkit-scrollbar {
+      width: 6px;
+      display: block;
+    }
+
+    .custom-scrollbar-themed::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .custom-scrollbar-themed::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+    }
+
+    .custom-scrollbar-themed::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
     /* Ensure proper touch scrolling on mobile */
     .custom-scrollbar,
     .custom-scrollbar-enhanced,
