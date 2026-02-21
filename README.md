@@ -17,6 +17,7 @@ Live at [aw.kasunc.uk](https://aw.kasunc.uk)
 - Drag and drop file loading
 - Playlist management with shuffle and repeat modes
 - 10-band equalizer with presets
+- MilkDrop visualizer (butterchurn) synced to audio, with preset selection
 - Synchronized lyrics display (.lrc)
 - Album art extraction from embedded metadata
 - Sleep timer
@@ -61,6 +62,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - [Next.js](https://nextjs.org/) - React framework
 - [TypeScript](https://www.typescriptlang.org/) - Type safety
 - [Tailwind CSS](https://tailwindcss.com/) - Styling
+- [Butterchurn](https://github.com/jberg/butterchurn) - MilkDrop visualizer
 - [Lottie React](https://github.com/Gamote/lottie-react) - Animations
 - [JSMediaTags](https://github.com/aadsm/jsmediatags) - Audio metadata
 
