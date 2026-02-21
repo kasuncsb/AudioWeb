@@ -384,7 +384,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
 
   // Container class - background should be transparent when visualization is active
   const containerClass = asPage
-    ? `min-h-screen overflow-hidden ${showVisualization ? 'bg-transparent' : 'bg-black'}`
+    ? `relative min-h-screen overflow-hidden ${showVisualization ? 'bg-transparent' : 'bg-black'}`
     : `fixed left-0 right-0 bottom-0 overflow-hidden z-40 top-[calc(4.5rem-1px)] ${showVisualization ? 'bg-transparent' : 'bg-black'}`; // Start 1px higher to cover navbar border
 
   // Always render audio element to keep playback alive, but hide UI when not visible
@@ -445,6 +445,11 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
             </div>
           )}
 
+          {/* Back Button - Moved outside main to prevent backdrop-filter containing block jumping */}
+          <div className="absolute top-4 sm:top-6 left-2 sm:left-4 md:left-8 z-50">
+            <BackButton asPage={asPage} onClose={onClose} />
+          </div>
+
           <main
             className="w-full relative flex flex-col items-center justify-start pt-4 sm:pt-6 pb-4 sm:pb-6 overflow-y-auto custom-scrollbar-auto"
             style={{
@@ -457,11 +462,6 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
               transition: 'background 0.5s ease, backdrop-filter 0.5s ease',
             }}
           >
-            {/* Back Button */}
-            <div className="fixed top-16 sm:top-18 left-2 sm:left-4 md:left-8 z-10">
-              <BackButton asPage={asPage} onClose={onClose} />
-            </div>
-
             {/* Lottie Animation */}
             <LottieAnimation show={!currentTrack} />
 
