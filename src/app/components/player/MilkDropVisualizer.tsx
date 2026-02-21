@@ -17,6 +17,8 @@ interface MilkDropVisualizerProps {
   audioContext: AudioContext | null;
   analyserNode: AnalyserNode | null;
   trackTitle?: string;
+  activePreset?: string;
+  onPresetsLoaded?: (presets: string[]) => void;
 }
 
 export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
@@ -24,6 +26,8 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
   audioContext,
   analyserNode,
   trackTitle,
+  activePreset,
+  onPresetsLoaded,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -35,10 +39,10 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const butterchurnRef = useRef<any>(null);
   const localAudioContextRef = useRef<AudioContext | null>(null);
-  const [currentPresetIndex, setCurrentPresetIndex] = useState(0);
   const [allPresetKeys, setAllPresetKeys] = useState<string[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLibraryLoaded, setIsLibraryLoaded] = useState(false);
+  const presetsLoadedFired = useRef(false);
 
   // Load butterchurn libraries dynamically (client-side only)
   useEffect(() => {
@@ -50,26 +54,26 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
       try {
         // Import butterchurn
         const butterchurnModule = await import('butterchurn');
-        
+
         // Import presets from specific bundle files
         const [presetsBaseModule, presetsExtraModule] = await Promise.all([
           import('butterchurn-presets/lib/butterchurnPresets.min.js'),
           import('butterchurn-presets/lib/butterchurnPresetsExtra.min.js'),
         ]);
-        
+
         // Get presets - these modules export a default object with getPresets() method
         const presetsBase = presetsBaseModule.default.getPresets();
         const presetsExtra = presetsExtraModule.default.getPresets();
-        
+
         // Merge all presets
         const allPresets = {
           ...presetsBase,
           ...presetsExtra,
         };
 
-        console.log('MilkDrop: Libraries loaded', { 
+        console.log('MilkDrop: Libraries loaded', {
           hasButterchurn: !!butterchurnModule.default,
-          presetCount: Object.keys(allPresets).length 
+          presetCount: Object.keys(allPresets).length
         });
 
         // Store for later use
@@ -79,7 +83,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
         const keys = Object.keys(allPresets);
         console.log('MilkDrop: Total presets available:', keys.length);
         console.log('MilkDrop: Sample preset names:', keys.slice(0, 5));
-        
+
         // Use all available presets, shuffled
         if (keys.length > 0) {
           const shuffled = [...keys].sort(() => Math.random() - 0.5);
@@ -91,38 +95,44 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
 
         setIsLibraryLoaded(true);
         console.log('MilkDrop: Library loading complete');
+
+        // Notify parent if callbacks are waiting
+        if (onPresetsLoaded && !presetsLoadedFired.current) {
+          onPresetsLoaded(keys);
+          presetsLoadedFired.current = true;
+        }
       } catch (error) {
         console.error('Failed to load butterchurn libraries:', error);
       }
     };
 
     loadLibraries();
-  }, [isActive, isLibraryLoaded]);
+  }, [isActive, isLibraryLoaded, onPresetsLoaded]);
 
   // Handle resize - use container's actual dimensions
   const handleResize = useCallback(() => {
     const container = containerRef.current;
     const canvas = canvasRef.current;
     const visualizer = visualizerRef.current;
-    
+
     if (container && canvas && visualizer) {
       // Get actual rendered dimensions from container (CSS handles viewport calculation)
       const rect = container.getBoundingClientRect();
       const width = Math.floor(rect.width);
       const height = Math.floor(rect.height);
       const pixelRatio = window.devicePixelRatio || 1;
-      
+
       console.log('MilkDrop resize:', { width, height, pixelRatio });
-      
+
       // Set canvas dimensions
       const physicalWidth = Math.floor(width * pixelRatio);
       const physicalHeight = Math.floor(height * pixelRatio);
-      
+
       canvas.width = physicalWidth;
       canvas.height = physicalHeight;
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
-      
+
       // butterchurn expects physical pixel dimensions
       visualizer.setRendererSize(physicalWidth, physicalHeight);
     }
@@ -130,14 +140,14 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
 
   // Initialize visualizer - wait for container to have valid dimensions
   useEffect(() => {
-    console.log('MilkDrop: Init effect', { 
-      isActive, 
-      hasCanvas: !!canvasRef.current, 
-      isLibraryLoaded, 
+    console.log('MilkDrop: Init effect', {
+      isActive,
+      hasCanvas: !!canvasRef.current,
+      isLibraryLoaded,
       presetCount: allPresetKeys.length,
       hasVisualizer: !!visualizerRef.current
     });
-    
+
     if (!isActive || !canvasRef.current || !containerRef.current || !isLibraryLoaded || allPresetKeys.length === 0) {
       console.log('MilkDrop: Init skipped - missing requirements');
       return;
@@ -152,7 +162,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
     const canvas = canvasRef.current;
     const container = containerRef.current;
     const butterchurn = butterchurnRef.current;
-    
+
     if (!butterchurn) {
       console.log('MilkDrop: No butterchurn ref');
       return;
@@ -161,9 +171,9 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
     // Function to actually create the visualizer once we have valid dimensions
     const createVisualizerWithDimensions = (width: number, height: number) => {
       if (visualizerRef.current) return; // Already created
-      
+
       console.log('MilkDrop: Creating visualizer with dimensions:', { width, height });
-      
+
       try {
         // Use provided audioContext or create our own
         let ctx = audioContext;
@@ -176,13 +186,13 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
         const pixelRatio = window.devicePixelRatio || 1;
         const physicalWidth = Math.floor(width * pixelRatio);
         const physicalHeight = Math.floor(height * pixelRatio);
-        
+
         // Set canvas size
         canvas.width = physicalWidth;
         canvas.height = physicalHeight;
         canvas.style.width = `${width}px`;
         canvas.style.height = `${height}px`;
-        
+
         // Create visualizer - butterchurn expects physical pixel dimensions
         const visualizer = butterchurn.createVisualizer(ctx, canvas, {
           width: physicalWidth,
@@ -193,14 +203,16 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
 
         console.log('MilkDrop: Visualizer created successfully');
         visualizerRef.current = visualizer;
-        
+
         // Load initial preset
         const presets = presetsRef.current;
-        if (presets) {
-          const initialPreset = presets[allPresetKeys[0]];
+        if (presets && allPresetKeys.length > 0) {
+          const initialPresetKey = activePreset || allPresetKeys[0];
+          const initialPreset = presets[initialPresetKey] || presets[allPresetKeys[0]];
+
           if (initialPreset) {
             visualizer.loadPreset(initialPreset, 0);
-            console.log('MilkDrop: Loaded initial preset:', allPresetKeys[0]);
+            console.log('MilkDrop: Loaded initial preset:', initialPresetKey);
           }
         }
 
@@ -216,7 +228,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
         console.log('MilkDrop: ResizeObserver detected:', { width, height });
-        
+
         // Only initialize once we have valid dimensions (at least 100x100)
         if (width >= 100 && height >= 100 && !visualizerRef.current) {
           resizeObserver.disconnect(); // Stop observing after init
@@ -230,13 +242,13 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
     // Fallback: check dimensions after a short delay in case ResizeObserver doesn't fire
     const fallbackTimeout = setTimeout(() => {
       if (visualizerRef.current) return; // Already initialized
-      
+
       const rect = container.getBoundingClientRect();
       const width = Math.floor(rect.width);
       const height = Math.floor(rect.height);
-      
+
       console.log('MilkDrop: Fallback dimension check:', { width, height });
-      
+
       if (width >= 100 && height >= 100) {
         resizeObserver.disconnect();
         createVisualizerWithDimensions(width, height);
@@ -265,7 +277,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
     });
 
     resizeObserver.observe(container);
-    
+
     // Also listen to window resize and visualViewport changes
     window.addEventListener('resize', handleResize);
     if (window.visualViewport) {
@@ -284,7 +296,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
   // Connect/disconnect analyser
   useEffect(() => {
     const visualizer = visualizerRef.current;
-    
+
     if (!visualizer || !isInitialized) return;
 
     // Disconnect previous analyser if different
@@ -311,7 +323,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
   // Animation loop
   useEffect(() => {
     console.log('MilkDrop Animation effect:', { isActive, isInitialized, hasVisualizer: !!visualizerRef.current });
-    
+
     if (!isActive || !isInitialized) {
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
@@ -322,7 +334,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
 
     console.log('MilkDrop: Starting animation loop');
     let frameCount = 0;
-    
+
     const render = () => {
       if (visualizerRef.current) {
         visualizerRef.current.render();
@@ -344,103 +356,20 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
     };
   }, [isActive, isInitialized]);
 
-  // Auto-cycle presets every 30 seconds
+  // Respond to activePreset prop changes
   useEffect(() => {
-    if (!isActive || !isInitialized || allPresetKeys.length === 0) {
-      if (presetIntervalRef.current) {
-        clearInterval(presetIntervalRef.current);
-        presetIntervalRef.current = null;
-      }
-      return;
-    }
+    if (!isInitialized || !visualizerRef.current || !presetsRef.current || !activePreset) return;
 
-    const cyclePreset = () => {
-      const nextIndex = (currentPresetIndex + 1) % allPresetKeys.length;
-      setCurrentPresetIndex(nextIndex);
-      
-      const presets = presetsRef.current;
-      if (presets) {
-        const nextPreset = presets[allPresetKeys[nextIndex]];
-        
-        if (visualizerRef.current && nextPreset) {
-          // Smooth transition over 2 seconds
-          visualizerRef.current.loadPreset(nextPreset, 2.0);
-        }
-      }
-    };
-
-    presetIntervalRef.current = setInterval(cyclePreset, 30000);
-
-    return () => {
-      if (presetIntervalRef.current) {
-        clearInterval(presetIntervalRef.current);
-        presetIntervalRef.current = null;
-      }
-    };
-  }, [isActive, isInitialized, currentPresetIndex, allPresetKeys]);
-
-  // Show track title animation when track changes
-  useEffect(() => {
-    if (!isActive || !isInitialized || !trackTitle || !visualizerRef.current) return;
-
-    visualizerRef.current.launchSongTitleAnim(trackTitle);
-  }, [trackTitle, isActive, isInitialized]);
-
-  // Manual preset navigation
-  const nextPreset = useCallback(() => {
-    if (!isInitialized || allPresetKeys.length === 0) return;
-    
-    const nextIndex = (currentPresetIndex + 1) % allPresetKeys.length;
-    setCurrentPresetIndex(nextIndex);
-    
     const presets = presetsRef.current;
-    if (presets) {
-      const preset = presets[allPresetKeys[nextIndex]];
-      
-      if (visualizerRef.current && preset) {
-        visualizerRef.current.loadPreset(preset, 1.0);
-      }
+    if (presets[activePreset]) {
+      visualizerRef.current.loadPreset(presets[activePreset], 2.0); // 2 second blend
+      console.log('MilkDrop: Switched to preset via props:', activePreset);
     }
-  }, [currentPresetIndex, allPresetKeys, isInitialized]);
+  }, [activePreset, isInitialized]);
 
-  const prevPreset = useCallback(() => {
-    if (!isInitialized || allPresetKeys.length === 0) return;
-    
-    const prevIndex = currentPresetIndex === 0 ? allPresetKeys.length - 1 : currentPresetIndex - 1;
-    setCurrentPresetIndex(prevIndex);
-    
-    const presets = presetsRef.current;
-    if (presets) {
-      const preset = presets[allPresetKeys[prevIndex]];
-      
-      if (visualizerRef.current && preset) {
-        visualizerRef.current.loadPreset(preset, 1.0);
-      }
-    }
-  }, [currentPresetIndex, allPresetKeys, isInitialized]);
+  // Removed auto-cycle presets interval and manual keyboard navigation
+  // as preset authority now lies with Player.tsx and VisualizerPopup
 
-  // Keyboard navigation for presets
-  useEffect(() => {
-    if (!isActive || !isInitialized) return;
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Don't handle if user is typing in an input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
-        return;
-      }
-      
-      if (e.key === 'ArrowRight' || e.key === 'n' || e.key === 'N') {
-        e.preventDefault();
-        nextPreset();
-      } else if (e.key === 'ArrowLeft' || e.key === 'p' || e.key === 'P') {
-        e.preventDefault();
-        prevPreset();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isActive, isInitialized, nextPreset, prevPreset]);
 
   // Cleanup on unmount or when deactivated
   useEffect(() => {
@@ -451,10 +380,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
         cancelAnimationFrame(animationRef.current);
         animationRef.current = null;
       }
-      if (presetIntervalRef.current) {
-        clearInterval(presetIntervalRef.current);
-        presetIntervalRef.current = null;
-      }
+      // Interval removed
       if (connectedAnalyserRef.current && visualizerRef.current) {
         try {
           visualizerRef.current.disconnectAudio(connectedAnalyserRef.current);
@@ -482,9 +408,9 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
   }
 
   return (
-    <div 
+    <div
       ref={containerRef}
-      style={{ 
+      style={{
         position: 'fixed',
         top: 0,
         left: 0,
@@ -509,45 +435,13 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
           height: '100%',
         }}
       />
-      
+
       {/* Loading indicator */}
       {!isInitialized && (
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-white/70 text-lg font-medium p-4 bg-black/50 rounded-lg backdrop-blur-sm">
             Loading visualizer...
           </div>
-        </div>
-      )}
-      
-      {/* Preset navigation controls */}
-      {isInitialized && (
-        <div 
-          className="absolute bottom-4 right-4 flex items-center gap-2"
-          style={{ pointerEvents: 'auto', zIndex: 10 }}
-        >
-          <button
-            onClick={prevPreset}
-            className="p-2 rounded-full bg-black/70 text-white/80 hover:bg-black/90 hover:text-white transition-all duration-200 backdrop-blur-sm"
-            title="Previous Preset (← or P)"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          
-          <span className="text-white/80 text-sm px-3 py-1.5 bg-black/70 rounded backdrop-blur-sm max-w-62.5 truncate">
-            {allPresetKeys[currentPresetIndex] || 'Loading...'}
-          </span>
-          
-          <button
-            onClick={nextPreset}
-            className="p-2 rounded-full bg-black/70 text-white/80 hover:bg-black/90 hover:text-white transition-all duration-200 backdrop-blur-sm"
-            title="Next Preset (→ or N)"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
         </div>
       )}
     </div>

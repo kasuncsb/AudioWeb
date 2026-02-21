@@ -136,6 +136,7 @@ export interface PopupPositions {
   equalizer: { x: number; y: number };
   sleepTimer: { x: number; y: number };
   lyrics: { x: number; y: number };
+  visualizer: { x: number; y: number };
 }
 
 export interface EqualizerSettings {
@@ -157,4 +158,9 @@ export interface EqualizerSettings {
 
   preset: string;
   enabled: boolean;  // Master EQ on/off toggle
+}
+
+export interface VisualizerSettings {
+  mode: 'Automatic' | 'Manual';
+  activePreset: string;
 }

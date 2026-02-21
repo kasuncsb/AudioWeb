@@ -17,11 +17,13 @@ import { VolumeControl } from './VolumeControl';
 import { PlaylistPopup } from './PlaylistPopup';
 import { SleepTimerPopup } from './SleepTimerPopup';
 import { EqualizerPopup } from './EqualizerPopup';
+import { VisualizerPopup } from './VisualizerPopup';
 import { BackButton } from './BackButton';
 import { LottieAnimation } from './LottieAnimation';
 import { LyricsDisplay } from './LyricsDisplay';
 import { PlayerStyles } from './PlayerStyles';
 import { MilkDropVisualizer } from './MilkDropVisualizer';
+import { useVisualizerPersistence } from '@/hooks/useVisualizerPersistence';
 import { getFileInputAcceptAttribute, revokeAllObjectURLs, revokeObjectURL } from '@/utils/audioUtils';
 import { UI_CONFIG, STORAGE_KEYS } from '@/config/constants';
 
@@ -37,8 +39,12 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
   const [sleepTimer, setSleepTimer] = useState(0);
   const [showPlaylist, setShowPlaylist] = useState(false);
   const [showEqualizer, setShowEqualizer] = useState(false);
+  const [showVisualizerPopup, setShowVisualizerPopup] = useState(false);
   const [showSleepTimer, setShowSleepTimer] = useState(false);
   const [isShuffling, setIsShuffling] = useState(false);
+
+  // Available loaded presets from MilkDropVisualizer
+  const [availablePresets, setAvailablePresets] = useState<string[]>([]);
 
   // Use equalizer persistence hook
   const {
@@ -46,6 +52,13 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
     updateSettings: setEqualizerSettings,
     isLoaded: isEqualizerLoaded,
   } = useEqualizerPersistence(isVisible && playlist.length > 0);
+
+  // Use visualizer persistence hook
+  const {
+    visualizerSettings,
+    updateVisualizerSettings,
+    isLoaded: isVisualizerLoaded,
+  } = useVisualizerPersistence();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentTrack = playlist[currentTrackIndex];
@@ -151,7 +164,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
       // End of playlist, no repeat - stop playback
       setIsPlaying(false);
     }
-  }, [currentTrackIndex, playlist.length, repeatMode, setIsPlaying]);
+  }, [currentTrackIndex, playlist.length, repeatMode, setPlaylist, setIsPlaying]);
 
   const handlePrevious = useCallback(() => {
     if (currentTrackIndex > 0) {
@@ -260,6 +273,21 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
       localStorage.setItem(STORAGE_KEYS.VOLUME, String(volume));
     } catch { }
   }, [volume, isVolumeLoaded]);
+
+  // Handle visualizer auto-change on track play (end/start)
+  useEffect(() => {
+    // We only want to trigger the automatic visualizer switch if a song actually changed 
+    // and we're in automatic mode with available presets.
+    if (
+      isVisualizerLoaded &&
+      visualizerSettings.mode === 'Automatic' &&
+      availablePresets.length > 0
+    ) {
+      const nextIndex = Math.floor(Math.random() * availablePresets.length);
+      updateVisualizerSettings({ activePreset: availablePresets[nextIndex] });
+      console.log('Player: Automatic visualizer shift to:', availablePresets[nextIndex]);
+    }
+  }, [currentTrackIndex, isVisualizerLoaded, visualizerSettings.mode, availablePresets.length]);
 
   // Custom hooks
   const { audioRef, handlePlayPause, handleSeek, getAnalyser, getAudioContext } = useAudioManager(
@@ -404,6 +432,8 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
           audioContext={getAudioContext()}
           analyserNode={getAnalyser()}
           trackTitle={currentTrack?.title}
+          activePreset={visualizerSettings.activePreset}
+          onPresetsLoaded={setAvailablePresets}
         />
       )}
 
@@ -443,6 +473,28 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
           <div className="absolute top-4 sm:top-6 left-2 sm:left-4 md:left-8 z-50">
             <BackButton asPage={asPage} onClose={onClose} />
           </div>
+
+          {/* Visualizer Preset Navigation Control */}
+          {showVisualization && availablePresets.length > 0 && (
+            <div className="absolute bottom-4 right-4 md:right-8 z-50 pointer-events-auto">
+              <button
+                onClick={() => setShowVisualizerPopup(true)}
+                className="group flex flex-col items-end gap-1 px-4 py-2 hover:bg-white/5 rounded-xl transition-all duration-300"
+                title="Visualizer Settings"
+              >
+                <div className="flex items-center gap-2 text-white/50 group-hover:text-white/80 transition-colors text-xs font-medium uppercase tracking-widest">
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                  <span>Visualizer Preset</span>
+                </div>
+                <span className="text-white/80 group-hover:text-white text-sm max-w-[200px] truncate transition-colors drop-shadow-md">
+                  {visualizerSettings.activePreset || availablePresets[0] || 'Loading...'}
+                </span>
+              </button>
+            </div>
+          )}
 
           <main
             className="w-full relative flex flex-col items-center justify-start pt-4 sm:pt-6 pb-4 sm:pb-6 overflow-y-auto custom-scrollbar-auto"
@@ -697,6 +749,20 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
           <PlayerStyles />
         </div>
       )}
+
+      {/* Visualizer Popup - Mounted independently to work when UI is hidden */}
+      <div style={{ zIndex: 60, position: 'relative' }}>
+        <VisualizerPopup
+          show={showVisualizerPopup}
+          position={popupPositions.visualizer || { x: 50, y: 50 }}
+          settings={visualizerSettings}
+          availablePresets={availablePresets}
+          showVisualization={showVisualization}
+          onClose={() => setShowVisualizerPopup(false)}
+          onMouseDown={(e) => handleMouseDown('visualizer', e)}
+          onUpdateSettings={updateVisualizerSettings}
+        />
+      </div>
     </>
   );
 };

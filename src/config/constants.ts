@@ -16,7 +16,7 @@ export const AUDIO_FORMATS = {
   OPUS: { extension: '.opus', mimeTypes: ['audio/opus', 'audio/ogg; codecs=opus'], description: 'Opus Audio Codec' },
   WEBM: { extension: '.webm', mimeTypes: ['audio/webm'], description: 'WebM Audio' },
   WMA: { extension: '.wma', mimeTypes: ['audio/x-ms-wma'], description: 'Windows Media Audio' },
-  
+
   // Lossless formats
   FLAC: { extension: '.flac', mimeTypes: ['audio/flac', 'audio/x-flac'], description: 'Free Lossless Audio Codec' },
   WAV: { extension: '.wav', mimeTypes: ['audio/wav', 'audio/wave', 'audio/x-wav'], description: 'Waveform Audio File Format' },
@@ -26,13 +26,13 @@ export const AUDIO_FORMATS = {
   ALAC: { extension: '.m4a', mimeTypes: ['audio/mp4', 'audio/x-m4a'], description: 'Apple Lossless Audio Codec' },
   WV: { extension: '.wv', mimeTypes: ['audio/x-wavpack'], description: 'WavPack' },
   TTA: { extension: '.tta', mimeTypes: ['audio/x-tta'], description: 'True Audio' },
-  
+
   // Module and tracker formats
   MOD: { extension: '.mod', mimeTypes: ['audio/mod', 'audio/x-mod'], description: 'Module Audio' },
   S3M: { extension: '.s3m', mimeTypes: ['audio/s3m', 'audio/x-s3m'], description: 'ScreamTracker 3 Module' },
   XM: { extension: '.xm', mimeTypes: ['audio/xm', 'audio/x-xm'], description: 'Extended Module' },
   IT: { extension: '.it', mimeTypes: ['audio/it', 'audio/x-it'], description: 'Impulse Tracker Module' },
-  
+
   // Other formats
   MID: { extension: '.mid', mimeTypes: ['audio/midi', 'audio/x-midi'], description: 'Musical Instrument Digital Interface' },
   MIDI: { extension: '.midi', mimeTypes: ['audio/midi', 'audio/x-midi'], description: 'Musical Instrument Digital Interface' },
@@ -75,25 +75,25 @@ export const METADATA_TAGS = {
   ALBUM_ARTIST: ['albumArtist', 'TPE2', 'ALBUMARTIST', 'album artist'],
   YEAR: ['year', 'date', 'TDRC', 'TYER', 'YEAR', 'DATE'],
   GENRE: ['genre', 'TCON', 'GENRE'],
-  
+
   // Extended tags
   COMPOSER: ['composer', 'TCOM', 'COMPOSER'],
   CONDUCTOR: ['conductor', 'TPE3', 'CONDUCTOR'],
   LYRICIST: ['lyricist', 'TEXT', 'LYRICIST'],
   PERFORMER: ['performer', 'TPE3', 'PERFORMER'],
-  
+
   // Track information
   TRACK_NUMBER: ['track', 'TRCK', 'TRACKNUMBER', 'trackNumber'],
   TRACK_TOTAL: ['trackTotal', 'TRCK', 'TOTALTRACKS', 'totalTracks'],
   DISC_NUMBER: ['disc', 'TPOS', 'DISCNUMBER', 'discNumber'],
   DISC_TOTAL: ['discTotal', 'TPOS', 'TOTALDISCS', 'totalDiscs'],
-  
+
   // Audio quality information
   BIT_RATE: ['bitrate', 'BITRATE'],
   SAMPLE_RATE: ['sampleRate', 'SAMPLERATE'],
   CHANNELS: ['channels', 'CHANNELS'],
   CODEC: ['codec', 'ENCODER', 'encoder'],
-  
+
   // Additional metadata
   COPYRIGHT: ['copyright', 'TCOP', 'COPYRIGHT'],
   PUBLISHER: ['publisher', 'TPUB', 'PUBLISHER'],
@@ -102,19 +102,19 @@ export const METADATA_TAGS = {
   ISRC: ['isrc', 'TSRC', 'ISRC'], // International Standard Recording Code
   BARCODE: ['barcode', 'BARCODE', 'UPC', 'EAN'],
   CATALOG_NUMBER: ['catalogNumber', 'CATALOGNUMBER'],
-  
+
   // ReplayGain for volume normalization
   REPLAYGAIN_TRACK_GAIN: ['replaygain_track_gain', 'REPLAYGAIN_TRACK_GAIN'],
   REPLAYGAIN_TRACK_PEAK: ['replaygain_track_peak', 'REPLAYGAIN_TRACK_PEAK'],
   REPLAYGAIN_ALBUM_GAIN: ['replaygain_album_gain', 'REPLAYGAIN_ALBUM_GAIN'],
   REPLAYGAIN_ALBUM_PEAK: ['replaygain_album_peak', 'REPLAYGAIN_ALBUM_PEAK'],
-  
+
   // Ratings and mood
   RATING: ['rating', 'POPM', 'RATING'],
   MOOD: ['mood', 'MOOD'],
   BPM: ['bpm', 'TBPM', 'BPM'],
   KEY: ['key', 'TKEY', 'KEY'],
-  
+
   // Lyrics
   LYRICS: ['lyrics', 'USLT', 'LYRICS'],
   SYNCED_LYRICS: ['syncedLyrics', 'SYLT'],
@@ -286,22 +286,22 @@ export const FEATURES = {
 export const PERFORMANCE = {
   // Maximum number of tracks to render without virtualization
   MAX_PLAYLIST_SIZE_WITHOUT_VIRTUALIZATION: 100,
-  
+
   // Metadata extraction timeout (ms)
   METADATA_EXTRACTION_TIMEOUT: 10000,
-  
+
   // Album art maximum size (bytes) - 5MB
   MAX_ALBUM_ART_SIZE: 5 * 1024 * 1024,
-  
+
   // Album art maximum dimensions (pixels)
   MAX_ALBUM_ART_DIMENSIONS: { width: 2000, height: 2000 },
-  
+
   // Number of tracks to process in parallel
   PARALLEL_METADATA_EXTRACTION: 3,
-  
+
   // Audio buffer size for Web Audio API (larger = better performance, higher latency)
   AUDIO_BUFFER_SIZE: 2048,
-  
+
   // Enable Web Worker for metadata extraction
   USE_WEB_WORKER_FOR_METADATA: false, // To be implemented
 } as const;
@@ -316,14 +316,14 @@ export const UI_CONFIG = {
     MEDIUM: 300,
     LONG: 500,
   },
-  
+
   // Debounce delays (ms)
   DEBOUNCE_DELAY: {
     SEARCH: 300,
     PROGRESS_UPDATE: 100,
     VOLUME_CHANGE: 50,
   },
-  
+
   // Playlist settings
   PLAYLIST: {
     MAX_TITLE_LENGTH: 50,
@@ -331,10 +331,10 @@ export const UI_CONFIG = {
     SHOW_TRACK_NUMBERS: true,
     SHOW_DURATION: true,
   },
-  
+
   // Sleep timer presets (minutes)
   SLEEP_TIMER_PRESETS: [5, 10, 15, 30, 45, 60, 90, 120],
-  
+
   // Volume control
   VOLUME: {
     DEFAULT: 66,
@@ -352,22 +352,22 @@ export const ERROR_MESSAGES = {
   UNSUPPORTED_FILE_TYPE: 'Unsupported audio file format. Please use MP3, FLAC, WAV, OGG, or other supported formats.',
   FILE_TOO_LARGE: 'File size exceeds the maximum limit.',
   FILE_READ_ERROR: 'Unable to read the audio file. The file may be corrupted.',
-  
+
   // Metadata errors
   METADATA_EXTRACTION_FAILED: 'Unable to extract metadata from the audio file.',
   CORRUPTED_METADATA: 'The audio file contains corrupted metadata.',
-  
+
   // Playback errors
   AUDIO_LOAD_ERROR: 'Failed to load audio file. The file may be corrupted or in an unsupported format.',
   AUDIO_DECODE_ERROR: 'Unable to decode audio file. The codec may not be supported by your browser.',
   AUDIO_NETWORK_ERROR: 'Network error while loading audio file.',
   AUDIO_ABORT_ERROR: 'Audio loading was aborted.',
   AUDIO_NOT_SUPPORTED: 'Your browser does not support this audio format.',
-  
+
   // Web Audio API errors
   WEB_AUDIO_NOT_SUPPORTED: 'Web Audio API is not supported in your browser. Advanced features like the equalizer may not work.',
   AUDIO_CONTEXT_ERROR: 'Failed to initialize audio context.',
-  
+
   // General errors
   UNKNOWN_ERROR: 'An unknown error occurred.',
   BROWSER_NOT_SUPPORTED: 'Your browser does not support all required features.',
@@ -409,6 +409,7 @@ export const STORAGE_KEYS = {
   EQUALIZER_SETTINGS: 'audioweb_equalizer',
   THEME: 'audioweb_theme',
   PLAYLIST: 'audioweb_playlist', // Note: May not persist File objects
+  VISUALIZER_SETTINGS: 'audioweb_visualizer',
 } as const;
 
 /**

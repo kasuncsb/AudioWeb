@@ -6,9 +6,10 @@ export const useDragHandler = () => {
     playlist: { x: 16, y: 96 },
     equalizer: { x: 16, y: 96 },
     sleepTimer: { x: 16, y: 96 },
-    lyrics: { x: 600, y: 96 }
+    lyrics: { x: 600, y: 96 },
+    visualizer: { x: 16, y: 96 }
   });
-  
+
   const [dragging, setDragging] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
 
@@ -27,10 +28,10 @@ export const useDragHandler = () => {
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!dragging) return;
-    
+
     const newX = Math.max(0, Math.min(window.innerWidth - 320, e.clientX - dragOffset.x));
     const newY = Math.max(0, Math.min(window.innerHeight - 100, e.clientY - dragOffset.y));
-    
+
     setPopupPositions(prev => ({
       ...prev,
       [dragging]: { x: newX, y: newY }
@@ -46,7 +47,7 @@ export const useDragHandler = () => {
       // Use non-passive event listeners for drag functionality
       document.addEventListener('mousemove', handleMouseMove, { passive: false });
       document.addEventListener('mouseup', handleMouseUp, { passive: false });
-      
+
       return () => {
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
