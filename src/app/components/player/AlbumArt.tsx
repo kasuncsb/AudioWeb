@@ -23,9 +23,9 @@ export const AlbumArt: React.FC<AlbumArtProps> = ({
       <div
         className="relative group cursor-pointer"
         style={{
-          '--hover-scale': 1.04,
-          '--active-scale': 0.94,
-          '--base-scale': isPlaying ? 1 : 0.92,
+          '--hover-scale': 1.02,
+          '--active-scale': 0.98,
+          '--base-scale': isPlaying ? 1 : 0.95,
         } as React.CSSProperties}
       >
         <div
