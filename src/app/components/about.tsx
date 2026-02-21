@@ -287,7 +287,7 @@ export const AboutPopup: React.FC<AboutPopupProps> = ({ show, onClose, isPlaying
           {/* Call to Action */}
           <div className="text-center space-y-3">
             <p className="text-white/80 text-sm">
-              Love open source? Your contributions can make this project even better!
+              Love it? Your contributions can make this project even better!
             </p>
           </div>
 
