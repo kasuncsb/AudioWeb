@@ -518,8 +518,6 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
             className="w-full relative flex flex-col items-center justify-start pt-4 sm:pt-6 pb-4 sm:pb-6 overflow-y-auto custom-scrollbar-auto"
             style={{
               background: showVisualization ? 'transparent' : 'rgba(20, 20, 28, 0.92)',
-              backdropFilter: showVisualization ? 'none' : 'blur(16px) saturate(180%)',
-              WebkitBackdropFilter: showVisualization ? 'none' : 'blur(16px) saturate(180%)',
               backgroundImage: showVisualization ? 'none' : `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='40' height='40' fill='white' fill-opacity='0'/%3E%3Ccircle cx='20' cy='20' r='1' fill='white' fill-opacity='0.04'/%3E%3C/svg%3E")`,
               backgroundBlendMode: 'overlay',
               height: 'calc(100dvh - 4.5rem)', // Full height minus navbar (dvh for mobile)
