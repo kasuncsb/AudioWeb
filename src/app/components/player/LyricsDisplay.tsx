@@ -17,7 +17,7 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
   const [isManualScrolling, setIsManualScrolling] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [lastTrackId, setLastTrackId] = useState<string | null>(null);
-  
+
   const containerRef = useRef<HTMLDivElement>(null);
   const manualScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
@@ -27,10 +27,10 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
     const handleResize = () => {
       setIsMobile(window.innerWidth < 640);
     };
-    
+
     // Set initial value
     handleResize();
-    
+
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
@@ -60,12 +60,12 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
   // Simple function to set manual scrolling state
   const startManualScrolling = useCallback(() => {
     setIsManualScrolling(true);
-    
+
     // Clear existing timeout
     if (manualScrollTimeoutRef.current) {
       clearTimeout(manualScrollTimeoutRef.current);
     }
-    
+
     // Set new timeout to resume auto-scrolling after 3 seconds
     manualScrollTimeoutRef.current = setTimeout(() => {
       setIsManualScrolling(false);
@@ -79,16 +79,16 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
 
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
-      
+
       const scrollSpeed = 0.01;
       const deltaY = e.deltaY * scrollSpeed;
-      
+
       setScrollOffset(prev => {
         const visibleLines = 6;
         const maxOffset = Math.max(0, displayLines.length - visibleLines);
         return Math.min(Math.max(prev + deltaY, 0), maxOffset);
       });
-      
+
       startManualScrolling();
     };
 
@@ -109,11 +109,11 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
 
   const handleDragMove = (clientY: number) => {
     if (!isDragging) return;
-    
+
     const dragSpeed = isMobile ? 0.015 : 0.02; // More sensitive on mobile
     const deltaY = (dragStart.y - clientY) * dragSpeed;
     const newScrollOffset = dragStart.scrollOffset + deltaY;
-    
+
     const visibleLines = isMobile ? 4 : 6;
     const maxOffset = Math.max(0, displayLines.length - visibleLines);
     setScrollOffset(Math.min(Math.max(newScrollOffset, 0), maxOffset));
@@ -171,50 +171,50 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
   // Auto-scroll to current line when not manually scrolling
   useEffect(() => {
     if (!isManualScrolling && currentLineIndex >= 0 && displayLines.length > 0) {        // Use setTimeout to ensure DOM is fully rendered before measuring
-        const measureAndScroll = () => {
-          if (lyricsContainerRef.current) {
-            const children = lyricsContainerRef.current.children;
-            if (children.length > 1) {
-              // Measure actual distance between two consecutive lines
-              const firstLineRect = children[0].getBoundingClientRect();
-              const secondLineRect = children[1].getBoundingClientRect();
-              const actualLineSpacing = secondLineRect.top - firstLineRect.top;
-              
-              // Get root font size for accurate rem calculation
-              const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
-              const actualLineSpacingRem = actualLineSpacing / rootFontSize;
-              
-              // More responsive adjustment factor based on screen size
-              const expectedSpacing = isMobile ? 3.5 : 4; // Increased mobile spacing
-              const adjustmentFactor = actualLineSpacingRem / expectedSpacing;
-              
-              // Calculate target position - center the current line
-              // On mobile, use 2 lines from top (more centered for small screens)
-              // On desktop, use 3 lines from top
-              const targetVisiblePosition = isMobile ? 2 : 3;
-              const rawTargetOffset = Math.max(0, currentLineIndex - targetVisiblePosition);
-              const adjustedTargetOffset = rawTargetOffset * adjustmentFactor;
-              
-              const visibleLines = isMobile ? 5 : 6;
-              const maxRawOffset = Math.max(0, displayLines.length - visibleLines);
-              const maxAdjustedOffset = maxRawOffset * adjustmentFactor;
-              const finalScrollOffset = Math.min(adjustedTargetOffset, maxAdjustedOffset);
-              
-              setScrollOffset(finalScrollOffset);
-              return;
-            }
+      const measureAndScroll = () => {
+        if (lyricsContainerRef.current) {
+          const children = lyricsContainerRef.current.children;
+          if (children.length > 1) {
+            // Measure actual distance between two consecutive lines
+            const firstLineRect = children[0].getBoundingClientRect();
+            const secondLineRect = children[1].getBoundingClientRect();
+            const actualLineSpacing = secondLineRect.top - firstLineRect.top;
+
+            // Get root font size for accurate rem calculation
+            const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+            const actualLineSpacingRem = actualLineSpacing / rootFontSize;
+
+            // More responsive adjustment factor based on screen size
+            const expectedSpacing = isMobile ? 3.5 : 4; // Increased mobile spacing
+            const adjustmentFactor = actualLineSpacingRem / expectedSpacing;
+
+            // Calculate target position - center the current line
+            // On mobile, use 2 lines from top (more centered for small screens)
+            // On desktop, use 3 lines from top
+            const targetVisiblePosition = isMobile ? 2 : 3;
+            const rawTargetOffset = Math.max(0, currentLineIndex - targetVisiblePosition);
+            const adjustedTargetOffset = rawTargetOffset * adjustmentFactor;
+
+            const visibleLines = isMobile ? 5 : 6;
+            const maxRawOffset = Math.max(0, displayLines.length - visibleLines);
+            const maxAdjustedOffset = maxRawOffset * adjustmentFactor;
+            const finalScrollOffset = Math.min(adjustedTargetOffset, maxAdjustedOffset);
+
+            setScrollOffset(finalScrollOffset);
+            return;
           }
-          
-          // Fallback to simple positioning if measurement fails
-          const targetVisiblePosition = isMobile ? 2 : 3;
-          const visibleLines = isMobile ? 5 : 6;
-          const targetScrollOffset = Math.max(0, currentLineIndex - targetVisiblePosition);
-          const maxScrollOffset = Math.max(0, displayLines.length - visibleLines);
-          const finalScrollOffset = Math.min(targetScrollOffset, maxScrollOffset);
-          
-          setScrollOffset(finalScrollOffset);
-        };
-      
+        }
+
+        // Fallback to simple positioning if measurement fails
+        const targetVisiblePosition = isMobile ? 2 : 3;
+        const visibleLines = isMobile ? 5 : 6;
+        const targetScrollOffset = Math.max(0, currentLineIndex - targetVisiblePosition);
+        const maxScrollOffset = Math.max(0, displayLines.length - visibleLines);
+        const finalScrollOffset = Math.min(targetScrollOffset, maxScrollOffset);
+
+        setScrollOffset(finalScrollOffset);
+      };
+
       // Small delay to ensure rendering is complete
       setTimeout(measureAndScroll, 50);
     }
@@ -227,7 +227,7 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
       setIsDragging(false);
       setIsManualScrolling(false);
       setLastTrackId(currentTrack.id);
-      
+
       // Clear any pending timeouts
       if (manualScrollTimeoutRef.current) {
         clearTimeout(manualScrollTimeoutRef.current);
@@ -239,13 +239,13 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
   // Add global mouse move and up listeners when dragging (desktop only)
   useEffect(() => {
     if (isMobile) return; // Skip global mouse events on mobile
-    
+
     const handleGlobalMouseMove = (e: MouseEvent) => {
       if (isDragging) {
         const dragSpeed = 0.02;
         const deltaY = (dragStart.y - e.clientY) * dragSpeed;
         const newScrollOffset = dragStart.scrollOffset + deltaY;
-        
+
         const visibleLines = 6;
         const maxOffset = Math.max(0, displayLines.length - visibleLines);
         setScrollOffset(Math.min(Math.max(newScrollOffset, 0), maxOffset));
@@ -298,17 +298,17 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
             pauseDuration={1000}
           />
         </div>
-        
+
         <div className="flex-1 relative overflow-hidden px-1 sm:px-2 py-1 sm:py-2">
           {/* Lyrics container - always start from beginning, scroll when needed */}
-          <div 
+          <div
             ref={containerRef}
-            className={`h-full select-none ${isMobile ? 'touch-pan-y' : ''}`}
-            style={{ 
+            className={`h-full select-none touch-none`}
+            style={{
               cursor: isMobile ? 'default' : (isDragging ? 'grabbing' : 'grab'),
               scrollbarWidth: 'none', /* Firefox */
               msOverflowStyle: 'none', /* IE and Edge */
-              touchAction: isMobile ? 'pan-y' : 'none' /* Allow vertical scrolling on mobile only */
+              touchAction: 'none' /* Prevent native vertical scrolling on mobile to stop bounds overflow */
             }}
             onMouseDown={!isMobile ? handleMouseDown : undefined}
             onMouseMove={!isMobile ? handleMouseMove : undefined}
@@ -322,7 +322,7 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
                 display: none; /* Chrome, Safari and Opera */
               }
             `}</style>
-            <div 
+            <div
               ref={lyricsContainerRef}
               className="space-y-2 sm:space-y-3 max-w-4xl mx-auto transition-transform duration-700 ease-out"
               style={{
@@ -332,15 +332,14 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
             >
               {displayLines.map((line, index) => {
                 const isCurrentLine = index === currentLineIndex;
-                
+
                 return (
                   <div
                     key={index}
-                    className={`lyrics-line text-center leading-relaxed px-2 sm:px-3 py-1 sm:py-2 transition-all duration-500 ease-out ${
-                      isCurrentLine
-                        ? 'text-white text-lg sm:text-2xl font-medium opacity-100 lyrics-active'
-                        : 'text-white/40 text-base sm:text-xl opacity-60'
-                    }`}
+                    className={`lyrics-line text-center leading-relaxed px-2 sm:px-3 py-1 sm:py-2 transition-all duration-500 ease-out ${isCurrentLine
+                      ? 'text-white text-lg sm:text-2xl font-medium opacity-100 lyrics-active'
+                      : 'text-white/40 text-base sm:text-xl opacity-60'
+                      }`}
                     style={{
                       textShadow: isCurrentLine ? '0 2px 8px rgba(255, 255, 255, 0.1)' : 'none',
                       wordBreak: 'break-word',
@@ -374,8 +373,8 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
   // Show simple lyrics if available
   if (currentTrack.lyrics) {
     return (
-      <div className="px-3 sm:px-4 py-3 sm:py-4">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 sm:mb-3 gap-1 sm:gap-0">
+      <div className="h-full flex flex-col px-3 sm:px-4 py-3 sm:py-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-2 sm:mb-3 gap-1 sm:gap-0 shrink-0">
           <h3 className="text-lg sm:text-xl font-semibold text-white">Lyrics</h3>
           <ScrollingText
             text={`${currentTrack.title} - ${currentTrack.artist}`}
@@ -384,16 +383,16 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
             pauseDuration={1000}
           />
         </div>
-        <div className="max-w-4xl mx-auto px-1 sm:px-2">
-          <div className="text-white/80 leading-relaxed whitespace-pre-line text-base sm:text-lg text-center px-2 sm:px-3"
-               style={{
-                 wordBreak: 'break-word',
-                 overflowWrap: 'break-word',
-                 hyphens: 'auto',
-                 WebkitHyphens: 'auto',
-                 MozHyphens: 'auto',
-                 msHyphens: 'auto'
-               }}>
+        <div className="flex-1 overflow-y-auto custom-scrollbar-auto max-w-4xl mx-auto w-full px-1 sm:px-2">
+          <div className="text-white/80 leading-relaxed whitespace-pre-line text-base sm:text-lg text-center px-2 sm:px-3 pb-4"
+            style={{
+              wordBreak: 'break-word',
+              overflowWrap: 'break-word',
+              hyphens: 'auto',
+              WebkitHyphens: 'auto',
+              MozHyphens: 'auto',
+              msHyphens: 'auto'
+            }}>
             {currentTrack.lyrics}
           </div>
         </div>

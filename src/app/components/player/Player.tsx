@@ -40,17 +40,17 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
   const [showSleepTimer, setShowSleepTimer] = useState(false);
   const [showVisualization, setShowVisualization] = useState(false);
   const [isShuffling, setIsShuffling] = useState(false);
-  
+
   // Use equalizer persistence hook
-  const { 
-    settings: equalizerSettings, 
+  const {
+    settings: equalizerSettings,
     updateSettings: setEqualizerSettings,
     isLoaded: isEqualizerLoaded,
   } = useEqualizerPersistence(isVisible && playlist.length > 0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentTrack = playlist[currentTrackIndex];
-  
+
   // Notify parent component when playing state changes
   useEffect(() => {
     if (onPlayingChange) {
@@ -98,16 +98,16 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
     setTimeout(() => setIsShuffling(false), 500);
 
     const currentTrack = playlist[currentTrackIndex];
-    
+
     // Separate current track from others (exclude by index to preserve object reference)
     const otherTracks = playlist.filter((_, index) => index !== currentTrackIndex);
-    
+
     // Fisher-Yates shuffle on other tracks
     for (let i = otherTracks.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [otherTracks[i], otherTracks[j]] = [otherTracks[j], otherTracks[i]];
     }
-    
+
     // Put current track at the beginning (preserve exact object reference)
     // Update isActive for other tracks only
     const shuffledPlaylist = [
@@ -117,10 +117,10 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
         isActive: false
       }))
     ];
-    
+
     // Ensure current track remains active
     shuffledPlaylist[0] = { ...currentTrack, isActive: true };
-    
+
     setPlaylist(shuffledPlaylist);
     setCurrentTrackIndex(0);
   }, [playlist, currentTrackIndex]);
@@ -191,7 +191,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
         if (removed && typeof removed.url === 'string' && removed.url.startsWith('blob:')) {
           revokeObjectURL(removed.url);
         }
-      } catch {}
+      } catch { }
 
       // Determine new current index after removal
       let newIndex = currentTrackIndex;
@@ -252,9 +252,9 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
         const toSave = hasUserChanged ? volume : UI_CONFIG.VOLUME.DEFAULT;
         try {
           localStorage.setItem(STORAGE_KEYS.VOLUME, String(toSave));
-        } catch {}
+        } catch { }
       }
-    } catch {}
+    } catch { }
 
     setIsVolumeLoaded(true);
   }, [isVisible, playlist.length, volume, isVolumeLoaded]);
@@ -264,7 +264,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
     if (!isVolumeLoaded) return;
     try {
       localStorage.setItem(STORAGE_KEYS.VOLUME, String(volume));
-    } catch {}
+    } catch { }
   }, [volume, isVolumeLoaded]);
 
   // Custom hooks
@@ -294,7 +294,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
           // and revoke any tracked object URLs to release blobs
           audio.removeAttribute('src');
           audio.load();
-          try { revokeAllObjectURLs(); } catch {}
+          try { revokeAllObjectURLs(); } catch { }
         } catch {
           // ignore
         }
@@ -383,8 +383,8 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
   };
 
   // Container class - background should be transparent when visualization is active
-  const containerClass = asPage 
-    ? `min-h-screen overflow-hidden ${showVisualization ? 'bg-transparent' : 'bg-black'}` 
+  const containerClass = asPage
+    ? `min-h-screen overflow-hidden ${showVisualization ? 'bg-transparent' : 'bg-black'}`
     : `fixed left-0 right-0 bottom-0 overflow-hidden z-40 top-[calc(4.5rem-1px)] ${showVisualization ? 'bg-transparent' : 'bg-black'}`; // Start 1px higher to cover navbar border
 
   // Always render audio element to keep playback alive, but hide UI when not visible
@@ -392,7 +392,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
     <>
       {/* Audio element always rendered to maintain playback */}
       <audio ref={audioRef} />
-      
+
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
@@ -415,197 +415,63 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
 
       {/* Player UI - only shown when visible */}
       {isVisible && (
-    <div 
-      className={containerClass}
-      onDragOver={playlist.length > 0 ? handleDragOver : undefined}
-      onDragLeave={playlist.length > 0 ? handleDragLeave : undefined}
-      onDrop={playlist.length > 0 ? handleDrop : undefined}
-    >
-
-      {/* Drag and Drop Overlay - Only show when tracks are loaded */}
-      {playlist.length > 0 && isDragOver && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
-          style={{
-            background: 'rgba(0, 0, 0, 0.8)',
-            backdropFilter: 'blur(10px)',
-          }}
+        <div
+          className={containerClass}
+          onDragOver={playlist.length > 0 ? handleDragOver : undefined}
+          onDragLeave={playlist.length > 0 ? handleDragLeave : undefined}
+          onDrop={playlist.length > 0 ? handleDrop : undefined}
         >
-          <div className="text-center space-y-4 p-8">
-            <div className="w-20 h-20 mx-auto rounded-full bg-white/20 flex items-center justify-center animate-pulse">
-              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-2xl font-semibold text-white mb-2">Add More Tracks</h3>
-              <p className="text-white/70 text-lg">Drop files to add them to your playlist</p>
-            </div>
-          </div>
-        </div>
-      )}
 
-      <main 
-        className="w-full relative flex flex-col items-center justify-start pt-4 sm:pt-6 pb-4 sm:pb-6 overflow-y-auto custom-scrollbar-auto"
-        style={{
-          background: showVisualization ? 'transparent' : 'rgba(20, 20, 28, 0.92)',
-          backdropFilter: showVisualization ? 'none' : 'blur(16px) saturate(180%)',
-          WebkitBackdropFilter: showVisualization ? 'none' : 'blur(16px) saturate(180%)',
-          backgroundImage: showVisualization ? 'none' : `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='40' height='40' fill='white' fill-opacity='0'/%3E%3Ccircle cx='20' cy='20' r='1' fill='white' fill-opacity='0.04'/%3E%3C/svg%3E")`,
-          backgroundBlendMode: 'overlay',
-          height: 'calc(100dvh - 4.5rem)', // Full height minus navbar (dvh for mobile)
-          transition: 'background 0.5s ease, backdrop-filter 0.5s ease',
-        }}
-      >
-        {/* Back Button */}
-        <div className="fixed top-16 sm:top-18 left-2 sm:left-4 md:left-8 z-10">
-          <BackButton asPage={asPage} onClose={onClose} />
-        </div>
-
-        {/* Lottie Animation */}
-        <LottieAnimation show={!currentTrack} />
-
-        {/* Desktop and Tablet Layout */}
-        <div className="hidden md:flex w-full max-w-350 gap-4 lg:gap-8 px-4 lg:px-8 pt-2">
-          
-          {/* Left Section - Player Controls */}
-          <div className="w-72 lg:w-80 xl:w-96 flex flex-col h-[calc(100vh-140px)] lg:h-[calc(100vh-120px)] overflow-y-auto custom-scrollbar-auto">
-            <div 
-              className="rounded-[20px] lg:rounded-3xl p-4 lg:p-6 shrink-0"
+          {/* Drag and Drop Overlay - Only show when tracks are loaded */}
+          {playlist.length > 0 && isDragOver && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
               style={{
-                background: 'rgba(255, 255, 255, 0.05)',
-                backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+                background: 'rgba(0, 0, 0, 0.8)',
+                backdropFilter: 'blur(10px)',
               }}
             >
-              <AlbumArt
-                currentTrack={currentTrack}
-                onUploadClick={() => fileInputRef.current?.click()}
-                isDragOver={!currentTrack && isDragOver}
-                onDragOver={!currentTrack ? handleDragOver : undefined}
-                onDragLeave={!currentTrack ? handleDragLeave : undefined}
-                onDrop={!currentTrack ? handleDrop : undefined}
-              />
-
-              {currentTrack && (
-                <div className="space-y-4 lg:space-y-6 mt-4 lg:mt-6">
-                  <ProgressBar
-                    currentTime={currentTime}
-                    duration={duration}
-                    onSeek={handleSeek}
-                  />
-
-                  <MainControls
-                    isPlaying={isPlaying}
-                    onPlayPause={handlePlayPause}
-                    onPrevious={handlePrevious}
-                    onNext={handleNext}
-                    canGoPrevious={canGoPrevious}
-                    canGoNext={canGoNext}
-                  />
-
-                  <SecondaryControls
-                    onShuffleClick={shufflePlaylist}
-                    repeatMode={repeatMode}
-                    onRepeatToggle={() => setRepeatMode((repeatMode + 1) % 3)}
-                    onPlaylistToggle={() => setShowPlaylist(!showPlaylist)}
-                    onSleepTimerToggle={() => setShowSleepTimer(!showSleepTimer)}
-                    onEqualizerToggle={() => setShowEqualizer(!showEqualizer)}
-                    onVisualizationToggle={() => setShowVisualization(!showVisualization)}
-                    sleepTimer={sleepTimer}
-                    showVisualization={showVisualization}
-                  />
-
-                  <VolumeControl
-                    volume={volume}
-                    onVolumeChange={handleVolumeChange}
-                  />
+              <div className="text-center space-y-4 p-8">
+                <div className="w-20 h-20 mx-auto rounded-full bg-white/20 flex items-center justify-center animate-pulse">
+                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Right Section - Lyrics Area (Expanded to full height) */}
-          {playlist.length > 0 && (
-            <div className="flex-1 flex flex-col h-[calc(100vh-140px)] lg:h-[calc(100vh-120px)]">
-              <div 
-                className="rounded-[20px] lg:rounded-3xl p-4 lg:p-6 flex-1 overflow-y-auto custom-scrollbar-enhanced min-h-0"
-                style={{
-                  background: 'rgba(255, 255, 255, 0.03)',
-                  backdropFilter: 'blur(20px)',
-                  border: '1px solid rgba(255, 255, 255, 0.05)',
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
-                }}
-              >
-                <LyricsDisplay
-                  currentTrack={currentTrack}
-                  currentTime={currentTime}
-                />
+                <div>
+                  <h3 className="text-2xl font-semibold text-white mb-2">Add More Tracks</h3>
+                  <p className="text-white/70 text-lg">Drop files to add them to your playlist</p>
+                </div>
               </div>
             </div>
           )}
-        </div>
 
-        {/* Mobile and Small Tablet Layout */}
-        <div className="md:hidden w-full h-[calc(100dvh-4.5rem)] overflow-y-auto custom-scrollbar-auto">
-          <div className="px-3 sm:px-4 pt-2 pb-6 space-y-3 sm:space-y-4">
-            {/* Album Art or Upload Area */}
-            <div className="flex justify-center">
-              <div className="w-full max-w-sm">
-                <AlbumArt
-                  currentTrack={currentTrack}
-                  onUploadClick={() => fileInputRef.current?.click()}
-                  isDragOver={!currentTrack && isDragOver}
-                  onDragOver={!currentTrack ? handleDragOver : undefined}
-                  onDragLeave={!currentTrack ? handleDragLeave : undefined}
-                  onDrop={!currentTrack ? handleDrop : undefined}
-                />
-              </div>
+          <main
+            className="w-full relative flex flex-col items-center justify-start pt-4 sm:pt-6 pb-4 sm:pb-6 overflow-y-auto custom-scrollbar-auto"
+            style={{
+              background: showVisualization ? 'transparent' : 'rgba(20, 20, 28, 0.92)',
+              backdropFilter: showVisualization ? 'none' : 'blur(16px) saturate(180%)',
+              WebkitBackdropFilter: showVisualization ? 'none' : 'blur(16px) saturate(180%)',
+              backgroundImage: showVisualization ? 'none' : `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='40' height='40' fill='white' fill-opacity='0'/%3E%3Ccircle cx='20' cy='20' r='1' fill='white' fill-opacity='0.04'/%3E%3C/svg%3E")`,
+              backgroundBlendMode: 'overlay',
+              height: 'calc(100dvh - 4.5rem)', // Full height minus navbar (dvh for mobile)
+              transition: 'background 0.5s ease, backdrop-filter 0.5s ease',
+            }}
+          >
+            {/* Back Button */}
+            <div className="fixed top-16 sm:top-18 left-2 sm:left-4 md:left-8 z-10">
+              <BackButton asPage={asPage} onClose={onClose} />
             </div>
 
-            {currentTrack ? (
-              <>
-                {/* Progress Bar */}
-                <div 
-                  className="w-full rounded-2xl p-3 sm:p-4"
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    backdropFilter: 'blur(20px)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
-                  }}
-                >
-                  <ProgressBar
-                    currentTime={currentTime}
-                    duration={duration}
-                    onSeek={handleSeek}
-                  />
-                </div>
+            {/* Lottie Animation */}
+            <LottieAnimation show={!currentTrack} />
 
-                {/* Main Controls */}
-                <div 
-                  className="w-full rounded-2xl p-4 sm:p-5"
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    backdropFilter: 'blur(20px)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
-                  }}
-                >
-                  <MainControls
-                    isPlaying={isPlaying}
-                    onPlayPause={handlePlayPause}
-                    onPrevious={handlePrevious}
-                    onNext={handleNext}
-                    canGoPrevious={canGoPrevious}
-                    canGoNext={canGoNext}
-                  />
-                </div>
+            {/* Desktop and Tablet Layout */}
+            <div className="hidden md:flex w-full max-w-350 gap-4 lg:gap-8 px-4 lg:px-8 pt-2">
 
-                {/* Secondary Controls and Volume */}
-                <div 
-                  className="w-full rounded-2xl p-3 sm:p-4"
+              {/* Left Section - Player Controls */}
+              <div className="w-72 lg:w-80 xl:w-96 flex flex-col h-[calc(100vh-140px)] lg:h-[calc(100vh-120px)] overflow-y-auto custom-scrollbar-auto">
+                <div
+                  className="rounded-[20px] lg:rounded-3xl p-4 lg:p-6 shrink-0"
                   style={{
                     background: 'rgba(255, 255, 255, 0.05)',
                     backdropFilter: 'blur(20px)',
@@ -613,92 +479,226 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
                   }}
                 >
-                  <div className="space-y-3 sm:space-y-4">
-                    <SecondaryControls
-                      onShuffleClick={shufflePlaylist}
-                      repeatMode={repeatMode}
-                      onRepeatToggle={() => setRepeatMode((repeatMode + 1) % 3)}
-                      onPlaylistToggle={() => setShowPlaylist(!showPlaylist)}
-                      onSleepTimerToggle={() => setShowSleepTimer(!showSleepTimer)}
-                      onEqualizerToggle={() => setShowEqualizer(!showEqualizer)}
-                      onVisualizationToggle={() => setShowVisualization(!showVisualization)}
-                      sleepTimer={sleepTimer}
-                      showVisualization={showVisualization}
+                  <AlbumArt
+                    currentTrack={currentTrack}
+                    onUploadClick={() => fileInputRef.current?.click()}
+                    isDragOver={!currentTrack && isDragOver}
+                    onDragOver={!currentTrack ? handleDragOver : undefined}
+                    onDragLeave={!currentTrack ? handleDragLeave : undefined}
+                    onDrop={!currentTrack ? handleDrop : undefined}
+                  />
+
+                  {currentTrack && (
+                    <div className="space-y-4 lg:space-y-6 mt-4 lg:mt-6">
+                      <ProgressBar
+                        currentTime={currentTime}
+                        duration={duration}
+                        onSeek={handleSeek}
+                      />
+
+                      <MainControls
+                        isPlaying={isPlaying}
+                        onPlayPause={handlePlayPause}
+                        onPrevious={handlePrevious}
+                        onNext={handleNext}
+                        canGoPrevious={canGoPrevious}
+                        canGoNext={canGoNext}
+                      />
+
+                      <SecondaryControls
+                        onShuffleClick={shufflePlaylist}
+                        repeatMode={repeatMode}
+                        onRepeatToggle={() => setRepeatMode((repeatMode + 1) % 3)}
+                        onPlaylistToggle={() => setShowPlaylist(!showPlaylist)}
+                        onSleepTimerToggle={() => setShowSleepTimer(!showSleepTimer)}
+                        onEqualizerToggle={() => setShowEqualizer(!showEqualizer)}
+                        onVisualizationToggle={() => setShowVisualization(!showVisualization)}
+                        sleepTimer={sleepTimer}
+                        showVisualization={showVisualization}
+                      />
+
+                      <VolumeControl
+                        volume={volume}
+                        onVolumeChange={handleVolumeChange}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Right Section - Lyrics Area (Expanded to full height) */}
+              {playlist.length > 0 && (
+                <div className="flex-1 flex flex-col h-[calc(100vh-140px)] lg:h-[calc(100vh-120px)]">
+                  <div
+                    className="rounded-[20px] lg:rounded-3xl p-4 lg:p-6 flex-1 overflow-y-auto custom-scrollbar-enhanced min-h-0"
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      backdropFilter: 'blur(20px)',
+                      border: '1px solid rgba(255, 255, 255, 0.05)',
+                      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
+                    }}
+                  >
+                    <LyricsDisplay
+                      currentTrack={currentTrack}
+                      currentTime={currentTime}
                     />
+                  </div>
+                </div>
+              )}
+            </div>
 
-                    <VolumeControl
-                      volume={volume}
-                      onVolumeChange={handleVolumeChange}
+            {/* Mobile and Small Tablet Layout */}
+            <div className="md:hidden w-full h-[calc(100dvh-4.5rem)] overflow-y-auto custom-scrollbar-auto">
+              <div className="px-3 sm:px-4 pt-2 pb-6 space-y-3 sm:space-y-4">
+                {/* Album Art or Upload Area */}
+                <div className="flex justify-center">
+                  <div className="w-full max-w-sm">
+                    <AlbumArt
+                      currentTrack={currentTrack}
+                      onUploadClick={() => fileInputRef.current?.click()}
+                      isDragOver={!currentTrack && isDragOver}
+                      onDragOver={!currentTrack ? handleDragOver : undefined}
+                      onDragLeave={!currentTrack ? handleDragLeave : undefined}
+                      onDrop={!currentTrack ? handleDrop : undefined}
                     />
                   </div>
                 </div>
 
-                {/* Lyrics Display */}
-                <div 
-                  className="w-full rounded-2xl p-4 sm:p-5 overflow-hidden"
-                  style={{
-                    background: 'rgba(255, 255, 255, 0.03)',
-                    backdropFilter: 'blur(20px)',
-                    border: '1px solid rgba(255, 255, 255, 0.05)',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
-                    minHeight: '200px', // Reasonable height for lyrics
-                  }}
-                >
-                  <LyricsDisplay
-                    currentTrack={currentTrack}
-                    currentTime={currentTime}
-                  />
-                </div>
-              </>
-            ) : null}
-          </div>
+                {currentTrack ? (
+                  <>
+                    {/* Progress Bar */}
+                    <div
+                      className="w-full rounded-2xl p-3 sm:p-4"
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        backdropFilter: 'blur(20px)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+                      }}
+                    >
+                      <ProgressBar
+                        currentTime={currentTime}
+                        duration={duration}
+                        onSeek={handleSeek}
+                      />
+                    </div>
+
+                    {/* Main Controls */}
+                    <div
+                      className="w-full rounded-2xl p-4 sm:p-5"
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        backdropFilter: 'blur(20px)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+                      }}
+                    >
+                      <MainControls
+                        isPlaying={isPlaying}
+                        onPlayPause={handlePlayPause}
+                        onPrevious={handlePrevious}
+                        onNext={handleNext}
+                        canGoPrevious={canGoPrevious}
+                        canGoNext={canGoNext}
+                      />
+                    </div>
+
+                    {/* Secondary Controls and Volume */}
+                    <div
+                      className="w-full rounded-2xl p-3 sm:p-4"
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        backdropFilter: 'blur(20px)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
+                      }}
+                    >
+                      <div className="space-y-3 sm:space-y-4">
+                        <SecondaryControls
+                          onShuffleClick={shufflePlaylist}
+                          repeatMode={repeatMode}
+                          onRepeatToggle={() => setRepeatMode((repeatMode + 1) % 3)}
+                          onPlaylistToggle={() => setShowPlaylist(!showPlaylist)}
+                          onSleepTimerToggle={() => setShowSleepTimer(!showSleepTimer)}
+                          onEqualizerToggle={() => setShowEqualizer(!showEqualizer)}
+                          onVisualizationToggle={() => setShowVisualization(!showVisualization)}
+                          sleepTimer={sleepTimer}
+                          showVisualization={showVisualization}
+                        />
+
+                        <VolumeControl
+                          volume={volume}
+                          onVolumeChange={handleVolumeChange}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Lyrics Display */}
+                    <div
+                      className="w-full rounded-2xl p-4 sm:p-5 overflow-hidden flex flex-col relative"
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        backdropFilter: 'blur(20px)',
+                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+                        height: '400px', // Force defined size to limit lyrics waterfall effect
+                      }}
+                    >
+                      <LyricsDisplay
+                        currentTrack={currentTrack}
+                        currentTime={currentTime}
+                      />
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            </div>
+          </main>
+
+          {/* Popups - Fixed positioning for mobile */}
+          <ImportProgressPopup
+            active={uploadState?.active ?? false}
+            total={uploadState?.total ?? 0}
+            processed={uploadState?.processed ?? 0}
+            currentFile={uploadState?.currentFile}
+            items={uploadState?.items ?? []}
+          />
+
+          <PlaylistPopup
+            show={showPlaylist}
+            playlist={playlist}
+            position={popupPositions.playlist}
+            onClose={() => setShowPlaylist(false)}
+            onMouseDown={(e) => handleMouseDown('playlist', e)}
+            onSelectTrack={selectTrack}
+            onRemoveTrack={removeTrack}
+            onAddTracks={handleAddTracks}
+            isPlaying={isPlaying}
+            isShuffling={isShuffling}
+          />
+
+          <SleepTimerPopup
+            show={showSleepTimer}
+            position={popupPositions.sleepTimer}
+            sleepTimer={Math.floor(sleepTimer / 60)} // Display in minutes
+            isTimerActive={sleepTimer > 0} // Pass true if any timer is active
+            onClose={() => setShowSleepTimer(false)}
+            onMouseDown={(e) => handleMouseDown('sleepTimer', e)}
+            onSetTimer={(minutes) => setSleepTimer(minutes * 60)} // Convert minutes to seconds
+            onCancelTimer={() => setSleepTimer(0)}
+          />
+
+          <EqualizerPopup
+            show={showEqualizer}
+            position={popupPositions.equalizer}
+            settings={equalizerSettings}
+            onClose={() => setShowEqualizer(false)}
+            onMouseDown={(e) => handleMouseDown('equalizer', e)}
+            onUpdateSettings={setEqualizerSettings}
+          />
+
+          <PlayerStyles />
         </div>
-      </main>
-
-      {/* Popups - Fixed positioning for mobile */}
-      <ImportProgressPopup
-        active={uploadState?.active ?? false}
-        total={uploadState?.total ?? 0}
-        processed={uploadState?.processed ?? 0}
-        currentFile={uploadState?.currentFile}
-        items={uploadState?.items ?? []}
-      />
-
-      <PlaylistPopup
-        show={showPlaylist}
-        playlist={playlist}
-        position={popupPositions.playlist}
-        onClose={() => setShowPlaylist(false)}
-        onMouseDown={(e) => handleMouseDown('playlist', e)}
-        onSelectTrack={selectTrack}
-        onRemoveTrack={removeTrack}
-        onAddTracks={handleAddTracks}
-        isPlaying={isPlaying}
-        isShuffling={isShuffling}
-      />
-
-      <SleepTimerPopup
-        show={showSleepTimer}
-        position={popupPositions.sleepTimer}
-        sleepTimer={Math.floor(sleepTimer / 60)} // Display in minutes
-        isTimerActive={sleepTimer > 0} // Pass true if any timer is active
-        onClose={() => setShowSleepTimer(false)}
-        onMouseDown={(e) => handleMouseDown('sleepTimer', e)}
-        onSetTimer={(minutes) => setSleepTimer(minutes * 60)} // Convert minutes to seconds
-        onCancelTimer={() => setSleepTimer(0)}
-      />
-
-      <EqualizerPopup
-        show={showEqualizer}
-        position={popupPositions.equalizer}
-        settings={equalizerSettings}
-        onClose={() => setShowEqualizer(false)}
-        onMouseDown={(e) => handleMouseDown('equalizer', e)}
-        onUpdateSettings={setEqualizerSettings}
-      />
-
-      <PlayerStyles />
-    </div>
       )}
     </>
   );
