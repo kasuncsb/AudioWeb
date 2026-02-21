@@ -20,15 +20,20 @@ export const AlbumArt: React.FC<AlbumArtProps> = ({
 
   return (
     <div key={currentTrack.id} className={`space-y-6 ${slideClass}`}>
-      <div className="relative group">
+      <div
+        className="relative group cursor-pointer"
+        style={{
+          '--hover-scale': 1.04,
+          '--active-scale': 0.94,
+          '--base-scale': isPlaying ? 1 : 0.92,
+        } as React.CSSProperties}
+      >
         <div
-          className="w-full aspect-square rounded-[20px] overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.15)] flex items-center justify-center"
+          className="w-full aspect-square rounded-[20px] overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.15)] flex items-center justify-center album-art-container"
           style={{
             background: currentTrack.albumArt ? 'transparent' : 'rgba(255, 255, 255, 0.05)',
             backdropFilter: currentTrack.albumArt ? 'none' : 'blur(20px)',
             border: '1px solid rgba(255, 255, 255, 0.1)',
-            transform: isPlaying ? 'scale(1)' : 'scale(0.95)',
-            transition: 'transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
           }}
         >
           {currentTrack.albumArt ? (

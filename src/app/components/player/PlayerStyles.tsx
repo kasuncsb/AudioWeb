@@ -424,6 +424,23 @@ export const PlayerStyles = () => (
     }
 
     /* Animated Music Bars */
+    .album-art-container {
+      transform: scale(var(--base-scale, 1));
+      transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+      will-change: transform;
+    }
+    
+    @media (hover: hover) {
+      .album-art-container:hover {
+        transform: scale(calc(var(--base-scale, 1) * var(--hover-scale, 1.04)));
+      }
+    }
+    
+    .album-art-container:active {
+      transform: scale(calc(var(--base-scale, 1) * var(--active-scale, 0.94)));
+      transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
     .music-bar-1 {
       width: 2px;
       background: white;
