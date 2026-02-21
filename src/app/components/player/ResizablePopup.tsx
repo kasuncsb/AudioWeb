@@ -14,6 +14,7 @@ interface ResizablePopupProps {
   maxWidth?: number;
   maxHeight?: number;
   onAdd?: () => void;
+  showVisualization?: boolean;
 }
 
 export const ResizablePopup: React.FC<ResizablePopupProps> = ({
@@ -29,11 +30,12 @@ export const ResizablePopup: React.FC<ResizablePopupProps> = ({
   minHeight = 200,
   maxWidth,
   maxHeight,
-  onAdd
+  onAdd,
+  showVisualization = false
 }) => {
-  const [size, setSize] = useState({ 
-    width: Math.max(minWidth, 400), 
-    height: Math.max(minHeight, 500) 
+  const [size, setSize] = useState({
+    width: Math.max(minWidth, 400),
+    height: Math.max(minHeight, 500)
   });
   const [isMobile, setIsMobile] = useState(false);
   const [isResizing, setIsResizing] = useState<string | null>(null);
@@ -46,10 +48,10 @@ export const ResizablePopup: React.FC<ResizablePopupProps> = ({
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 1024);
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    
+
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
@@ -102,7 +104,7 @@ export const ResizablePopup: React.FC<ResizablePopupProps> = ({
     if (isResizing) {
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
-      
+
       return () => {
         document.removeEventListener('mousemove', handleMouseMove);
         document.removeEventListener('mouseup', handleMouseUp);
@@ -119,7 +121,7 @@ export const ResizablePopup: React.FC<ResizablePopupProps> = ({
   ];
 
   return (
-    <div 
+    <div
       ref={popupRef}
       className={`fixed z-40 ${className}`}
       style={{
@@ -133,17 +135,18 @@ export const ResizablePopup: React.FC<ResizablePopupProps> = ({
         ...style
       }}
     >
-      <div 
-        className="h-full rounded-[20px] overflow-hidden relative"
+      <div
+        className="h-full rounded-[20px] overflow-hidden relative transition-all duration-500"
         style={{
-          background: 'rgba(20, 20, 28, 0.95)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          boxShadow: '0 16px 64px rgba(0, 0, 0, 0.5)'
+          background: showVisualization ? 'rgba(15, 15, 20, 0.35)' : 'rgba(20, 20, 28, 0.95)',
+          backdropFilter: 'blur(24px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+          border: showVisualization ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(255, 255, 255, 0.1)',
+          boxShadow: showVisualization ? '0 8px 32px rgba(0, 0, 0, 0.2)' : '0 16px 64px rgba(0, 0, 0, 0.5)'
         }}
       >
         <div className="p-6 h-full popup-content">
-          <div 
+          <div
             className="flex items-center justify-between mb-6 cursor-move select-none flex-shrink-0 pb-4 border-b border-white/10"
             onMouseDown={onMouseDown}
           >
@@ -177,7 +180,7 @@ export const ResizablePopup: React.FC<ResizablePopupProps> = ({
             {typeof children === 'function' ? children(size) : children}
           </div>
         </div>
-        
+
         {/* Resize Handles - Only show on desktop */}
         {!isMobile && resizeHandles.map(({ direction, className }) => (
           <div

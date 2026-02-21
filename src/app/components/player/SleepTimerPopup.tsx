@@ -9,6 +9,7 @@ interface SleepTimerPopupProps {
   onMouseDown: (e: React.MouseEvent) => void;
   onSetTimer: (minutes: number) => void;
   onCancelTimer: () => void;
+  showVisualization?: boolean;
 }
 
 export const SleepTimerPopup: React.FC<SleepTimerPopupProps> = ({
@@ -19,7 +20,8 @@ export const SleepTimerPopup: React.FC<SleepTimerPopupProps> = ({
   onClose,
   onMouseDown,
   onSetTimer,
-  onCancelTimer
+  onCancelTimer,
+  showVisualization = false
 }) => {
   if (!show) return null;
 
@@ -34,6 +36,7 @@ export const SleepTimerPopup: React.FC<SleepTimerPopupProps> = ({
       minHeight={380}
       maxWidth={420}
       maxHeight={450}
+      showVisualization={showVisualization}
     >
       <div className="space-y-4">
         <div className="grid grid-cols-3 gap-2">
@@ -61,10 +64,10 @@ export const SleepTimerPopup: React.FC<SleepTimerPopupProps> = ({
           <div className="text-center">
             <p className="text-white/70 text-sm mb-2">
               Timer set for {
-                sleepTimer >= 60 
+                sleepTimer >= 60
                   ? `${Math.floor(sleepTimer / 60)} hour${Math.floor(sleepTimer / 60) !== 1 ? 's' : ''}${sleepTimer % 60 > 0 ? ` ${sleepTimer % 60} minute${sleepTimer % 60 !== 1 ? 's' : ''}` : ''}`
-                  : sleepTimer >= 1 
-                    ? `${sleepTimer} minute${sleepTimer !== 1 ? 's' : ''}` 
+                  : sleepTimer >= 1
+                    ? `${sleepTimer} minute${sleepTimer !== 1 ? 's' : ''}`
                     : 'less than 1 minute'
               }
             </p>

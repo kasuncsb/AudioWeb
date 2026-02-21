@@ -25,7 +25,7 @@ import { MilkDropVisualizer } from './MilkDropVisualizer';
 import { getFileInputAcceptAttribute, revokeAllObjectURLs, revokeObjectURL } from '@/utils/audioUtils';
 import { UI_CONFIG, STORAGE_KEYS } from '@/config/constants';
 
-const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = false, onPlayingChange, onTrackChange, onSleepTimerChange, onVisualizationChange }) => {
+const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = false, onPlayingChange, onTrackChange, onSleepTimerChange, onVisualizationChange, showVisualization = false }) => {
   // State management
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -38,7 +38,6 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
   const [showPlaylist, setShowPlaylist] = useState(false);
   const [showEqualizer, setShowEqualizer] = useState(false);
   const [showSleepTimer, setShowSleepTimer] = useState(false);
-  const [showVisualization, setShowVisualization] = useState(false);
   const [isShuffling, setIsShuffling] = useState(false);
 
   // Use equalizer persistence hook
@@ -82,12 +81,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
     }
   }, [sleepTimer, onSleepTimerChange]);
 
-  // Notify parent component when visualization state changes
-  useEffect(() => {
-    if (onVisualizationChange) {
-      onVisualizationChange(showVisualization);
-    }
-  }, [showVisualization, onVisualizationChange]);
+  // Removed unused useEffect checking showVisualization local state since it's now a prop
 
   // Shuffle utility function - reorders the playlist
   const shufflePlaylist = useCallback(() => {
@@ -512,7 +506,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                         onPlaylistToggle={() => setShowPlaylist(!showPlaylist)}
                         onSleepTimerToggle={() => setShowSleepTimer(!showSleepTimer)}
                         onEqualizerToggle={() => setShowEqualizer(!showEqualizer)}
-                        onVisualizationToggle={() => setShowVisualization(!showVisualization)}
+                        onVisualizationToggle={() => onVisualizationChange && onVisualizationChange(!showVisualization)}
                         sleepTimer={sleepTimer}
                         showVisualization={showVisualization}
                       />
@@ -621,7 +615,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                           onPlaylistToggle={() => setShowPlaylist(!showPlaylist)}
                           onSleepTimerToggle={() => setShowSleepTimer(!showSleepTimer)}
                           onEqualizerToggle={() => setShowEqualizer(!showEqualizer)}
-                          onVisualizationToggle={() => setShowVisualization(!showVisualization)}
+                          onVisualizationToggle={() => onVisualizationChange && onVisualizationChange(!showVisualization)}
                           sleepTimer={sleepTimer}
                           showVisualization={showVisualization}
                         />
@@ -675,6 +669,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
             onAddTracks={handleAddTracks}
             isPlaying={isPlaying}
             isShuffling={isShuffling}
+            showVisualization={showVisualization}
           />
 
           <SleepTimerPopup
@@ -686,6 +681,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
             onMouseDown={(e) => handleMouseDown('sleepTimer', e)}
             onSetTimer={(minutes) => setSleepTimer(minutes * 60)} // Convert minutes to seconds
             onCancelTimer={() => setSleepTimer(0)}
+            showVisualization={showVisualization}
           />
 
           <EqualizerPopup
@@ -695,6 +691,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
             onClose={() => setShowEqualizer(false)}
             onMouseDown={(e) => handleMouseDown('equalizer', e)}
             onUpdateSettings={setEqualizerSettings}
+            showVisualization={showVisualization}
           />
 
           <PlayerStyles />

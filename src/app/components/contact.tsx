@@ -5,17 +5,18 @@ import React from 'react';
 interface SupportPopupProps {
   show: boolean;
   onClose: () => void;
+  showVisualization?: boolean;
 }
 
-const SupportOption: React.FC<{ 
-  icon: React.ReactNode; 
-  title: string; 
+const SupportOption: React.FC<{
+  icon: React.ReactNode;
+  title: string;
   description: string;
   href?: string;
   onClick?: () => void;
 }> = ({ icon, title, description, href, onClick }) => {
   const Component = href ? 'a' : 'button';
-  const props = href 
+  const props = href
     ? { href, target: '_blank', rel: 'noopener noreferrer' }
     : { onClick };
 
@@ -38,7 +39,7 @@ const SupportOption: React.FC<{
   );
 };
 
-export const SupportPopup: React.FC<SupportPopupProps> = ({ show, onClose }) => {
+export const SupportPopup: React.FC<SupportPopupProps> = ({ show, onClose, showVisualization = false }) => {
   if (!show) return null;
 
   const handleBackdropClick = (e: React.MouseEvent) => {
@@ -52,22 +53,23 @@ export const SupportPopup: React.FC<SupportPopupProps> = ({ show, onClose }) => 
   };
 
   return (
-    <div 
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4 transition-all duration-500"
       style={{
-        background: 'rgba(0, 0, 0, 0.8)',
-        backdropFilter: 'blur(20px) saturate(120%)',
-        WebkitBackdropFilter: 'blur(20px) saturate(120%)',
+        background: showVisualization ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.8)',
+        backdropFilter: showVisualization ? 'none' : 'blur(20px) saturate(120%)',
+        WebkitBackdropFilter: showVisualization ? 'none' : 'blur(20px) saturate(120%)',
       }}
       onClick={handleBackdropClick}
     >
-      <div 
-        className="relative w-full max-w-md max-h-[90vh] overflow-y-auto custom-scrollbar rounded-3xl p-6"
+      <div
+        className="relative w-full max-w-md max-h-[90vh] overflow-y-auto custom-scrollbar rounded-3xl p-6 transition-all duration-500"
         style={{
-          background: 'rgba(20, 20, 28, 0.95)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+          background: showVisualization ? 'rgba(15, 15, 20, 0.35)' : 'rgba(20, 20, 28, 0.95)',
+          backdropFilter: 'blur(24px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+          border: showVisualization ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(255, 255, 255, 0.1)',
+          boxShadow: showVisualization ? '0 8px 32px rgba(0, 0, 0, 0.2)' : '0 20px 60px rgba(0, 0, 0, 0.5)',
         }}
       >
         {/* Close Button */}
@@ -86,13 +88,13 @@ export const SupportPopup: React.FC<SupportPopupProps> = ({ show, onClose }) => 
           <div className="text-center space-y-3">
             <div className="w-16 h-16 mx-auto rounded-2xl bg-blue-500/20 flex items-center justify-center">
               <svg className="w-8 h-8 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="10" strokeWidth="2"/>
+                <circle cx="12" cy="12" r="10" strokeWidth="2" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3m0 4h.01" />
               </svg>
             </div>
             <h2 className="text-xl font-semibold text-white">Need help?</h2>
             <p className="text-white/70 text-sm leading-relaxed">
-              Found a bug, have a feature request, or need assistance with the audio player? 
+              Found a bug, have a feature request, or need assistance with the audio player?
               Choose the best way to get in touch below.
             </p>
           </div>
@@ -113,7 +115,7 @@ export const SupportPopup: React.FC<SupportPopupProps> = ({ show, onClose }) => 
             <SupportOption
               icon={
                 <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 10.956.557-.085-.003-.204-.003-.446v-1.611c-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.997.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22v3.293c0 .319-.192.694-.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                  <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 10.956.557-.085-.003-.204-.003-.446v-1.611c-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.997.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22v3.293c0 .319-.192.694-.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
                 </svg>
               }
               title="GitHub Issues"

@@ -20,19 +20,19 @@ export interface AudioMetadata {
   albumArtist?: string;
   year?: number;
   genre?: string;
-  
+
   // Extended information
   composer?: string;
   conductor?: string;
   lyricist?: string;
   performer?: string;
-  
+
   // Track information
   trackNumber?: number;
   trackTotal?: number;
   discNumber?: number;
   discTotal?: number;
-  
+
   // Audio quality information
   bitrate?: number; // in kbps
   sampleRate?: number; // in Hz
@@ -40,7 +40,7 @@ export interface AudioMetadata {
   codec?: string;
   format?: string; // e.g., 'FLAC', 'MP3', 'WAV'
   lossless?: boolean;
-  
+
   // Additional metadata
   copyright?: string;
   publisher?: string;
@@ -49,19 +49,19 @@ export interface AudioMetadata {
   isrc?: string; // International Standard Recording Code
   barcode?: string;
   catalogNumber?: string;
-  
+
   // ReplayGain for volume normalization
   replaygainTrackGain?: number;
   replaygainTrackPeak?: number;
   replaygainAlbumGain?: number;
   replaygainAlbumPeak?: number;
-  
+
   // Ratings and mood
   rating?: number; // 0-5 or 0-100 depending on source
   mood?: string;
   bpm?: number;
   key?: string; // Musical key (e.g., 'C major', 'A minor')
-  
+
   // Lyrics
   lyrics?: string;
   syncedLyrics?: string;
@@ -73,49 +73,49 @@ export interface AudioMetadata {
 export interface AudioTrack {
   /** Unique identifier for the track */
   id: string;
-  
+
   /** Track title */
   title: string;
-  
+
   /** Track artist */
   artist: string;
-  
+
   /** Album name */
   album?: string;
-  
+
   /** Track duration in seconds */
   duration: number;
-  
+
   /** Original file object */
   file: File;
-  
+
   /** Object URL for playback */
   url: string;
-  
+
   /** Whether this track is currently active/playing */
   isActive: boolean;
-  
+
   /** Album artwork as data URL or object URL */
   albumArt?: string;
-  
+
   /** Release year */
   year?: number;
-  
+
   /** Genre */
   genre?: string;
-  
+
   /** Plain text lyrics */
   lyrics?: string;
-  
+
   /** Time-synchronized lyrics from LRC files */
   lrcLyrics?: LyricLine[];
-  
+
   /** Extended metadata information */
   metadata?: AudioMetadata;
-  
+
   /** Error message if track failed to load */
   error?: string;
-  
+
   /** Loading state */
   isLoading?: boolean;
 }
@@ -128,6 +128,7 @@ export interface PlayerProps {
   onTrackChange?: (currentTrack: AudioTrack | null, nextTrack: AudioTrack | null) => void;
   onSleepTimerChange?: (sleepTimer: number) => void;
   onVisualizationChange?: (showVisualization: boolean) => void;
+  showVisualization?: boolean;
 }
 
 export interface PopupPositions {
@@ -149,11 +150,11 @@ export interface EqualizerSettings {
   band4k: number;    // 4 kHz - Presence
   band8k: number;    // 8 kHz - Brilliance
   band16k: number;   // 16 kHz - Air
-  
+
   // Advanced tone controls for enhanced bass/treble
   bassTone: number;    // -12 to +12 dB - Deep bass enhancement
   trebleTone: number;  // -12 to +12 dB - Crisp treble enhancement
-  
+
   preset: string;
   enabled: boolean;  // Master EQ on/off toggle
 }

@@ -10,6 +10,7 @@ interface EqualizerPopupProps {
   onClose: () => void;
   onMouseDown: (e: React.MouseEvent) => void;
   onUpdateSettings: (settings: EqualizerSettings) => void;
+  showVisualization?: boolean;
 }
 
 export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
@@ -18,7 +19,8 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
   settings,
   onClose,
   onMouseDown,
-  onUpdateSettings
+  onUpdateSettings,
+  showVisualization = false
 }) => {
   // Detect mobile device based on window width
   const [isMobileDevice, setIsMobileDevice] = useState(false);
@@ -27,7 +29,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
     const checkMobile = () => {
       setIsMobileDevice(window.innerWidth < 768);
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
@@ -62,9 +64,9 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
 
   const handleSliderChange = (key: keyof EqualizerSettings, value: number) => {
     if (key === 'preset' || key === 'enabled') return;
-    
-    onUpdateSettings({ 
-      ...settings, 
+
+    onUpdateSettings({
+      ...settings,
       [key]: value,
       preset: 'custom' // Switch to custom when manually adjusting
     });
@@ -142,24 +144,25 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       minHeight={isMobileDevice ? 600 : 500}
       maxWidth={isMobileDevice ? 600 : 1400}
       maxHeight={isMobileDevice ? 900 : 800}
+      showVisualization={showVisualization}
     >
       {(size) => {
         // Use device detection for layout choice
         const isMobile = isMobileDevice;
-        
+
         // Calculate responsive sizes based on popup dimensions
         const baseHeight = 500;
         const baseWidth = isMobile ? 400 : 900;
         const heightScale = Math.max(1, size.height / baseHeight);
         const widthScale = Math.max(1, size.width / baseWidth);
-        
+
         // Fader dimensions scale with popup size
-        const faderHeight = isMobile 
+        const faderHeight = isMobile
           ? Math.min(300, 180 * heightScale) // Mobile: shorter faders
           : Math.min(400, 200 * heightScale); // Desktop: taller faders
         const faderWidth = Math.min(12, 8 * widthScale);
         const thumbSize = Math.min(28, 20 + (widthScale - 1) * 4);
-        
+
         // Mobile Layout: Vertical Stack (same components as desktop)
         if (isMobile) {
           return (
@@ -169,11 +172,10 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                 <div className="flex items-center gap-3">
                   <button
                     onClick={handleToggleEnabled}
-                    className={`px-4 py-2 rounded-xl transition-all duration-200 text-xs font-medium ${
-                      settings.enabled
-                        ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                    className={`px-4 py-2 rounded-xl transition-all duration-200 text-xs font-medium ${settings.enabled
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
                         : 'bg-red-500/20 text-red-400 border border-red-500/30'
-                    }`}
+                      }`}
                   >
                     {settings.enabled ? '✓ EQ Enabled' : '✗ EQ Disabled'}
                   </button>
@@ -205,11 +207,10 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                       <button
                         key={presetKey}
                         onClick={() => handlePresetChange(presetKey)}
-                        className={`p-3 rounded-lg transition-all duration-200 text-left ${
-                          settings.preset === presetKey 
-                            ? 'bg-blue-500/30 text-blue-300 border border-blue-400/50 shadow-lg' 
+                        className={`p-3 rounded-lg transition-all duration-200 text-left ${settings.preset === presetKey
+                            ? 'bg-blue-500/30 text-blue-300 border border-blue-400/50 shadow-lg'
                             : 'bg-white/5 text-white/60 hover:bg-white/10 border border-white/10'
-                        }`}
+                          }`}
                       >
                         <div className="font-medium text-sm">{preset.name}</div>
                         <div className="text-[10px] text-white/40 mt-0.5">{preset.description}</div>
@@ -228,23 +229,22 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                   {bands.map(({ key, label, value }) => {
                     const fillPercentage = getSliderFillPercentage(value);
                     const sliderColor = getSliderColor();
-                    
+
                     return (
                       <div key={key} className="flex flex-col items-center gap-2 flex-1">
                         {/* Value Display */}
-                        <div className={`text-[10px] font-mono font-semibold ${
-                          value > 0 ? 'text-green-400' : value < 0 ? 'text-red-400' : 'text-white/50'
-                        }`}>
+                        <div className={`text-[10px] font-mono font-semibold ${value > 0 ? 'text-green-400' : value < 0 ? 'text-red-400' : 'text-white/50'
+                          }`}>
                           {value > 0 ? '+' : ''}{value.toFixed(1)}
                         </div>
-                        
+
                         {/* Custom Vertical Slider Bar */}
-                        <div 
+                        <div
                           className="relative bg-white/10 rounded-lg overflow-visible"
                           style={{ height: `${faderHeight}px`, width: '8px' }}
                         >
                           {/* Filled portion from bottom */}
-                          <div 
+                          <div
                             className="absolute bottom-0 left-0 right-0 rounded-lg transition-all duration-100"
                             style={{
                               height: `${fillPercentage}%`,
@@ -252,13 +252,13 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                               opacity: settings.enabled ? 1 : 0.3,
                             }}
                           />
-                          
+
                           {/* Center marker (0dB line) */}
-                          <div 
+                          <div
                             className="absolute left-1/2 transform -translate-x-1/2 h-0.5 bg-white/40 pointer-events-none"
                             style={{ bottom: '50%', width: '16px', marginLeft: '-8px' }}
                           />
-                          
+
                           {/* Draggable Thumb */}
                           <div
                             className="absolute left-1/2 transform -translate-x-1/2 w-6 h-6 bg-white rounded-full shadow-lg cursor-grab active:cursor-grabbing transition-transform active:scale-95"
@@ -271,26 +271,26 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                               if (!settings.enabled) return;
                               e.preventDefault();
                               e.stopPropagation();
-                              
+
                               const bar = e.currentTarget.parentElement!;
                               const rect = bar.getBoundingClientRect();
-                              
+
                               const updateValue = (clientY: number) => {
                                 const y = rect.bottom - clientY;
                                 const percentage = Math.max(0, Math.min(1, y / rect.height));
                                 const newValue = (percentage * 24) - 12;
                                 handleSliderChange(key, Math.round(newValue * 2) / 2);
                               };
-                              
+
                               const handleMouseMove = (moveEvent: MouseEvent) => {
                                 updateValue(moveEvent.clientY);
                               };
-                              
+
                               const handleMouseUp = () => {
                                 document.removeEventListener('mousemove', handleMouseMove);
                                 document.removeEventListener('mouseup', handleMouseUp);
                               };
-                              
+
                               document.addEventListener('mousemove', handleMouseMove);
                               document.addEventListener('mouseup', handleMouseUp);
                             }}
@@ -301,42 +301,42 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                             }}
                             ref={(el) => {
                               if (!el) return;
-                              
+
                               const handleTouchStart = (e: TouchEvent) => {
                                 if (!settings.enabled) return;
                                 e.preventDefault(); // Safe in native listener
-                                
+
                                 const bar = (e.target as HTMLElement).parentElement!;
                                 const rect = bar.getBoundingClientRect();
-                                
+
                                 const updateValue = (clientY: number) => {
                                   const y = rect.bottom - clientY;
                                   const percentage = Math.max(0, Math.min(1, y / rect.height));
                                   const newValue = (percentage * 24) - 12;
                                   handleSliderChange(key, Math.round(newValue * 2) / 2);
                                 };
-                                
+
                                 const handleTouchMove = (moveEvent: TouchEvent) => {
                                   if (moveEvent.touches.length > 0) {
                                     updateValue(moveEvent.touches[0].clientY);
                                   }
                                 };
-                                
+
                                 const handleTouchEnd = () => {
                                   document.removeEventListener('touchmove', handleTouchMove);
                                   document.removeEventListener('touchend', handleTouchEnd);
                                 };
-                                
+
                                 document.addEventListener('touchmove', handleTouchMove, { passive: false });
                                 document.addEventListener('touchend', handleTouchEnd);
                               };
-                              
+
                               el.addEventListener('touchstart', handleTouchStart, { passive: false });
                               return () => el.removeEventListener('touchstart', handleTouchStart);
                             }}
                           />
                         </div>
-                        
+
                         {/* Frequency Label */}
                         <div className="text-[9px] font-semibold text-white/60 text-center whitespace-nowrap">
                           {label}
@@ -352,26 +352,25 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                 <div className="space-y-4 p-5 rounded-xl bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20">
                   <h3 className="text-xs font-semibold text-purple-300/80 uppercase tracking-wider flex items-center gap-2">
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                      <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
                     </svg>
                     Tone Control
                   </h3>
-                  
+
                   {/* Bass Tone */}
                   <div className="space-y-2">
                     <label className="text-white/80 text-xs font-medium flex justify-between items-center">
                       <span className="font-semibold">🎵 Bass</span>
-                      <span className={`font-mono text-sm ${
-                        settings.bassTone > 0 ? 'text-green-400' : settings.bassTone < 0 ? 'text-red-400' : 'text-white/50'
-                      }`}>
+                      <span className={`font-mono text-sm ${settings.bassTone > 0 ? 'text-green-400' : settings.bassTone < 0 ? 'text-red-400' : 'text-white/50'
+                        }`}>
                         {settings.bassTone > 0 ? '+' : ''}{settings.bassTone.toFixed(1)}dB
                       </span>
                     </label>
                     <div className="text-[10px] text-white/40 mb-2">Deep bass enhancement (65Hz, natural response)</div>
-                    
+
                     {/* Custom Horizontal Slider */}
                     <div className="relative">
-                      <div 
+                      <div
                         className="relative h-3 bg-white/10 rounded-lg overflow-visible cursor-pointer"
                         onClick={(e) => {
                           if (!settings.enabled) return;
@@ -383,7 +382,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                         }}
                       >
                         {/* Filled portion */}
-                        <div 
+                        <div
                           className="absolute left-0 top-0 bottom-0 rounded-lg transition-all duration-100"
                           style={{
                             width: `${getSliderFillPercentage(settings.bassTone)}%`,
@@ -391,10 +390,10 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                             opacity: settings.enabled ? 1 : 0.3,
                           }}
                         />
-                        
+
                         {/* Center marker (0dB line) */}
                         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-0.5 h-5 bg-white/30 pointer-events-none" />
-                        
+
                         {/* Draggable Thumb */}
                         <div
                           className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-lg cursor-grab active:cursor-grabbing transition-transform active:scale-95"
@@ -407,26 +406,26 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                             if (!settings.enabled) return;
                             e.preventDefault();
                             e.stopPropagation();
-                            
+
                             const bar = e.currentTarget.parentElement!;
                             const rect = bar.getBoundingClientRect();
-                            
+
                             const updateValue = (clientX: number) => {
                               const x = clientX - rect.left;
                               const percentage = Math.max(0, Math.min(1, x / rect.width));
                               const newValue = (percentage * 24) - 12;
                               handleSliderChange('bassTone' as keyof EqualizerSettings, Math.round(newValue * 2) / 2);
                             };
-                            
+
                             const handleMouseMove = (moveEvent: MouseEvent) => {
                               updateValue(moveEvent.clientX);
                             };
-                            
+
                             const handleMouseUp = () => {
                               document.removeEventListener('mousemove', handleMouseMove);
                               document.removeEventListener('mouseup', handleMouseUp);
                             };
-                            
+
                             document.addEventListener('mousemove', handleMouseMove);
                             document.addEventListener('mouseup', handleMouseUp);
                           }}
@@ -437,36 +436,36 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                           }}
                           ref={(el) => {
                             if (!el) return;
-                            
+
                             const handleTouchStart = (e: TouchEvent) => {
                               if (!settings.enabled) return;
                               e.preventDefault(); // Safe in native listener
-                              
+
                               const bar = (e.target as HTMLElement).parentElement!;
                               const rect = bar.getBoundingClientRect();
-                              
+
                               const updateValue = (clientX: number) => {
                                 const x = clientX - rect.left;
                                 const percentage = Math.max(0, Math.min(1, x / rect.width));
                                 const newValue = (percentage * 24) - 12;
                                 handleSliderChange('bassTone' as keyof EqualizerSettings, Math.round(newValue * 2) / 2);
                               };
-                              
+
                               const handleTouchMove = (moveEvent: TouchEvent) => {
                                 if (moveEvent.touches.length > 0) {
                                   updateValue(moveEvent.touches[0].clientX);
                                 }
                               };
-                              
+
                               const handleTouchEnd = () => {
                                 document.removeEventListener('touchmove', handleTouchMove);
                                 document.removeEventListener('touchend', handleTouchEnd);
                               };
-                              
+
                               document.addEventListener('touchmove', handleTouchMove, { passive: false });
                               document.addEventListener('touchend', handleTouchEnd);
                             };
-                            
+
                             el.addEventListener('touchstart', handleTouchStart, { passive: false });
                             return () => el.removeEventListener('touchstart', handleTouchStart);
                           }}
@@ -479,17 +478,16 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                   <div className="space-y-2">
                     <label className="text-white/80 text-xs font-medium flex justify-between items-center">
                       <span className="font-semibold">🎶 Treble</span>
-                      <span className={`font-mono text-sm ${
-                        settings.trebleTone > 0 ? 'text-green-400' : settings.trebleTone < 0 ? 'text-red-400' : 'text-white/50'
-                      }`}>
+                      <span className={`font-mono text-sm ${settings.trebleTone > 0 ? 'text-green-400' : settings.trebleTone < 0 ? 'text-red-400' : 'text-white/50'
+                        }`}>
                         {settings.trebleTone > 0 ? '+' : ''}{settings.trebleTone.toFixed(1)}dB
                       </span>
                     </label>
                     <div className="text-[10px] text-white/40 mb-2">Crystal clear treble (11kHz, natural air)</div>
-                    
+
                     {/* Custom Horizontal Slider */}
                     <div className="relative">
-                      <div 
+                      <div
                         className="relative h-3 bg-white/10 rounded-lg overflow-visible cursor-pointer"
                         onClick={(e) => {
                           if (!settings.enabled) return;
@@ -501,7 +499,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                         }}
                       >
                         {/* Filled portion */}
-                        <div 
+                        <div
                           className="absolute left-0 top-0 bottom-0 rounded-lg transition-all duration-100"
                           style={{
                             width: `${getSliderFillPercentage(settings.trebleTone)}%`,
@@ -509,10 +507,10 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                             opacity: settings.enabled ? 1 : 0.3,
                           }}
                         />
-                        
+
                         {/* Center marker (0dB line) */}
                         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-0.5 h-5 bg-white/30 pointer-events-none" />
-                        
+
                         {/* Draggable Thumb */}
                         <div
                           className="absolute top-1/2 transform -translate-y-1/2 w-5 h-5 bg-white rounded-full shadow-lg cursor-grab active:cursor-grabbing transition-transform active:scale-95"
@@ -525,26 +523,26 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                             if (!settings.enabled) return;
                             e.preventDefault();
                             e.stopPropagation();
-                            
+
                             const bar = e.currentTarget.parentElement!;
                             const rect = bar.getBoundingClientRect();
-                            
+
                             const updateValue = (clientX: number) => {
                               const x = clientX - rect.left;
                               const percentage = Math.max(0, Math.min(1, x / rect.width));
                               const newValue = (percentage * 24) - 12;
                               handleSliderChange('trebleTone' as keyof EqualizerSettings, Math.round(newValue * 2) / 2);
                             };
-                            
+
                             const handleMouseMove = (moveEvent: MouseEvent) => {
                               updateValue(moveEvent.clientX);
                             };
-                            
+
                             const handleMouseUp = () => {
                               document.removeEventListener('mousemove', handleMouseMove);
                               document.removeEventListener('mouseup', handleMouseUp);
                             };
-                            
+
                             document.addEventListener('mousemove', handleMouseMove);
                             document.addEventListener('mouseup', handleMouseUp);
                           }}
@@ -555,36 +553,36 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                           }}
                           ref={(el) => {
                             if (!el) return;
-                            
+
                             const handleTouchStart = (e: TouchEvent) => {
                               if (!settings.enabled) return;
                               e.preventDefault(); // Safe in native listener
-                              
+
                               const bar = (e.target as HTMLElement).parentElement!;
                               const rect = bar.getBoundingClientRect();
-                              
+
                               const updateValue = (clientX: number) => {
                                 const x = clientX - rect.left;
                                 const percentage = Math.max(0, Math.min(1, x / rect.width));
                                 const newValue = (percentage * 24) - 12;
                                 handleSliderChange('trebleTone' as keyof EqualizerSettings, Math.round(newValue * 2) / 2);
                               };
-                              
+
                               const handleTouchMove = (moveEvent: TouchEvent) => {
                                 if (moveEvent.touches.length > 0) {
                                   updateValue(moveEvent.touches[0].clientX);
                                 }
                               };
-                              
+
                               const handleTouchEnd = () => {
                                 document.removeEventListener('touchmove', handleTouchMove);
                                 document.removeEventListener('touchend', handleTouchEnd);
                               };
-                              
+
                               document.addEventListener('touchmove', handleTouchMove, { passive: false });
                               document.addEventListener('touchend', handleTouchEnd);
                             };
-                            
+
                             el.addEventListener('touchstart', handleTouchStart, { passive: false });
                             return () => el.removeEventListener('touchstart', handleTouchStart);
                           }}
@@ -597,201 +595,196 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
             </div>
           );
         }
-        
+
         // Desktop Layout: Horizontal Panel
         return (
           <div className="flex flex-col h-full gap-4">
-        {/* Top Controls Bar */}
-        <div className="flex items-center justify-between gap-4 pb-4 border-b border-white/10">
-          {/* Left: Enable/Disable & Reset */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleToggleEnabled}
-              className={`px-6 py-2.5 rounded-xl transition-all duration-200 text-sm font-medium ${
-                settings.enabled
-                  ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
-                  : 'bg-red-500/20 text-red-400 border border-red-500/30'
-              }`}
-            >
-              {settings.enabled ? '✓ EQ Enabled' : '✗ EQ Disabled'}
-            </button>
-            <button
-              onClick={handleResetAll}
-              className="px-4 py-2.5 rounded-xl transition-all duration-200 text-sm bg-white/10 text-white/70 hover:bg-white/15 border border-white/10 flex items-center gap-2"
-              title="Reset all bands to 0dB"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              Reset
-            </button>
-          </div>
-
-          {/* Right: Current Preset Display */}
-          <div className="text-sm text-white/60">
-            Current: <span className="font-semibold text-blue-300">
-              {EQUALIZER_PRESETS[settings.preset as keyof typeof EQUALIZER_PRESETS]?.name || 'Custom'}
-            </span>
-          </div>
-        </div>
-
-        {/* Main Content: 2 Column Layout */}
-        <div className="flex gap-6 flex-1 overflow-hidden">
-          {/* Left Column: Presets */}
-          <div className="w-64 flex flex-col gap-3">
-            <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wider">Presets</h3>
-            <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2">
-              {presetKeys.map((presetKey) => {
-                const preset = EQUALIZER_PRESETS[presetKey as keyof typeof EQUALIZER_PRESETS];
-                return (
-                  <button
-                    key={presetKey}
-                    onClick={() => handlePresetChange(presetKey)}
-                    className={`w-full p-3 rounded-lg transition-all duration-200 text-left ${
-                      settings.preset === presetKey 
-                        ? 'bg-blue-500/30 text-blue-300 border border-blue-400/50 shadow-lg' 
-                        : 'bg-white/5 text-white/60 hover:bg-white/10 border border-white/10'
+            {/* Top Controls Bar */}
+            <div className="flex items-center justify-between gap-4 pb-4 border-b border-white/10">
+              {/* Left: Enable/Disable & Reset */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleToggleEnabled}
+                  className={`px-6 py-2.5 rounded-xl transition-all duration-200 text-sm font-medium ${settings.enabled
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                      : 'bg-red-500/20 text-red-400 border border-red-500/30'
                     }`}
-                  >
-                    <div className="font-medium text-sm">{preset.name}</div>
-                    <div className="text-[10px] text-white/40 mt-0.5">{preset.description}</div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+                >
+                  {settings.enabled ? '✓ EQ Enabled' : '✗ EQ Disabled'}
+                </button>
+                <button
+                  onClick={handleResetAll}
+                  className="px-4 py-2.5 rounded-xl transition-all duration-200 text-sm bg-white/10 text-white/70 hover:bg-white/15 border border-white/10 flex items-center gap-2"
+                  title="Reset all bands to 0dB"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Reset
+                </button>
+              </div>
 
-          {/* Center Column: 10-Band EQ with Vertical Faders */}
-          <div className="flex-1 flex flex-col gap-3">
-            <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wider">
-              10-Band Equalizer • ±12dB Range
-            </h3>
-            <div className="flex-1 flex items-end gap-3 justify-between">
-              {bands.map(({ key, label, value }) => {
-                const fillPercentage = getSliderFillPercentage(value);
-                const sliderColor = getSliderColor();
-                
-                return (
-                  <div key={key} className="flex flex-col items-center gap-2 flex-1">
-                    {/* Value Display */}
-                    <div className={`text-xs font-mono font-semibold min-h-[20px] ${
-                      value > 0 ? 'text-green-400' : value < 0 ? 'text-red-400' : 'text-white/50'
-                    }`}>
-                      {value > 0 ? '+' : ''}{value.toFixed(1)}
-                    </div>
-                    
-                    {/* Vertical Slider */}
-                    <div className="relative flex items-center justify-center" style={{ height: `${faderHeight}px`, width: `${faderWidth * 4}px` }}>
+              {/* Right: Current Preset Display */}
+              <div className="text-sm text-white/60">
+                Current: <span className="font-semibold text-blue-300">
+                  {EQUALIZER_PRESETS[settings.preset as keyof typeof EQUALIZER_PRESETS]?.name || 'Custom'}
+                </span>
+              </div>
+            </div>
+
+            {/* Main Content: 2 Column Layout */}
+            <div className="flex gap-6 flex-1 overflow-hidden">
+              {/* Left Column: Presets */}
+              <div className="w-64 flex flex-col gap-3">
+                <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wider">Presets</h3>
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2">
+                  {presetKeys.map((presetKey) => {
+                    const preset = EQUALIZER_PRESETS[presetKey as keyof typeof EQUALIZER_PRESETS];
+                    return (
+                      <button
+                        key={presetKey}
+                        onClick={() => handlePresetChange(presetKey)}
+                        className={`w-full p-3 rounded-lg transition-all duration-200 text-left ${settings.preset === presetKey
+                            ? 'bg-blue-500/30 text-blue-300 border border-blue-400/50 shadow-lg'
+                            : 'bg-white/5 text-white/60 hover:bg-white/10 border border-white/10'
+                          }`}
+                      >
+                        <div className="font-medium text-sm">{preset.name}</div>
+                        <div className="text-[10px] text-white/40 mt-0.5">{preset.description}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Center Column: 10-Band EQ with Vertical Faders */}
+              <div className="flex-1 flex flex-col gap-3">
+                <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wider">
+                  10-Band Equalizer • ±12dB Range
+                </h3>
+                <div className="flex-1 flex items-end gap-3 justify-between">
+                  {bands.map(({ key, label, value }) => {
+                    const fillPercentage = getSliderFillPercentage(value);
+                    const sliderColor = getSliderColor();
+
+                    return (
+                      <div key={key} className="flex flex-col items-center gap-2 flex-1">
+                        {/* Value Display */}
+                        <div className={`text-xs font-mono font-semibold min-h-[20px] ${value > 0 ? 'text-green-400' : value < 0 ? 'text-red-400' : 'text-white/50'
+                          }`}>
+                          {value > 0 ? '+' : ''}{value.toFixed(1)}
+                        </div>
+
+                        {/* Vertical Slider */}
+                        <div className="relative flex items-center justify-center" style={{ height: `${faderHeight}px`, width: `${faderWidth * 4}px` }}>
+                          <input
+                            type="range"
+                            min="-12"
+                            max="12"
+                            step="0.5"
+                            value={value}
+                            onChange={(e) => handleSliderChange(key, Number(e.target.value))}
+                            disabled={!settings.enabled}
+                            className="vertical-slider appearance-none cursor-pointer"
+                            style={{
+                              background: `linear-gradient(to top, ${sliderColor} 0%, ${sliderColor} ${fillPercentage}%, rgba(255,255,255,0.1) ${fillPercentage}%, rgba(255,255,255,0.1) 100%)`,
+                              opacity: settings.enabled ? 1 : 0.3,
+                              width: `${faderWidth}px`,
+                              height: '100%',
+                              '--thumb-size': `${thumbSize}px`,
+                            } as React.CSSProperties & { '--thumb-size': string }}
+                          />
+                          {/* Center marker */}
+                          <div
+                            className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 h-0.5 bg-white/30 pointer-events-none"
+                            style={{ width: `${faderWidth * 5}px` }}
+                          />
+                        </div>
+
+                        {/* Frequency Label */}
+                        <div className="text-[10px] font-semibold text-white/60 text-center whitespace-nowrap">
+                          {label}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Right Column: Tone Controls */}
+              <div className="w-72 flex flex-col gap-4">
+                <div className="space-y-4 p-5 rounded-xl bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20">
+                  <h3 className="text-xs font-semibold text-purple-300/80 uppercase tracking-wider flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                    </svg>
+                    Tone Control
+                  </h3>
+
+                  {/* Bass Tone */}
+                  <div className="space-y-2">
+                    <label className="text-white/80 text-xs font-medium flex justify-between items-center">
+                      <span className="font-semibold">🎵 Bass</span>
+                      <span className={`font-mono text-sm ${settings.bassTone > 0 ? 'text-green-400' : settings.bassTone < 0 ? 'text-red-400' : 'text-white/50'
+                        }`}>
+                        {settings.bassTone > 0 ? '+' : ''}{settings.bassTone.toFixed(1)}dB
+                      </span>
+                    </label>
+                    <div className="text-[10px] text-white/40 mb-2">Deep bass enhancement (100Hz lowshelf)</div>
+                    <div className="relative">
                       <input
                         type="range"
                         min="-12"
                         max="12"
                         step="0.5"
-                        value={value}
-                        onChange={(e) => handleSliderChange(key, Number(e.target.value))}
+                        value={settings.bassTone}
+                        onChange={(e) => handleSliderChange('bassTone' as keyof EqualizerSettings, Number(e.target.value))}
                         disabled={!settings.enabled}
-                        className="vertical-slider appearance-none cursor-pointer"
+                        className="w-full h-3 rounded-lg appearance-none cursor-pointer slider-custom"
                         style={{
-                          background: `linear-gradient(to top, ${sliderColor} 0%, ${sliderColor} ${fillPercentage}%, rgba(255,255,255,0.1) ${fillPercentage}%, rgba(255,255,255,0.1) 100%)`,
+                          background: `linear-gradient(to right, ${getToneSliderColor(settings.bassTone)} 0%, ${getToneSliderColor(settings.bassTone)} ${getSliderFillPercentage(settings.bassTone)}%, rgba(255,255,255,0.1) ${getSliderFillPercentage(settings.bassTone)}%, rgba(255,255,255,0.1) 100%)`,
                           opacity: settings.enabled ? 1 : 0.3,
-                          width: `${faderWidth}px`,
-                          height: '100%',
-                          '--thumb-size': `${thumbSize}px`,
-                        } as React.CSSProperties & { '--thumb-size': string }}
+                        }}
                       />
-                      {/* Center marker */}
-                      <div 
-                        className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 h-0.5 bg-white/30 pointer-events-none"
-                        style={{ width: `${faderWidth * 5}px` }}
-                      />
-                    </div>
-                    
-                    {/* Frequency Label */}
-                    <div className="text-[10px] font-semibold text-white/60 text-center whitespace-nowrap">
-                      {label}
+                      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-0.5 h-5 bg-white/20 pointer-events-none" />
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          </div>
 
-          {/* Right Column: Tone Controls */}
-          <div className="w-72 flex flex-col gap-4">
-            <div className="space-y-4 p-5 rounded-xl bg-gradient-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20">
-              <h3 className="text-xs font-semibold text-purple-300/80 uppercase tracking-wider flex items-center gap-2">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-                </svg>
-                Tone Control
-              </h3>
-              
-              {/* Bass Tone */}
-              <div className="space-y-2">
-                <label className="text-white/80 text-xs font-medium flex justify-between items-center">
-                  <span className="font-semibold">🎵 Bass</span>
-                  <span className={`font-mono text-sm ${
-                    settings.bassTone > 0 ? 'text-green-400' : settings.bassTone < 0 ? 'text-red-400' : 'text-white/50'
-                  }`}>
-                    {settings.bassTone > 0 ? '+' : ''}{settings.bassTone.toFixed(1)}dB
-                  </span>
-                </label>
-                <div className="text-[10px] text-white/40 mb-2">Deep bass enhancement (100Hz lowshelf)</div>
-                <div className="relative">
-                  <input
-                    type="range"
-                    min="-12"
-                    max="12"
-                    step="0.5"
-                    value={settings.bassTone}
-                    onChange={(e) => handleSliderChange('bassTone' as keyof EqualizerSettings, Number(e.target.value))}
-                    disabled={!settings.enabled}
-                    className="w-full h-3 rounded-lg appearance-none cursor-pointer slider-custom"
-                    style={{
-                      background: `linear-gradient(to right, ${getToneSliderColor(settings.bassTone)} 0%, ${getToneSliderColor(settings.bassTone)} ${getSliderFillPercentage(settings.bassTone)}%, rgba(255,255,255,0.1) ${getSliderFillPercentage(settings.bassTone)}%, rgba(255,255,255,0.1) 100%)`,
-                      opacity: settings.enabled ? 1 : 0.3,
-                    }}
-                  />
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-0.5 h-5 bg-white/20 pointer-events-none" />
+                  {/* Treble Tone */}
+                  <div className="space-y-2">
+                    <label className="text-white/80 text-xs font-medium flex justify-between items-center">
+                      <span className="font-semibold">🎶 Treble</span>
+                      <span className={`font-mono text-sm ${settings.trebleTone > 0 ? 'text-green-400' : settings.trebleTone < 0 ? 'text-red-400' : 'text-white/50'
+                        }`}>
+                        {settings.trebleTone > 0 ? '+' : ''}{settings.trebleTone.toFixed(1)}dB
+                      </span>
+                    </label>
+                    <div className="text-[10px] text-white/40 mb-2">Crisp treble enhancement (8kHz highshelf)</div>
+                    <div className="relative">
+                      <input
+                        type="range"
+                        min="-12"
+                        max="12"
+                        step="0.5"
+                        value={settings.trebleTone}
+                        onChange={(e) => handleSliderChange('trebleTone' as keyof EqualizerSettings, Number(e.target.value))}
+                        disabled={!settings.enabled}
+                        className="w-full h-3 rounded-lg appearance-none cursor-pointer slider-custom"
+                        style={{
+                          background: `linear-gradient(to right, ${getToneSliderColor(settings.trebleTone)} 0%, ${getToneSliderColor(settings.trebleTone)} ${getSliderFillPercentage(settings.trebleTone)}%, rgba(255,255,255,0.1) ${getSliderFillPercentage(settings.trebleTone)}%, rgba(255,255,255,0.1) 100%)`,
+                          opacity: settings.enabled ? 1 : 0.3,
+                        }}
+                      />
+                      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-0.5 h-5 bg-white/20 pointer-events-none" />
+                    </div>
+                  </div>
+
                 </div>
               </div>
-
-              {/* Treble Tone */}
-              <div className="space-y-2">
-                <label className="text-white/80 text-xs font-medium flex justify-between items-center">
-                  <span className="font-semibold">🎶 Treble</span>
-                  <span className={`font-mono text-sm ${
-                    settings.trebleTone > 0 ? 'text-green-400' : settings.trebleTone < 0 ? 'text-red-400' : 'text-white/50'
-                  }`}>
-                    {settings.trebleTone > 0 ? '+' : ''}{settings.trebleTone.toFixed(1)}dB
-                  </span>
-                </label>
-                <div className="text-[10px] text-white/40 mb-2">Crisp treble enhancement (8kHz highshelf)</div>
-                <div className="relative">
-                  <input
-                    type="range"
-                    min="-12"
-                    max="12"
-                    step="0.5"
-                    value={settings.trebleTone}
-                    onChange={(e) => handleSliderChange('trebleTone' as keyof EqualizerSettings, Number(e.target.value))}
-                    disabled={!settings.enabled}
-                    className="w-full h-3 rounded-lg appearance-none cursor-pointer slider-custom"
-                    style={{
-                      background: `linear-gradient(to right, ${getToneSliderColor(settings.trebleTone)} 0%, ${getToneSliderColor(settings.trebleTone)} ${getSliderFillPercentage(settings.trebleTone)}%, rgba(255,255,255,0.1) ${getSliderFillPercentage(settings.trebleTone)}%, rgba(255,255,255,0.1) 100%)`,
-                      opacity: settings.enabled ? 1 : 0.3,
-                    }}
-                  />
-                  <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-0.5 h-5 bg-white/20 pointer-events-none" />
-                </div>
-              </div>
-
             </div>
           </div>
-        </div>
-      </div>
         );
-        }}
+      }}
     </ResizablePopup>
   );
 };

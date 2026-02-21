@@ -9,6 +9,7 @@ interface AboutPopupProps {
   show: boolean;
   onClose: () => void;
   isPlaying?: boolean;
+  showVisualization?: boolean;
 }
 
 const Logo: React.FC<{ isPlaying?: boolean }> = ({ isPlaying = false }) => {
@@ -44,41 +45,41 @@ const Logo: React.FC<{ isPlaying?: boolean }> = ({ isPlaying = false }) => {
   };
 
   return (
-  <div className="w-24 h-24 mx-auto mt-3 mb-10 relative" style={{ transform: 'translateY(5%)' }}>
+    <div className="w-24 h-24 mx-auto mt-3 mb-10 relative" style={{ transform: 'translateY(5%)' }}>
       {/* Animated visualization when playing */}
       {showAnimations && (
         <>
           {/* Large outer pulsing ring 1 - Purple color */}
-          <div 
+          <div
             className="absolute -inset-2 rounded-full border-4 border-purple-500"
             style={{
               opacity: isFadingOut ? 0 : 0.6,
-              animation: isFadingOut 
-                ? 'pulse-ring 2s ease-out infinite' 
+              animation: isFadingOut
+                ? 'pulse-ring 2s ease-out infinite'
                 : 'pulse-ring 2s ease-out infinite, fade-in-scale 0.5s ease-out',
               transition: 'opacity 1.8s ease-out',
             }}
           />
-          
+
           {/* Large outer pulsing ring 2 - delayed - Blue color */}
-          <div 
+          <div
             className="absolute -inset-2 rounded-full border-4 border-blue-400"
             style={{
               opacity: isFadingOut ? 0 : 0.4,
-              animation: isFadingOut 
-                ? 'pulse-ring 2s ease-out infinite 1s' 
+              animation: isFadingOut
+                ? 'pulse-ring 2s ease-out infinite 1s'
                 : 'pulse-ring 2s ease-out infinite 1s, fade-in-scale 0.6s ease-out',
               transition: 'opacity 2s ease-out',
             }}
           />
-          
+
           {/* Thick rotating circle border - CLOCKWISE - Purple */}
-          <div 
+          <div
             className="absolute -inset-1 border-4 rounded-full"
             style={{
               opacity: isFadingOut ? 0 : 1,
-              animation: isFadingOut 
-                ? 'rotate-bars 3s linear infinite' 
+              animation: isFadingOut
+                ? 'rotate-bars 3s linear infinite'
                 : 'rotate-bars 3s linear infinite, fade-in-scale 0.4s ease-out',
               borderColor: 'transparent',
               borderTopColor: 'rgb(168, 85, 247)',
@@ -88,12 +89,12 @@ const Logo: React.FC<{ isPlaying?: boolean }> = ({ isPlaying = false }) => {
           />
 
           {/* Thick counter-rotating circle border - COUNTER-CLOCKWISE - Blue */}
-          <div 
+          <div
             className="absolute inset-0 border-4 rounded-full"
             style={{
               opacity: isFadingOut ? 0 : 1,
-              animation: isFadingOut 
-                ? 'rotate-bars 2s linear infinite reverse' 
+              animation: isFadingOut
+                ? 'rotate-bars 2s linear infinite reverse'
                 : 'rotate-bars 2s linear infinite reverse, fade-in-scale 0.5s ease-out',
               borderColor: 'transparent',
               borderBottomColor: 'rgb(96, 165, 250)',
@@ -103,12 +104,12 @@ const Logo: React.FC<{ isPlaying?: boolean }> = ({ isPlaying = false }) => {
           />
 
           {/* Strong inner glow - Purple/Blue */}
-          <div 
+          <div
             className="absolute inset-6 rounded-full bg-purple-400"
             style={{
               opacity: isFadingOut ? 0 : 0.3,
-              animation: isFadingOut 
-                ? 'pulse-glow 1.5s ease-in-out infinite alternate' 
+              animation: isFadingOut
+                ? 'pulse-glow 1.5s ease-in-out infinite alternate'
                 : 'pulse-glow 1.5s ease-in-out infinite alternate, fade-in-scale 0.7s ease-out',
               boxShadow: '0 0 10px rgba(192, 132, 252, 0.6)',
               transition: 'opacity 2s ease-out',
@@ -118,7 +119,7 @@ const Logo: React.FC<{ isPlaying?: boolean }> = ({ isPlaying = false }) => {
       )}
 
       {/* Logo with speaker bounce animation */}
-      <div 
+      <div
         className="relative z-10"
         style={isPlaying ? {
           animation: 'speaker-bounce 0.8s ease-in-out infinite',
@@ -140,10 +141,10 @@ const Logo: React.FC<{ isPlaying?: boolean }> = ({ isPlaying = false }) => {
   );
 };
 
-const TechStackItem: React.FC<{ 
-  icon: React.ReactNode; 
-  name: string; 
-  description: string; 
+const TechStackItem: React.FC<{
+  icon: React.ReactNode;
+  name: string;
+  description: string;
 }> = ({ icon, name, description }) => (
   <div className="flex items-center gap-4 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-200">
     <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
@@ -156,7 +157,7 @@ const TechStackItem: React.FC<{
   </div>
 );
 
-export const AboutPopup: React.FC<AboutPopupProps> = ({ show, onClose, isPlaying = false }) => {
+export const AboutPopup: React.FC<AboutPopupProps> = ({ show, onClose, isPlaying = false, showVisualization = false }) => {
   // Removed sound effect when popup opens
 
   if (!show) return null;
@@ -168,22 +169,23 @@ export const AboutPopup: React.FC<AboutPopupProps> = ({ show, onClose, isPlaying
   };
 
   return (
-    <div 
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4 transition-all duration-500"
       style={{
-        background: 'rgba(0, 0, 0, 0.8)',
-        backdropFilter: 'blur(20px) saturate(120%)',
-        WebkitBackdropFilter: 'blur(20px) saturate(120%)',
+        background: showVisualization ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.8)',
+        backdropFilter: showVisualization ? 'none' : 'blur(20px) saturate(120%)',
+        WebkitBackdropFilter: showVisualization ? 'none' : 'blur(20px) saturate(120%)',
       }}
       onClick={handleBackdropClick}
     >
-      <div 
-        className="relative w-full max-w-md max-h-[90vh] overflow-y-auto custom-scrollbar rounded-3xl p-6"
+      <div
+        className="relative w-full max-w-md max-h-[90vh] overflow-y-auto custom-scrollbar rounded-3xl p-6 transition-all duration-500"
         style={{
-          background: 'rgba(20, 20, 28, 0.95)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+          background: showVisualization ? 'rgba(15, 15, 20, 0.35)' : 'rgba(20, 20, 28, 0.95)',
+          backdropFilter: 'blur(24px) saturate(180%)',
+          WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+          border: showVisualization ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(255, 255, 255, 0.1)',
+          boxShadow: showVisualization ? '0 8px 32px rgba(0, 0, 0, 0.2)' : '0 20px 60px rgba(0, 0, 0, 0.5)',
         }}
       >
         {/* Close Button */}
@@ -201,19 +203,19 @@ export const AboutPopup: React.FC<AboutPopupProps> = ({ show, onClose, isPlaying
           {/* Logo */}
           <Logo isPlaying={isPlaying} />
 
-            {/* Main Title + Version (slightly increased gap) */}
-            <div className="space-y-1">
-              <h2 className="text-2xl font-semibold text-white">AudioWeb Music Player</h2>
-              <div>
-                <span className="block text-[11px] text-white/60">version {pkg.version}</span>
-              </div>
+          {/* Main Title + Version (slightly increased gap) */}
+          <div className="space-y-1">
+            <h2 className="text-2xl font-semibold text-white">AudioWeb Music Player</h2>
+            <div>
+              <span className="block text-[11px] text-white/60">version {pkg.version}</span>
             </div>
+          </div>
 
           {/* Copyright */}
           <div className="flex items-center justify-center gap-2 text-white/80">
             <svg className="w-4 h-4 text-white/60" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M15 9a3 3 0 0 0-6 0v6a3 3 0 0 0 6 0"/>
+              <circle cx="12" cy="12" r="10" />
+              <path d="M15 9a3 3 0 0 0-6 0v6a3 3 0 0 0 6 0" />
             </svg>
             <span className="text-sm">2025 Kasun Chanaka</span>
           </div>
@@ -221,7 +223,7 @@ export const AboutPopup: React.FC<AboutPopupProps> = ({ show, onClose, isPlaying
           {/* Introductory Text */}
           <div className="text-center space-y-3">
             <p className="text-white/90 text-sm leading-relaxed">
-              A modern audio player built with latest web technologies. 
+              A modern audio player built with latest web technologies.
               Experience seamless music playback with an intuitive interface designed for music enthusiasts.
               This project is still under development, so there maybe rough edges.
             </p>
@@ -234,11 +236,11 @@ export const AboutPopup: React.FC<AboutPopupProps> = ({ show, onClose, isPlaying
               <TechStackItem
                 icon={
                   <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none">
-                    <path d="M8 24c2.208 0 4-1.792 4-4v-4H8c-2.208 0-4 1.792-4 4s1.792 4 4 4z" fill="#0ACF83"/>
-                    <path d="M4 12c0-2.208 1.792-4 4-4h4v8H8c-2.208 0-4-1.792-4-4z" fill="#A259FF"/>
-                    <path d="M4 4c0-2.208 1.792-4 4-4h4v8H8C5.792 8 4 6.208 4 4z" fill="#F24E1E"/>
-                    <path d="M12 0h4c2.208 0 4 1.792 4 4s-1.792 4-4 4h-4V0z" fill="#FF7262"/>
-                    <path d="M20 12c0 2.208-1.792 4-4 4s-4-1.792-4-4 1.792-4 4-4 4 1.792 4 4z" fill="#1ABCFE"/>
+                    <path d="M8 24c2.208 0 4-1.792 4-4v-4H8c-2.208 0-4 1.792-4 4s1.792 4 4 4z" fill="#0ACF83" />
+                    <path d="M4 12c0-2.208 1.792-4 4-4h4v8H8c-2.208 0-4-1.792-4-4z" fill="#A259FF" />
+                    <path d="M4 4c0-2.208 1.792-4 4-4h4v8H8C5.792 8 4 6.208 4 4z" fill="#F24E1E" />
+                    <path d="M12 0h4c2.208 0 4 1.792 4 4s-1.792 4-4 4h-4V0z" fill="#FF7262" />
+                    <path d="M20 12c0 2.208-1.792 4-4 4s-4-1.792-4-4 1.792-4 4-4 4 1.792 4 4z" fill="#1ABCFE" />
                   </svg>
                 }
                 name="Figma"
@@ -247,22 +249,22 @@ export const AboutPopup: React.FC<AboutPopupProps> = ({ show, onClose, isPlaying
               <TechStackItem
                 icon={
                   <svg className="w-6 h-6" viewBox="0 0 180 180" fill="none">
-                    <mask id="mask0_408_139" style={{maskType: 'alpha'}} maskUnits="userSpaceOnUse" x="0" y="0" width="180" height="180">
-                      <circle cx="90" cy="90" r="90" fill="black"/>
+                    <mask id="mask0_408_139" style={{ maskType: 'alpha' }} maskUnits="userSpaceOnUse" x="0" y="0" width="180" height="180">
+                      <circle cx="90" cy="90" r="90" fill="black" />
                     </mask>
                     <g mask="url(#mask0_408_139)">
-                      <circle cx="90" cy="90" r="90" fill="black"/>
-                      <path d="M149.508 157.52L69.142 54H54V125.97H66.1136V69.3836L139.999 164.845C143.333 162.614 146.509 160.165 149.508 157.52Z" fill="url(#paint0_linear_408_139)"/>
-                      <rect x="115" y="54" width="12" height="72" fill="url(#paint1_linear_408_139)"/>
+                      <circle cx="90" cy="90" r="90" fill="black" />
+                      <path d="M149.508 157.52L69.142 54H54V125.97H66.1136V69.3836L139.999 164.845C143.333 162.614 146.509 160.165 149.508 157.52Z" fill="url(#paint0_linear_408_139)" />
+                      <rect x="115" y="54" width="12" height="72" fill="url(#paint1_linear_408_139)" />
                     </g>
                     <defs>
                       <linearGradient id="paint0_linear_408_139" x1="109" y1="116.5" x2="144.5" y2="160.5" gradientUnits="userSpaceOnUse">
-                        <stop stopColor="white"/>
-                        <stop offset="1" stopColor="white" stopOpacity="0"/>
+                        <stop stopColor="white" />
+                        <stop offset="1" stopColor="white" stopOpacity="0" />
                       </linearGradient>
                       <linearGradient id="paint1_linear_408_139" x1="121" y1="54" x2="120.799" y2="106.875" gradientUnits="userSpaceOnUse">
-                        <stop stopColor="white"/>
-                        <stop offset="1" stopColor="white" stopOpacity="0"/>
+                        <stop stopColor="white" />
+                        <stop offset="1" stopColor="white" stopOpacity="0" />
                       </linearGradient>
                     </defs>
                   </svg>
@@ -273,7 +275,7 @@ export const AboutPopup: React.FC<AboutPopupProps> = ({ show, onClose, isPlaying
               <TechStackItem
                 icon={
                   <svg className="w-6 h-6 text-blue-500" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M23.15 2.587L18.21.21a1.494 1.494 0 00-1.705.29l-9.46 8.63-4.12-3.128a.999.999 0 00-1.276.057L.327 7.261A1 1 0 00.326 8.74L3.899 12 .326 15.26a1 1 0 00.001 1.479L1.65 17.94a.999.999 0 001.276.057l4.12-3.128 9.46 8.63a1.492 1.492 0 001.704.29l4.942-2.377A1.5 1.5 0 0024 20.06V3.939a1.5 1.5 0 00-.85-1.352zm-5.146 14.861L10.826 12l7.178-5.448v10.896z"/>
+                    <path d="M23.15 2.587L18.21.21a1.494 1.494 0 00-1.705.29l-9.46 8.63-4.12-3.128a.999.999 0 00-1.276.057L.327 7.261A1 1 0 00.326 8.74L3.899 12 .326 15.26a1 1 0 00.001 1.479L1.65 17.94a.999.999 0 001.276.057l4.12-3.128 9.46 8.63a1.492 1.492 0 001.704.29l4.942-2.377A1.5 1.5 0 0024 20.06V3.939a1.5 1.5 0 00-.85-1.352zm-5.146 14.861L10.826 12l7.178-5.448v10.896z" />
                   </svg>
                 }
                 name="VS Code"
@@ -303,7 +305,7 @@ export const AboutPopup: React.FC<AboutPopupProps> = ({ show, onClose, isPlaying
               </svg>
               <span className="font-medium">Buy me a coffee</span>
             </a>
-            
+
             <a
               href="https://github.com/KasunCSB"
               target="_blank"
@@ -311,7 +313,7 @@ export const AboutPopup: React.FC<AboutPopupProps> = ({ show, onClose, isPlaying
               className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white transition-all duration-200 hover:scale-105"
             >
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 10.956.557-.085-.003-.204-.003-.446v-1.611c-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.997.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22v3.293c0 .319-.192.694-.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                <path d="M12.017 0C5.396 0 .029 5.367.029 11.987c0 5.079 3.158 9.417 7.618 10.956.557-.085-.003-.204-.003-.446v-1.611c-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.997.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22v3.293c0 .319-.192.694-.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
               </svg>
               <span className="font-medium">See the project on GitHub</span>
             </a>
