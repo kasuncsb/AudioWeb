@@ -371,7 +371,6 @@ export const PlayerStyles = () => (
       transition: opacity 0.6s cubic-bezier(0.25, 0.8, 0.25, 1),
                   color 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
       transform-origin: center;
-      will-change: opacity, color;
       white-space: normal;
       word-wrap: break-word;
       overflow-wrap: break-word;
@@ -381,8 +380,6 @@ export const PlayerStyles = () => (
       -ms-hyphens: auto;
       line-break: auto;
       word-break: break-word;
-      contain: layout style;
-      backface-visibility: hidden;
       text-rendering: optimizeLegibility;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;

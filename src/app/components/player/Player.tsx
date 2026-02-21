@@ -291,7 +291,6 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
     ) {
       const nextIndex = Math.floor(Math.random() * availablePresets.length);
       updateVisualizerSettings({ activePreset: availablePresets[nextIndex] });
-      console.log('Player: Automatic visualizer shift to:', availablePresets[nextIndex]);
     }
   }, [currentTrackIndex, isVisualizerLoaded, visualizerSettings.mode, availablePresets.length]);
 
@@ -550,53 +549,55 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                 {/* Left Section - Player Controls */}
                 <div className="w-72 lg:w-80 xl:w-96 flex flex-col h-[calc(100vh-140px)] lg:h-[calc(100vh-120px)]">
                   <div
-                    className="rounded-[20px] lg:rounded-3xl p-4 lg:p-6 flex-1 overflow-y-auto custom-scrollbar-auto min-h-0"
+                    className="rounded-[20px] lg:rounded-3xl flex-1 overflow-hidden min-h-0"
                     style={{
                       background: 'rgba(255, 255, 255, 0.05)',
                       backdropFilter: 'blur(20px)',
                       border: '1px solid rgba(255, 255, 255, 0.1)',
-                      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)'
+                      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
                     }}
                   >
-                    {currentTrack && (
-                      <AlbumArt currentTrack={currentTrack} direction={skipDirection} isPlaying={isPlaying} />
-                    )}
+                    <div className="p-4 lg:p-6 h-full overflow-y-auto custom-scrollbar-auto">
+                      {currentTrack && (
+                        <AlbumArt currentTrack={currentTrack} direction={skipDirection} isPlaying={isPlaying} />
+                      )}
 
-                    {currentTrack && (
-                      <div className="space-y-4 lg:space-y-6 mt-4 lg:mt-6">
-                        <ProgressBar
-                          currentTime={currentTime}
-                          duration={duration}
-                          onSeek={handleSeek}
-                        />
+                      {currentTrack && (
+                        <div className="space-y-4 lg:space-y-6 mt-4 lg:mt-6">
+                          <ProgressBar
+                            currentTime={currentTime}
+                            duration={duration}
+                            onSeek={handleSeek}
+                          />
 
-                        <MainControls
-                          isPlaying={isPlaying}
-                          onPlayPause={handlePlayPause}
-                          onPrevious={handlePrevious}
-                          onNext={handleNext}
-                          canGoPrevious={canGoPrevious}
-                          canGoNext={canGoNext}
-                        />
+                          <MainControls
+                            isPlaying={isPlaying}
+                            onPlayPause={handlePlayPause}
+                            onPrevious={handlePrevious}
+                            onNext={handleNext}
+                            canGoPrevious={canGoPrevious}
+                            canGoNext={canGoNext}
+                          />
 
-                        <SecondaryControls
-                          onShuffleClick={shufflePlaylist}
-                          repeatMode={repeatMode}
-                          onRepeatToggle={() => setRepeatMode((repeatMode + 1) % 3)}
-                          onPlaylistToggle={() => setShowPlaylist(!showPlaylist)}
-                          onSleepTimerToggle={() => setShowSleepTimer(!showSleepTimer)}
-                          onEqualizerToggle={() => setShowEqualizer(!showEqualizer)}
-                          onVisualizationToggle={() => onVisualizationChange && onVisualizationChange(!showVisualization)}
-                          sleepTimer={sleepTimer}
-                          showVisualization={showVisualization}
-                        />
+                          <SecondaryControls
+                            onShuffleClick={shufflePlaylist}
+                            repeatMode={repeatMode}
+                            onRepeatToggle={() => setRepeatMode((repeatMode + 1) % 3)}
+                            onPlaylistToggle={() => setShowPlaylist(!showPlaylist)}
+                            onSleepTimerToggle={() => setShowSleepTimer(!showSleepTimer)}
+                            onEqualizerToggle={() => setShowEqualizer(!showEqualizer)}
+                            onVisualizationToggle={() => onVisualizationChange && onVisualizationChange(!showVisualization)}
+                            sleepTimer={sleepTimer}
+                            showVisualization={showVisualization}
+                          />
 
-                        <VolumeControl
-                          volume={volume}
-                          onVolumeChange={handleVolumeChange}
-                        />
-                      </div>
-                    )}
+                          <VolumeControl
+                            volume={volume}
+                            onVolumeChange={handleVolumeChange}
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -604,18 +605,20 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                 {playlist.length > 0 && (
                   <div className="flex-1 flex flex-col h-[calc(100vh-140px)] lg:h-[calc(100vh-120px)]">
                     <div
-                      className="rounded-[20px] lg:rounded-3xl p-4 lg:p-6 flex-1 overflow-y-auto custom-scrollbar-enhanced min-h-0"
+                      className="rounded-[20px] lg:rounded-3xl flex-1 overflow-hidden min-h-0"
                       style={{
                         background: 'rgba(255, 255, 255, 0.05)',
                         backdropFilter: 'blur(20px)',
                         border: '1px solid rgba(255, 255, 255, 0.1)',
-                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)'
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
                       }}
                     >
-                      <LyricsDisplay
-                        currentTrack={currentTrack}
-                        currentTime={currentTime}
-                      />
+                      <div className="p-4 lg:p-6 h-full overflow-y-auto custom-scrollbar-enhanced">
+                        <LyricsDisplay
+                          currentTrack={currentTrack}
+                          currentTime={currentTime}
+                        />
+                      </div>
                     </div>
                   </div>
                 )}
@@ -639,7 +642,8 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                       background: 'rgba(255, 255, 255, 0.05)',
                       backdropFilter: 'blur(20px)',
                       border: '1px solid rgba(255, 255, 255, 0.1)',
-                      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)'
+                      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+                      WebkitMaskImage: '-webkit-radial-gradient(white, black)',
                     }}
                   >
                     <ProgressBar
@@ -656,7 +660,8 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                       background: 'rgba(255, 255, 255, 0.05)',
                       backdropFilter: 'blur(20px)',
                       border: '1px solid rgba(255, 255, 255, 0.1)',
-                      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)'
+                      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+                      WebkitMaskImage: '-webkit-radial-gradient(white, black)',
                     }}
                   >
                     <MainControls
@@ -676,7 +681,8 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                       background: 'rgba(255, 255, 255, 0.05)',
                       backdropFilter: 'blur(20px)',
                       border: '1px solid rgba(255, 255, 255, 0.1)',
-                      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)'
+                      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+                      WebkitMaskImage: '-webkit-radial-gradient(white, black)',
                     }}
                   >
                     <div className="space-y-3 sm:space-y-4">
@@ -707,6 +713,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                       backdropFilter: 'blur(20px)',
                       border: '1px solid rgba(255, 255, 255, 0.1)',
                       boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
+                      WebkitMaskImage: '-webkit-radial-gradient(white, black)',
                       height: '400px', // Force defined size to limit lyrics waterfall effect
                     }}
                   >
@@ -735,12 +742,12 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                 </div>
               </div>
             )}
-          </main>
+          </main >
 
           {/* Popups relocated outside to share Visualizer popup z-index priority */}
 
-          <PlayerStyles />
-        </div>
+          < PlayerStyles />
+        </div >
       )}
 
       {/* Popups - Mounted independently with highest z-index priority (above back button/navbar elements) */}

@@ -46,11 +46,11 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
 
   // Load butterchurn libraries dynamically (client-side only)
   useEffect(() => {
-    console.log('MilkDrop: Library load effect', { isActive, isLibraryLoaded });
+
     if (!isActive || isLibraryLoaded) return;
 
     const loadLibraries = async () => {
-      console.log('MilkDrop: Loading butterchurn libraries...');
+
       try {
         // Import butterchurn
         const butterchurnModule = await import('butterchurn');
@@ -71,30 +71,26 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
           ...presetsExtra,
         };
 
-        console.log('MilkDrop: Libraries loaded', {
-          hasButterchurn: !!butterchurnModule.default,
-          presetCount: Object.keys(allPresets).length
-        });
+
 
         // Store for later use
         butterchurnRef.current = butterchurnModule.default;
         presetsRef.current = allPresets;
 
         const keys = Object.keys(allPresets);
-        console.log('MilkDrop: Total presets available:', keys.length);
-        console.log('MilkDrop: Sample preset names:', keys.slice(0, 5));
+
 
         // Use all available presets, shuffled
         if (keys.length > 0) {
           const shuffled = [...keys].sort(() => Math.random() - 0.5);
           setAllPresetKeys(shuffled);
-          console.log('MilkDrop: Using', shuffled.length, 'presets');
+
         } else {
-          console.error('MilkDrop: No presets found in bundle!');
+          console.error('Visualizer: No presets found');
         }
 
         setIsLibraryLoaded(true);
-        console.log('MilkDrop: Library loading complete');
+
 
         // Notify parent if callbacks are waiting
         if (onPresetsLoaded && !presetsLoadedFired.current) {
@@ -102,7 +98,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
           presetsLoadedFired.current = true;
         }
       } catch (error) {
-        console.error('Failed to load butterchurn libraries:', error);
+        console.error('Visualizer: Failed to load libraries', error);
       }
     };
 
@@ -122,7 +118,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
       const height = Math.floor(rect.height);
       const pixelRatio = window.devicePixelRatio || 1;
 
-      console.log('MilkDrop resize:', { width, height, pixelRatio });
+
 
       // Set canvas dimensions
       const physicalWidth = Math.floor(width * pixelRatio);
@@ -140,22 +136,16 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
 
   // Initialize visualizer - wait for container to have valid dimensions
   useEffect(() => {
-    console.log('MilkDrop: Init effect', {
-      isActive,
-      hasCanvas: !!canvasRef.current,
-      isLibraryLoaded,
-      presetCount: allPresetKeys.length,
-      hasVisualizer: !!visualizerRef.current
-    });
+
 
     if (!isActive || !canvasRef.current || !containerRef.current || !isLibraryLoaded || allPresetKeys.length === 0) {
-      console.log('MilkDrop: Init skipped - missing requirements');
+
       return;
     }
 
     // Skip if already initialized
     if (visualizerRef.current) {
-      console.log('MilkDrop: Already initialized');
+
       return;
     }
 
@@ -164,7 +154,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
     const butterchurn = butterchurnRef.current;
 
     if (!butterchurn) {
-      console.log('MilkDrop: No butterchurn ref');
+
       return;
     }
 
@@ -172,7 +162,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
     const createVisualizerWithDimensions = (width: number, height: number) => {
       if (visualizerRef.current) return; // Already created
 
-      console.log('MilkDrop: Creating visualizer with dimensions:', { width, height });
+
 
       try {
         // Use provided audioContext or create our own
@@ -180,7 +170,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
         if (!ctx) {
           ctx = new AudioContext();
           localAudioContextRef.current = ctx;
-          console.log('MilkDrop: Created local AudioContext');
+
         }
 
         const pixelRatio = window.devicePixelRatio || 1;
@@ -201,7 +191,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
           meshHeight: 48,
         });
 
-        console.log('MilkDrop: Visualizer created successfully');
+
         visualizerRef.current = visualizer;
 
         // Load initial preset
@@ -212,14 +202,14 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
 
           if (initialPreset) {
             visualizer.loadPreset(initialPreset, 0);
-            console.log('MilkDrop: Loaded initial preset:', initialPresetKey);
+
           }
         }
 
         setIsInitialized(true);
-        console.log('MilkDrop: Initialization complete');
+
       } catch (error) {
-        console.error('Failed to initialize MilkDrop visualizer:', error);
+        console.error('Visualizer: Failed to initialize', error);
       }
     };
 
@@ -227,7 +217,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         const { width, height } = entry.contentRect;
-        console.log('MilkDrop: ResizeObserver detected:', { width, height });
+
 
         // Only initialize once we have valid dimensions (at least 100x100)
         if (width >= 100 && height >= 100 && !visualizerRef.current) {
@@ -247,7 +237,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
       const width = Math.floor(rect.width);
       const height = Math.floor(rect.height);
 
-      console.log('MilkDrop: Fallback dimension check:', { width, height });
+
 
       if (width >= 100 && height >= 100) {
         resizeObserver.disconnect();
@@ -315,14 +305,14 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
         visualizer.connectAudio(analyserNode);
         connectedAnalyserRef.current = analyserNode;
       } catch (error) {
-        console.error('Failed to connect audio to visualizer:', error);
+        console.error('Visualizer: Failed to connect audio', error);
       }
     }
   }, [analyserNode, isInitialized]);
 
   // Animation loop
   useEffect(() => {
-    console.log('MilkDrop Animation effect:', { isActive, isInitialized, hasVisualizer: !!visualizerRef.current });
+
 
     if (!isActive || !isInitialized) {
       if (animationRef.current) {
@@ -332,16 +322,11 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
       return;
     }
 
-    console.log('MilkDrop: Starting animation loop');
-    let frameCount = 0;
+
 
     const render = () => {
       if (visualizerRef.current) {
         visualizerRef.current.render();
-        frameCount++;
-        if (frameCount === 1 || frameCount % 300 === 0) {
-          console.log('MilkDrop: Rendered', frameCount, 'frames');
-        }
       }
       animationRef.current = requestAnimationFrame(render);
     };
@@ -363,7 +348,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
     const presets = presetsRef.current;
     if (presets[activePreset]) {
       visualizerRef.current.loadPreset(presets[activePreset], 2.0); // 2 second blend
-      console.log('MilkDrop: Switched to preset via props:', activePreset);
+
     }
   }, [activePreset, isInitialized]);
 
@@ -375,9 +360,9 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
   useEffect(() => {
     // When isActive becomes false, delay cleanup so the CSS fade-out can finish
     if (!isActive) {
-      console.log('MilkDrop: Deactivated, will clean up after fade-out...');
+
       const cleanupTimer = setTimeout(() => {
-        console.log('MilkDrop: Fade-out complete, cleaning up...');
+
         if (animationRef.current) {
           cancelAnimationFrame(animationRef.current);
           animationRef.current = null;
