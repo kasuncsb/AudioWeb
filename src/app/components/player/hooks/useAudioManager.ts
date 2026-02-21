@@ -11,7 +11,7 @@ const logger = createLogger('AudioManager');
 interface AudioChain {
   context: AudioContext;
   source: MediaElementAudioSourceNode;
-  
+
   // Simple Signal Flow:
   // Source → Preamp → HPF → EQ → Bass → Treble → Limiter → Output
   preamp: GainNode;                    // Input headroom control
@@ -23,7 +23,7 @@ interface AudioChain {
   trebleBoost: BiquadFilterNode;       // Treble control (high shelf)
   limiter: DynamicsCompressorNode;     // Clean brick-wall limiter
   outputGain: GainNode;                // Master volume
-  
+
   connected: boolean;
 }
 
@@ -52,7 +52,7 @@ export const useAudioManager = (
   const fadeIn = useCallback((duration: number = 800) => {
     const audio = audioRef.current;
     const chain = audioChainRef.current;
-    
+
     if (!audio) return;
 
     const targetVolume = volume / 100;
@@ -64,7 +64,7 @@ export const useAudioManager = (
         chain.outputGain.gain.cancelScheduledValues(now);
         chain.outputGain.gain.setValueAtTime(0, now);
         chain.outputGain.gain.linearRampToValueAtTime(targetVolume, now + duration / 1000);
-        
+
         if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);
         fadeTimeoutRef.current = setTimeout(() => {
           isFadingRef.current = false;
@@ -74,7 +74,7 @@ export const useAudioManager = (
         logger.error('Fade in failed:', error);
       }
     }
-    
+
     audio.volume = targetVolume;
   }, [volume]);
 
@@ -83,7 +83,7 @@ export const useAudioManager = (
     return new Promise((resolve) => {
       const audio = audioRef.current;
       const chain = audioChainRef.current;
-      
+
       if (!audio) {
         resolve();
         return;
@@ -97,7 +97,7 @@ export const useAudioManager = (
           chain.outputGain.gain.cancelScheduledValues(now);
           chain.outputGain.gain.setValueAtTime(currentVolume, now);
           chain.outputGain.gain.linearRampToValueAtTime(0, now + duration / 1000);
-          
+
           if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);
           fadeTimeoutRef.current = setTimeout(() => {
             isFadingRef.current = false;
@@ -108,7 +108,7 @@ export const useAudioManager = (
           logger.error('Fade out failed:', error);
         }
       }
-      
+
       audio.volume = 0;
       resolve();
     });
@@ -134,20 +134,20 @@ export const useAudioManager = (
 
         // Create AudioContext
         const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-        
+
         // Create MediaElementSource (can only be done once per element)
         const source = audioContext.createMediaElementSource(audio);
-        
+
         // ===== PREAMP - Input headroom =====
         const preamp = audioContext.createGain();
         preamp.gain.value = 0.8; // Start with headroom
-        
+
         // ===== HIGH-PASS FILTER - Rumble removal =====
         const highPass = audioContext.createBiquadFilter();
         highPass.type = 'highpass';
         highPass.frequency.value = 25; // Remove sub-20Hz rumble
         highPass.Q.value = 0.7;
-        
+
         // ===== 10-BAND EQ =====
         const filters: BiquadFilterNode[] = [];
         EQUALIZER_BANDS.forEach((band, index) => {
@@ -159,12 +159,12 @@ export const useAudioManager = (
           filter.gain.value = 0;
           filters.push(filter);
         });
-        
+
         // ===== ANALYSER - Visualization =====
         const analyser = audioContext.createAnalyser();
         analyser.fftSize = 2048;
         analyser.smoothingTimeConstant = 0.8;
-        
+
         // ===== BASS BOOST - Punchy bass =====
         // Peaking filter at 80Hz - this is where the "punch" lives
         const bassBoost = audioContext.createBiquadFilter();
@@ -172,7 +172,7 @@ export const useAudioManager = (
         bassBoost.frequency.value = 80;  // 80Hz = punch frequency
         bassBoost.Q.value = 0.8;         // Moderate Q for musical response
         bassBoost.gain.value = 0;
-        
+
         // ===== SUB BOOST - Deep bass body =====
         // Low shelf at 60Hz for sub-bass body/warmth
         const subBoost = audioContext.createBiquadFilter();
@@ -180,7 +180,7 @@ export const useAudioManager = (
         subBoost.frequency.value = 60;   // Sub-bass shelf
         subBoost.Q.value = 0.7;
         subBoost.gain.value = 0;
-        
+
         // ===== TREBLE BOOST =====
         // High shelf at 8kHz for air/presence
         const trebleBoost = audioContext.createBiquadFilter();
@@ -188,7 +188,7 @@ export const useAudioManager = (
         trebleBoost.frequency.value = 8000;
         trebleBoost.Q.value = 0.7;
         trebleBoost.gain.value = 0;
-        
+
         // ===== LIMITER - Clean brick-wall protection =====
         // Clean limiting, not harsh clipping
         const limiter = audioContext.createDynamicsCompressor();
@@ -197,7 +197,7 @@ export const useAudioManager = (
         limiter.ratio.value = 20;        // High ratio = brick wall
         limiter.attack.value = 0.001;    // 1ms attack - catch transients fast
         limiter.release.value = 0.1;     // 100ms release - smooth recovery
-        
+
         // ===== OUTPUT GAIN - Master volume =====
         const outputGain = audioContext.createGain();
         outputGain.gain.value = volume / 100;
@@ -205,20 +205,20 @@ export const useAudioManager = (
         // Reset HTML element volume to unity (chain controls volume)
         try {
           audio.volume = 1;
-        } catch {}
+        } catch { }
 
         // ===== CONNECT SIMPLE CHAIN =====
         // Source → Preamp → HPF → EQ (10 bands) → Analyser → Bass → Sub → Treble → Limiter → Output
         source.connect(preamp);
         preamp.connect(highPass);
-        
+
         // Connect EQ chain
         let currentNode: AudioNode = highPass;
         filters.forEach(filter => {
           currentNode.connect(filter);
           currentNode = filter;
         });
-        
+
         // Continue chain
         currentNode.connect(analyser);
         analyser.connect(bassBoost);
@@ -248,9 +248,9 @@ export const useAudioManager = (
         audioChainStorage.set(audio, chain);
         setIsChainReady(true);
 
-        logger.info('Clean audio chain initialized');
+        logger.info('Audio chain initialized');
         logger.debug('Signal Flow: Source → Preamp → HPF → 10-Band EQ → Bass → Sub → Treble → Limiter → Output');
-        
+
       } catch (error: unknown) {
         const err = error as Error;
         if (err.message && err.message.includes('already connected')) {
@@ -295,14 +295,14 @@ export const useAudioManager = (
       // Calculate preamp reduction based on total boost (prevent clipping)
       const totalBoost = settings.enabled
         ? gains.reduce((sum, g) => sum + Math.max(0, g), 0) +
-          Math.max(0, settings.bassTone) +
-          Math.max(0, settings.trebleTone)
+        Math.max(0, settings.bassTone) +
+        Math.max(0, settings.trebleTone)
         : 0;
-      
+
       // Simple preamp formula: reduce by 0.5dB per dB of total boost above 6dB
       const preampDb = totalBoost > 6 ? -(totalBoost - 6) * 0.5 : 0;
       const preampValue = Math.max(0.3, Math.min(1.0, Math.pow(10, preampDb / 20)));
-      
+
       chain.preamp.gain.cancelScheduledValues(now);
       chain.preamp.gain.setValueAtTime(chain.preamp.gain.value, now);
       chain.preamp.gain.linearRampToValueAtTime(preampValue, now + smoothTime);
@@ -320,14 +320,14 @@ export const useAudioManager = (
       // ===== BASS CONTROL =====
       // bassTone controls the 80Hz punch - this is where you FEEL the bass
       const bassTone = settings.enabled ? settings.bassTone : 0;
-      
+
       // Bass punch at 80Hz (the "thump" you feel)
       // Scale: bassTone of 6 = +9dB punch, bassTone of 12 = +15dB punch
       const punchGain = Math.max(-6, Math.min(15, bassTone * 1.25));
       chain.bassBoost.gain.cancelScheduledValues(now);
       chain.bassBoost.gain.setValueAtTime(chain.bassBoost.gain.value, now);
       chain.bassBoost.gain.linearRampToValueAtTime(punchGain, now + smoothTime);
-      
+
       // Sub-bass body at 60Hz (the "rumble" warmth)
       // Less aggressive than punch - adds body without muddiness
       const subGain = Math.max(-4, Math.min(10, bassTone * 0.8));
@@ -344,7 +344,7 @@ export const useAudioManager = (
 
       logger.debug(`EQ: ${settings.preset}, Bass: ${punchGain.toFixed(1)}dB @ 80Hz, Sub: ${subGain.toFixed(1)}dB @ 60Hz, Treble: ${trebleGain.toFixed(1)}dB`);
       logger.debug(`Preamp: ${(preampValue * 100).toFixed(0)}%, Total Boost: ${totalBoost.toFixed(1)}dB`);
-      
+
     } catch (error) {
       logger.error('Failed to update EQ:', error);
     }
@@ -368,7 +368,7 @@ export const useAudioManager = (
       logger.debug('Loading track:', currentTrack.title);
       audio.src = currentTrack.url;
       audio.load();
-      
+
       if (isPlaying) {
         const playNewTrack = async () => {
           try {
@@ -377,7 +377,7 @@ export const useAudioManager = (
             if (chain?.context && chain.context.state === 'suspended') {
               await chain.context.resume();
             }
-            
+
             await audio.play();
             fadeIn(800);
             logger.info('Auto-play started');
@@ -401,7 +401,7 @@ export const useAudioManager = (
       setDuration(audio.duration);
       logger.debug(`Audio loaded: ${audio.duration.toFixed(2)}s`);
     };
-    
+
     const handleEnded = () => {
       logger.debug('Track ended');
       if (repeatMode === 2) {
@@ -411,7 +411,7 @@ export const useAudioManager = (
         handleNext();
       }
     };
-    
+
     const handleError = (e: Event) => {
       const target = e.target as HTMLAudioElement;
       const errorMessage = getAudioErrorMessage(target.error);
@@ -436,7 +436,7 @@ export const useAudioManager = (
   useEffect(() => {
     const audio = audioRef.current;
     const chain = audioChainRef.current;
-    
+
     if (!audio) return;
 
     const targetVolume = volume / 100;
@@ -483,12 +483,12 @@ export const useAudioManager = (
             audio.src = currentTrack.url;
             audio.load();
           }
-          
+
           await audio.play();
           setIsPlaying(true);
           fadeIn(800);
           logger.info('Playing');
-          
+
         } catch (error: unknown) {
           const err = error as Error;
           logger.error('Play failed:', err.message);
@@ -503,7 +503,7 @@ export const useAudioManager = (
   const handleProgressChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const audio = audioRef.current;
     if (!audio) return;
-    
+
     const newTime = Number(e.target.value);
     audio.currentTime = newTime;
     setCurrentTime(newTime);
@@ -512,7 +512,7 @@ export const useAudioManager = (
   const handleSeek = useCallback((time: number) => {
     const audio = audioRef.current;
     if (!audio) return;
-    
+
     audio.currentTime = time;
     setCurrentTime(time);
   }, [setCurrentTime]);

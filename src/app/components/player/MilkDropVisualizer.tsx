@@ -322,7 +322,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
       return;
     }
 
-
+    console.info('Visualizer: Rendering started');
 
     const render = () => {
       if (visualizerRef.current) {
