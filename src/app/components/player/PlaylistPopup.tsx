@@ -51,9 +51,11 @@ export const PlaylistPopup: React.FC<PlaylistPopupProps> = ({
       minHeight={480}
       maxWidth={650}
       maxHeight={750}
+      defaultWidth={480}
+      defaultHeight={600}
       showVisualization={showVisualization}
     >
-      <div className="playlist-scroll-area h-full">
+      <div className="playlist-scroll-area custom-scrollbar-themed h-full">
         <div className="space-y-2">
           {playlist.map((track, index) => (
             <div

@@ -55,6 +55,8 @@ export const VisualizerPopup: React.FC<VisualizerPopupProps> = ({
             minHeight={350}
             maxWidth={500}
             maxHeight={800}
+            defaultWidth={340}
+            defaultHeight={425}
             className="z-50"
             showVisualization={showVisualization}
         >

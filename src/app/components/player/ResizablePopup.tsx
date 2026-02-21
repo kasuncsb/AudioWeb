@@ -15,6 +15,8 @@ interface ResizablePopupProps {
   maxHeight?: number;
   onAdd?: () => void;
   showVisualization?: boolean;
+  defaultWidth?: number;
+  defaultHeight?: number;
 }
 
 export const ResizablePopup: React.FC<ResizablePopupProps> = ({
@@ -31,11 +33,13 @@ export const ResizablePopup: React.FC<ResizablePopupProps> = ({
   maxWidth,
   maxHeight,
   onAdd,
-  showVisualization = false
+  showVisualization = false,
+  defaultWidth = 400,
+  defaultHeight = 500
 }) => {
   const [size, setSize] = useState({
-    width: Math.max(minWidth, 400),
-    height: Math.max(minHeight, 500)
+    width: Math.max(minWidth, defaultWidth),
+    height: Math.max(minHeight, defaultHeight)
   });
   const [isMobile, setIsMobile] = useState(false);
   const [isResizing, setIsResizing] = useState<string | null>(null);

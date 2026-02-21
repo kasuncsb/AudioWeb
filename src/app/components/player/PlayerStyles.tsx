@@ -222,10 +222,15 @@ export const PlayerStyles = () => (
     .custom-scrollbar-themed::-webkit-scrollbar-thumb {
       background: rgba(255, 255, 255, 0.2);
       border-radius: 10px;
+      transition: background 0.2s ease;
     }
 
     .custom-scrollbar-themed::-webkit-scrollbar-thumb:hover {
-      background: rgba(255, 255, 255, 0.3);
+      background: rgba(255, 250, 250, 0.4);
+    }
+
+    .custom-scrollbar-themed::-webkit-scrollbar-thumb:active {
+      background: rgba(255, 255, 255, 0.6);
     }
 
     /* Ensure proper touch scrolling on mobile */

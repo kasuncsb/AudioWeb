@@ -175,18 +175,20 @@ code, pre {
   animation: smooth-fade-in 0.3s ease-out;
 }
 
-/* Playlist-specific theme-aware scrollbar (only visible inside the playlist popup) */
+/* Playlist-specific theme-aware scrollbar matching the Visualizer unified theme */
 :root {
-  --playlist-scroll-thumb: rgba(0, 0, 0, 0.20);
-  --playlist-scroll-track: rgba(0, 0, 0, 0.06);
-  --playlist-scroll-thumb-hover: rgba(0, 0, 0, 0.32);
+  --playlist-scroll-thumb: rgba(255, 255, 255, 0.2);
+  --playlist-scroll-track: transparent;
+  --playlist-scroll-thumb-hover: rgba(255, 255, 255, 0.4);
+  --playlist-scroll-thumb-active: rgba(255, 255, 255, 0.6);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --playlist-scroll-thumb: rgba(255, 255, 255, 0.12);
-    --playlist-scroll-track: rgba(255, 255, 255, 0.04);
-    --playlist-scroll-thumb-hover: rgba(255, 255, 255, 0.20);
+    --playlist-scroll-thumb: rgba(255, 255, 255, 0.2);
+    --playlist-scroll-track: transparent;
+    --playlist-scroll-thumb-hover: rgba(255, 255, 255, 0.4);
+    --playlist-scroll-thumb-active: rgba(255, 255, 255, 0.6);
   }
 }
 
@@ -226,6 +228,11 @@ code, pre {
 .playlist-popup .playlist-scroll-area::-webkit-scrollbar-thumb:hover {
   background: var(--playlist-scroll-thumb-hover);
   transform: scale(1.02);
+}
+
+.playlist-popup .scroll-content::-webkit-scrollbar-thumb:active,
+.playlist-popup .playlist-scroll-area::-webkit-scrollbar-thumb:active {
+  background: var(--playlist-scroll-thumb-active);
 }
 
 /* Make sure the scrollbar is accessible when using keyboard focus inside the popup */
