@@ -3,24 +3,32 @@ import { ScrollingText } from './ScrollingText';
 
 interface AlbumArtProps {
   currentTrack: AudioTrack | null;
+  direction?: 'next' | 'prev';
+  isPlaying?: boolean;
 }
 
 export const AlbumArt: React.FC<AlbumArtProps> = ({
-  currentTrack
+  currentTrack,
+  direction = 'next',
+  isPlaying = true
 }) => {
   if (!currentTrack) {
     return null;
   }
 
+  const slideClass = direction === 'next' ? 'slide-in-right-anim' : 'slide-in-left-anim';
+
   return (
-    <div className="space-y-6">
+    <div key={currentTrack.id} className={`space-y-6 ${slideClass}`}>
       <div className="relative group">
         <div
-          className="w-full aspect-square rounded-[20px] overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.15)] transition-all duration-300 hover:scale-105 flex items-center justify-center"
+          className="w-full aspect-square rounded-[20px] overflow-hidden shadow-[0_8px_32px_rgba(0,0,0,0.15)] flex items-center justify-center"
           style={{
             background: currentTrack.albumArt ? 'transparent' : 'rgba(255, 255, 255, 0.05)',
             backdropFilter: currentTrack.albumArt ? 'none' : 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)'
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            transform: isPlaying ? 'scale(1)' : 'scale(0.95)',
+            transition: 'transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1)',
           }}
         >
           {currentTrack.albumArt ? (

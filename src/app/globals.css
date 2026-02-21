@@ -28,7 +28,8 @@ body {
 }
 
 /* Optionally, set font for code blocks or mono elements */
-code, pre {
+code,
+pre {
   font-family: var(--font-geist-mono), 'Fira Mono', 'Menlo', monospace;
 }
 
@@ -38,6 +39,7 @@ code, pre {
     transform: scale(0.8);
     opacity: 1;
   }
+
   100% {
     transform: scale(1.5);
     opacity: 0;
@@ -48,16 +50,20 @@ code, pre {
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
 }
 
 @keyframes bar-pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     height: 30px;
     opacity: 0.4;
   }
+
   50% {
     height: 45px;
     opacity: 0.8;
@@ -69,6 +75,7 @@ code, pre {
     opacity: 0.3;
     transform: scale(0.95);
   }
+
   100% {
     opacity: 0.6;
     transform: scale(1.05);
@@ -89,9 +96,12 @@ code, pre {
 
 /* Logo speaker bounce animation */
 @keyframes speaker-bounce {
-  0%, 100% {
+
+  0%,
+  100% {
     transform: scale(1);
   }
+
   50% {
     transform: scale(1.03);
   }
@@ -103,6 +113,7 @@ code, pre {
     opacity: 0;
     transform: scale(0.8);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -115,6 +126,7 @@ code, pre {
     transform: translateY(100%);
     opacity: 0;
   }
+
   to {
     transform: translateY(0);
     opacity: 1;
@@ -126,6 +138,7 @@ code, pre {
     transform: translateY(0);
     opacity: 1;
   }
+
   to {
     transform: translateY(-100%);
     opacity: 0;
@@ -146,10 +159,12 @@ code, pre {
     opacity: 1;
     transform: scale(1);
   }
+
   50% {
     opacity: 0.7;
     transform: scale(0.98);
   }
+
   100% {
     opacity: 1;
     transform: scale(1);
@@ -161,6 +176,7 @@ code, pre {
     opacity: 0;
     transform: translateY(-2px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -173,6 +189,38 @@ code, pre {
 
 .smooth-fade-in-anim {
   animation: smooth-fade-in 0.3s ease-out;
+}
+
+@keyframes slide-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.slide-in-right-anim {
+  animation: slide-in-right 0.5s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+}
+
+@keyframes slide-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-30px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.slide-in-left-anim {
+  animation: slide-in-left 0.5s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
 }
 
 /* Playlist-specific theme-aware scrollbar matching the Visualizer unified theme */
@@ -195,10 +243,13 @@ code, pre {
 /* Scoped to the playlist popup so other scrolling remains hidden as before */
 .playlist-popup .scroll-content {
   /* Make scrollbar usable and thin */
-  overflow-y: auto; /* ensure scroll */
+  overflow-y: auto;
+  /* ensure scroll */
   -webkit-overflow-scrolling: touch;
-  scrollbar-width: thin; /* Firefox */
-  scrollbar-color: var(--playlist-scroll-thumb) var(--playlist-scroll-track); /* Firefox */
+  scrollbar-width: thin;
+  /* Firefox */
+  scrollbar-color: var(--playlist-scroll-thumb) var(--playlist-scroll-track);
+  /* Firefox */
 }
 
 /* WebKit browsers */
@@ -206,7 +257,8 @@ code, pre {
 .playlist-popup .playlist-scroll-area::-webkit-scrollbar {
   width: 10px;
   height: 10px;
-  display: block !important; /* override the global hide */
+  display: block !important;
+  /* override the global hide */
 }
 
 .playlist-popup .scroll-content::-webkit-scrollbar-track,
@@ -219,7 +271,8 @@ code, pre {
 .playlist-popup .playlist-scroll-area::-webkit-scrollbar-thumb {
   background: var(--playlist-scroll-thumb);
   border-radius: 8px;
-  border: 2px solid transparent; /* give some spacing */
+  border: 2px solid transparent;
+  /* give some spacing */
   background-clip: padding-box;
   transition: background-color 120ms ease, transform 120ms ease;
 }
@@ -245,7 +298,8 @@ code, pre {
    popup's generic scroll-content when layout differences prevent overflow. */
 .playlist-popup .playlist-scroll-area {
   height: 100%;
-  min-height: 0; /* allow children to shrink inside flex */
+  min-height: 0;
+  /* allow children to shrink inside flex */
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: thin;
@@ -262,14 +316,16 @@ code, pre {
    browser to reserve gutter space when supported. */
 .playlist-popup .playlist-scroll-area {
   box-sizing: border-box;
-  padding-inline-end: 12px; /* modern logical property */
-  padding-right: 12px; /* fallback */
+  padding-inline-end: 12px;
+  /* modern logical property */
+  padding-right: 12px;
+  /* fallback */
   scrollbar-gutter: stable both-edges;
 }
 
 /* Add a little inner padding to the list wrapper so items don't touch the
    reserved area even if they use full width. */
-.playlist-popup .playlist-scroll-area > .space-y-2 {
+.playlist-popup .playlist-scroll-area>.space-y-2 {
   padding-right: 6px;
 }
 
@@ -288,5 +344,3 @@ code, pre {
 .playlist-popup .cursor-nw-resize:hover {
   background: transparent !important;
 }
-
-

@@ -69,7 +69,7 @@ const Navbar: React.FC<NavbarProps> = ({
           // Remove border radius and margin to make it flush with the top
           borderRadius: 0,
           margin: 0,
-          transition: 'background 0.5s ease, border-bottom 0.5s ease',
+          transition: 'background 3s ease, border-bottom 3s ease',
         }}
       >
         {/* Left: Logo + Title - Hidden on mobile when mini player is active */}

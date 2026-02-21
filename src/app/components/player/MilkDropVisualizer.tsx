@@ -373,39 +373,39 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
 
   // Cleanup on unmount or when deactivated
   useEffect(() => {
-    // When isActive becomes false, cleanup the visualizer so it can be re-created
+    // When isActive becomes false, delay cleanup so the CSS fade-out can finish
     if (!isActive) {
-      console.log('MilkDrop: Deactivated, cleaning up...');
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-        animationRef.current = null;
-      }
-      // Interval removed
-      if (connectedAnalyserRef.current && visualizerRef.current) {
-        try {
-          visualizerRef.current.disconnectAudio(connectedAnalyserRef.current);
-        } catch {
-          // Ignore
+      console.log('MilkDrop: Deactivated, will clean up after fade-out...');
+      const cleanupTimer = setTimeout(() => {
+        console.log('MilkDrop: Fade-out complete, cleaning up...');
+        if (animationRef.current) {
+          cancelAnimationFrame(animationRef.current);
+          animationRef.current = null;
         }
-      }
-      // Close local audio context if we created one
-      if (localAudioContextRef.current) {
-        try {
-          localAudioContextRef.current.close();
-        } catch {
-          // Ignore
+        if (connectedAnalyserRef.current && visualizerRef.current) {
+          try {
+            visualizerRef.current.disconnectAudio(connectedAnalyserRef.current);
+          } catch {
+            // Ignore
+          }
         }
-        localAudioContextRef.current = null;
-      }
-      visualizerRef.current = null;
-      connectedAnalyserRef.current = null;
-      setIsInitialized(false);
+        // Close local audio context if we created one
+        if (localAudioContextRef.current) {
+          try {
+            localAudioContextRef.current.close();
+          } catch {
+            // Ignore
+          }
+          localAudioContextRef.current = null;
+        }
+        visualizerRef.current = null;
+        connectedAnalyserRef.current = null;
+        setIsInitialized(false);
+      }, 3100); // slightly longer than the 3s CSS transition
+
+      return () => clearTimeout(cleanupTimer);
     }
   }, [isActive]);
-
-  if (!isActive) {
-    return null;
-  }
 
   return (
     <div
@@ -419,9 +419,12 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
         width: '100vw',
         height: '100dvh', // Dynamic viewport height for mobile (accounts for URL bar)
         zIndex: 5, // Above page background, below player UI (z-40) and navbar (z-50)
-        pointerEvents: 'none',
+        pointerEvents: isActive ? 'auto' : 'none',
         overflow: 'hidden',
         background: '#000', // Black fallback background
+        opacity: isActive ? 1 : 0,
+        transition: isActive ? 'opacity 3.0s ease-in' : 'opacity 3.0s ease-out',
+        visibility: isActive || isInitialized ? 'visible' : 'hidden'
       }}
     >
       <canvas

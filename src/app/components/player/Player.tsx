@@ -44,6 +44,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
   const [showVisualizerPopup, setShowVisualizerPopup] = useState(false);
   const [showSleepTimer, setShowSleepTimer] = useState(false);
   const [isShuffling, setIsShuffling] = useState(false);
+  const [skipDirection, setSkipDirection] = useState<'next' | 'prev'>('next');
 
   // Available loaded presets from MilkDropVisualizer
   const [availablePresets, setAvailablePresets] = useState<string[]>([]);
@@ -145,6 +146,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
 
   // Navigation handlers - simple sequential playback
   const handleNext = useCallback(() => {
+    setSkipDirection('next');
     if (currentTrackIndex < playlist.length - 1) {
       // Move to next track
       const nextIndex = currentTrackIndex + 1;
@@ -169,6 +171,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
   }, [currentTrackIndex, playlist.length, repeatMode, setPlaylist, setIsPlaying]);
 
   const handlePrevious = useCallback(() => {
+    setSkipDirection('prev');
     if (currentTrackIndex > 0) {
       const prevIndex = currentTrackIndex - 1;
       setCurrentTrackIndex(prevIndex);
@@ -181,6 +184,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
   }, [currentTrackIndex]);
 
   const selectTrack = useCallback((index: number) => {
+    setSkipDirection(index > currentTrackIndex ? 'next' : 'prev');
     setCurrentTrackIndex(index);
     setPlaylist(prev => prev.map((track, trackIndex) => ({
       ...track,
@@ -188,7 +192,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
     })));
     setCurrentTime(0);
     setIsPlaying(true);
-  }, []);
+  }, [currentTrackIndex]);
 
   const removeTrack = useCallback((indexToRemove: number) => {
     setPlaylist(prev => {
@@ -406,10 +410,15 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
     fileInputRef.current?.click();
   };
 
-  // Container class - background should be transparent when visualization is active
+  // Container class - background transitions smoothly when visualization toggles
   const containerClass = asPage
-    ? `relative min-h-screen overflow-hidden ${showVisualization ? 'bg-transparent' : 'bg-black'}`
-    : `fixed left-0 right-0 bottom-0 overflow-hidden z-40 top-[calc(4.5rem-1px)] ${showVisualization ? 'bg-transparent' : 'bg-black'}`; // Start 1px higher to cover navbar border
+    ? `relative min-h-screen overflow-hidden`
+    : `fixed left-0 right-0 bottom-0 overflow-hidden z-40 top-[calc(4.5rem-1px)]`; // Start 1px higher to cover navbar border
+
+  const containerStyle: React.CSSProperties = {
+    backgroundColor: showVisualization ? 'transparent' : '#000',
+    transition: 'background-color 3s ease',
+  };
 
   // Always render audio element to keep playback alive, but hide UI when not visible
   return (
@@ -427,22 +436,21 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
         className="hidden"
       />
 
-      {/* MilkDrop Visualization - Full viewport background, not constrained by player container */}
-      {isVisible && (
-        <MilkDropVisualizer
-          isActive={showVisualization && playlist.length > 0}
-          audioContext={getAudioContext()}
-          analyserNode={getAnalyser()}
-          trackTitle={currentTrack?.title}
-          activePreset={visualizerSettings.activePreset}
-          onPresetsLoaded={setAvailablePresets}
-        />
-      )}
+      {/* MilkDrop Visualization - Full viewport background, always mounted for smooth transitions */}
+      <MilkDropVisualizer
+        isActive={showVisualization && playlist.length > 0}
+        audioContext={getAudioContext()}
+        analyserNode={getAnalyser()}
+        trackTitle={currentTrack?.title}
+        activePreset={visualizerSettings.activePreset}
+        onPresetsLoaded={setAvailablePresets}
+      />
 
       {/* Player UI - only shown when visible */}
       {isVisible && (
         <div
           className={containerClass}
+          style={containerStyle}
           onDragOver={playlist.length > 0 ? handleDragOver : undefined}
           onDragLeave={playlist.length > 0 ? handleDragLeave : undefined}
           onDrop={playlist.length > 0 ? handleDrop : undefined}
@@ -516,7 +524,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
               backgroundImage: showVisualization ? 'none' : `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='40' height='40' fill='white' fill-opacity='0'/%3E%3Ccircle cx='20' cy='20' r='1' fill='white' fill-opacity='0.04'/%3E%3C/svg%3E")`,
               backgroundBlendMode: 'overlay',
               height: 'calc(100dvh - 4.5rem)', // Full height minus navbar (dvh for mobile)
-              transition: 'background 0.5s ease, backdrop-filter 0.5s ease',
+              transition: 'background 3s ease',
             }}
           >
             {/* Lottie Animation */}
@@ -551,7 +559,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                     }}
                   >
                     {currentTrack && (
-                      <AlbumArt currentTrack={currentTrack} />
+                      <AlbumArt currentTrack={currentTrack} direction={skipDirection} isPlaying={isPlaying} />
                     )}
 
                     {currentTrack && (
@@ -621,7 +629,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                   {/* Album Art Area */}
                   <div className="flex justify-center">
                     <div className="w-full max-w-sm">
-                      <AlbumArt currentTrack={currentTrack} />
+                      <AlbumArt currentTrack={currentTrack} direction={skipDirection} isPlaying={isPlaying} />
                     </div>
                   </div>
                   {/* Progress Bar */}
