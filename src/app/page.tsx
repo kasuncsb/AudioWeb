@@ -23,12 +23,12 @@ const Header = ({ onPlayClick }: { onPlayClick: () => void }) => (
       WebkitBackdropFilter: 'blur(16px) saturate(180%)',
       backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='40' height='40' fill='white' fill-opacity='0'/%3E%3Ccircle cx='20' cy='20' r='1' fill='white' fill-opacity='0.04'/%3E%3C/svg%3E")`,
       backgroundBlendMode: 'overlay',
-      minHeight: 'calc(100vh - 4.5rem)', // Full height minus navbar
+      minHeight: 'calc(100dvh - 4.5rem)', // Full height minus navbar (dvh for mobile)
       paddingTop: '2rem',
       paddingBottom: '2rem',
     }}
   >
-    <div className="w-full max-w-[1280px] flex flex-col md:flex-row items-center justify-between gap-8 md:gap-10 px-4 md:px-8 flex-grow">
+    <div className="w-full max-w-7xl flex flex-col md:flex-row items-center justify-between gap-8 md:gap-10 px-4 md:px-8 grow">
       {/* Left */}
       <div className="flex-1 flex flex-col items-start justify-center gap-6 md:gap-8 max-w-xl order-2 md:order-1">
         <div className="flex flex-col items-start gap-4 md:gap-6 w-full">
@@ -44,7 +44,7 @@ const Header = ({ onPlayClick }: { onPlayClick: () => void }) => (
         <div className="flex flex-row items-center gap-3 md:gap-4 text-sm md:text-base font-medium w-full">
           <button
             onClick={onPlayClick}
-            className="flex flex-row items-center gap-2 px-4 md:px-6 py-2.5 md:py-3 rounded-xl bg-white border border-white/30 shadow transition-all duration-200 hover:bg-white hover:text-black hover:scale-105 active:bg-white active:text-black active:scale-95 focus:outline-none focus:ring-2 focus:ring-white text-black flex-shrink-0"
+            className="flex flex-row items-center gap-2 px-4 md:px-6 py-2.5 md:py-3 rounded-xl bg-white border border-white/30 shadow transition-all duration-200 hover:bg-white hover:text-black hover:scale-105 active:bg-white active:text-black active:scale-95 focus:outline-none focus:ring-2 focus:ring-white text-black shrink-0"
             style={{ backdropFilter: 'blur(4px)' }}
           >
             <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="none">
@@ -53,7 +53,7 @@ const Header = ({ onPlayClick }: { onPlayClick: () => void }) => (
             <span>Play</span>
           </button>
           <button
-            className="flex flex-row items-center gap-2 px-4 md:px-6 py-2.5 md:py-3 rounded-xl border border-white/30 bg-white/10 text-white shadow transition-all duration-200 hover:bg-white/20 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/30 flex-shrink-0"
+            className="flex flex-row items-center gap-2 px-4 md:px-6 py-2.5 md:py-3 rounded-xl border border-white/30 bg-white/10 text-white shadow transition-all duration-200 hover:bg-white/20 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/30 shrink-0"
             style={{ backdropFilter: 'blur(4px)' }}
           >
             <svg className="w-5 h-5 md:w-6 md:h-6" viewBox="0 0 24 24" fill="none">
@@ -64,9 +64,9 @@ const Header = ({ onPlayClick }: { onPlayClick: () => void }) => (
         </div>
       </div>
       {/* Right */}
-      <div className="flex-shrink-0 relative transition-transform duration-300 hover:scale-105 cursor-pointer flex flex-col items-center md:items-end order-1 md:order-2">
+      <div className="shrink-0 relative transition-transform duration-300 hover:scale-105 cursor-pointer flex flex-col items-center md:items-end order-1 md:order-2">
         <Image
-          className="w-[280px] h-[280px] sm:w-[320px] sm:h-[320px] md:w-[380px] md:h-[380px] lg:w-[420px] lg:h-[420px] xl:w-[500px] xl:h-[500px] rounded-[32px] md:rounded-[45px] object-cover shadow-xl"
+          className="w-70 h-70 sm:w-80 sm:h-80 md:w-95 md:h-95 lg:w-105 lg:h-105 xl:w-125 xl:h-125 rounded-4xl md:rounded-[45px] object-cover shadow-xl"
           width={500}
           height={500}
           sizes="(max-width: 640px) 280px, (max-width: 768px) 320px, (max-width: 1024px) 380px, (max-width: 1280px) 420px, 500px"
@@ -161,7 +161,7 @@ export default function Home() {
       />
       {/* Hide home content when Player is visible to prevent showing through navbar */}
       {!isPlayerVisible && (
-        <main className="pt-[4.5rem] custom-scrollbar-auto"> {/* Account for fixed navbar */}
+        <main className="pt-18 custom-scrollbar-auto"> {/* Account for fixed navbar */}
           <Header onPlayClick={handlePlayClick} />
         </main>
       )}

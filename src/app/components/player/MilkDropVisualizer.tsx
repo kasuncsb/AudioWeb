@@ -25,6 +25,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
   analyserNode,
   trackTitle,
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const visualizerRef = useRef<ButterchurnVisualizerInstance | null>(null);
   const animationRef = useRef<number | null>(null);
@@ -98,30 +99,36 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
     loadLibraries();
   }, [isActive, isLibraryLoaded]);
 
-  // Handle resize - fill entire viewport
+  // Handle resize - use container's actual dimensions
   const handleResize = useCallback(() => {
+    const container = containerRef.current;
     const canvas = canvasRef.current;
     const visualizer = visualizerRef.current;
     
-    if (canvas && visualizer) {
-      // Use visualViewport for actual visible area, fallback to window dimensions
-      const vv = window.visualViewport;
-      const width = vv ? vv.width : window.innerWidth;
-      const height = vv ? vv.height : window.innerHeight;
+    if (container && canvas && visualizer) {
+      // Get actual rendered dimensions from container (CSS handles viewport calculation)
+      const rect = container.getBoundingClientRect();
+      const width = Math.floor(rect.width);
+      const height = Math.floor(rect.height);
+      const pixelRatio = window.devicePixelRatio || 1;
       
-      console.log('MilkDrop: Resize to', { width, height, source: vv ? 'visualViewport' : 'window' });
+      console.log('MilkDrop resize:', { width, height, pixelRatio });
       
-      // Set canvas dimensions to actual visible viewport
-      canvas.width = width * (window.devicePixelRatio || 1);
-      canvas.height = height * (window.devicePixelRatio || 1);
+      // Set canvas dimensions
+      const physicalWidth = Math.floor(width * pixelRatio);
+      const physicalHeight = Math.floor(height * pixelRatio);
+      
+      canvas.width = physicalWidth;
+      canvas.height = physicalHeight;
       canvas.style.width = `${width}px`;
       canvas.style.height = `${height}px`;
       
-      visualizer.setRendererSize(width, height, { pixelRatio: window.devicePixelRatio || 1 });
+      // butterchurn expects physical pixel dimensions
+      visualizer.setRendererSize(physicalWidth, physicalHeight);
     }
   }, []);
 
-  // Initialize visualizer - create own AudioContext if needed
+  // Initialize visualizer - wait for container to have valid dimensions
   useEffect(() => {
     console.log('MilkDrop: Init effect', { 
       isActive, 
@@ -131,7 +138,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
       hasVisualizer: !!visualizerRef.current
     });
     
-    if (!isActive || !canvasRef.current || !isLibraryLoaded || allPresetKeys.length === 0) {
+    if (!isActive || !canvasRef.current || !containerRef.current || !isLibraryLoaded || allPresetKeys.length === 0) {
       console.log('MilkDrop: Init skipped - missing requirements');
       return;
     }
@@ -143,77 +150,136 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
     }
 
     const canvas = canvasRef.current;
+    const container = containerRef.current;
     const butterchurn = butterchurnRef.current;
     
     if (!butterchurn) {
       console.log('MilkDrop: No butterchurn ref');
       return;
     }
+
+    // Function to actually create the visualizer once we have valid dimensions
+    const createVisualizerWithDimensions = (width: number, height: number) => {
+      if (visualizerRef.current) return; // Already created
+      
+      console.log('MilkDrop: Creating visualizer with dimensions:', { width, height });
+      
+      try {
+        // Use provided audioContext or create our own
+        let ctx = audioContext;
+        if (!ctx) {
+          ctx = new AudioContext();
+          localAudioContextRef.current = ctx;
+          console.log('MilkDrop: Created local AudioContext');
+        }
+
+        const pixelRatio = window.devicePixelRatio || 1;
+        const physicalWidth = Math.floor(width * pixelRatio);
+        const physicalHeight = Math.floor(height * pixelRatio);
+        
+        // Set canvas size
+        canvas.width = physicalWidth;
+        canvas.height = physicalHeight;
+        canvas.style.width = `${width}px`;
+        canvas.style.height = `${height}px`;
+        
+        // Create visualizer - butterchurn expects physical pixel dimensions
+        const visualizer = butterchurn.createVisualizer(ctx, canvas, {
+          width: physicalWidth,
+          height: physicalHeight,
+          meshWidth: 64,
+          meshHeight: 48,
+        });
+
+        console.log('MilkDrop: Visualizer created successfully');
+        visualizerRef.current = visualizer;
+        
+        // Load initial preset
+        const presets = presetsRef.current;
+        if (presets) {
+          const initialPreset = presets[allPresetKeys[0]];
+          if (initialPreset) {
+            visualizer.loadPreset(initialPreset, 0);
+            console.log('MilkDrop: Loaded initial preset:', allPresetKeys[0]);
+          }
+        }
+
+        setIsInitialized(true);
+        console.log('MilkDrop: Initialization complete');
+      } catch (error) {
+        console.error('Failed to initialize MilkDrop visualizer:', error);
+      }
+    };
+
+    // Use ResizeObserver to wait for container to have valid dimensions
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        console.log('MilkDrop: ResizeObserver detected:', { width, height });
+        
+        // Only initialize once we have valid dimensions (at least 100x100)
+        if (width >= 100 && height >= 100 && !visualizerRef.current) {
+          resizeObserver.disconnect(); // Stop observing after init
+          createVisualizerWithDimensions(Math.floor(width), Math.floor(height));
+        }
+      }
+    });
+
+    resizeObserver.observe(container);
+
+    // Fallback: check dimensions after a short delay in case ResizeObserver doesn't fire
+    const fallbackTimeout = setTimeout(() => {
+      if (visualizerRef.current) return; // Already initialized
+      
+      const rect = container.getBoundingClientRect();
+      const width = Math.floor(rect.width);
+      const height = Math.floor(rect.height);
+      
+      console.log('MilkDrop: Fallback dimension check:', { width, height });
+      
+      if (width >= 100 && height >= 100) {
+        resizeObserver.disconnect();
+        createVisualizerWithDimensions(width, height);
+      }
+    }, 100);
+
+    return () => {
+      resizeObserver.disconnect();
+      clearTimeout(fallbackTimeout);
+    };
+  }, [isActive, isLibraryLoaded, allPresetKeys, audioContext]);
+
+  // Handle resize after initialization
+  useEffect(() => {
+    if (!isInitialized || !containerRef.current) return;
+
+    const container = containerRef.current;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width >= 100 && height >= 100) {
+          handleResize();
+        }
+      }
+    });
+
+    resizeObserver.observe(container);
     
-    console.log('MilkDrop: Creating visualizer...');
-    try {
-      // Use provided audioContext or create our own
-      let ctx = audioContext;
-      if (!ctx) {
-        ctx = new AudioContext();
-        localAudioContextRef.current = ctx;
-        console.log('MilkDrop: Created local AudioContext');
-      }
-
-      // Use visualViewport for actual visible area
-      const vv = window.visualViewport;
-      const width = vv ? vv.width : window.innerWidth;
-      const height = vv ? vv.height : window.innerHeight;
-      
-      // Set initial canvas size
-      canvas.width = width * (window.devicePixelRatio || 1);
-      canvas.height = height * (window.devicePixelRatio || 1);
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${height}px`;
-      
-      // Create visualizer with correct dimensions
-      const visualizer = butterchurn.createVisualizer(ctx, canvas, {
-        width: width,
-        height: height,
-        pixelRatio: window.devicePixelRatio || 1,
-        meshWidth: 64,
-        meshHeight: 48,
-      });
-
-      console.log('MilkDrop: Visualizer created successfully');
-
-      visualizerRef.current = visualizer;
-      
-      // Load initial preset
-      const presets = presetsRef.current;
-      if (presets) {
-        const initialPreset = presets[allPresetKeys[0]];
-        if (initialPreset) {
-          visualizer.loadPreset(initialPreset, 0);
-          console.log('MilkDrop: Loaded initial preset:', allPresetKeys[0]);
-        }
-      }
-
-      handleResize();
-      setIsInitialized(true);
-      console.log('MilkDrop: Initialization complete');
-
-      // Add resize listeners - window and visualViewport
-      window.addEventListener('resize', handleResize);
-      if (window.visualViewport) {
-        window.visualViewport.addEventListener('resize', handleResize);
-      }
-
-      return () => {
-        window.removeEventListener('resize', handleResize);
-        if (window.visualViewport) {
-          window.visualViewport.removeEventListener('resize', handleResize);
-        }
-      };
-    } catch (error) {
-      console.error('Failed to initialize MilkDrop visualizer:', error);
+    // Also listen to window resize and visualViewport changes
+    window.addEventListener('resize', handleResize);
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener('resize', handleResize);
     }
-  }, [isActive, isLibraryLoaded, allPresetKeys, handleResize, audioContext]);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', handleResize);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener('resize', handleResize);
+      }
+    };
+  }, [isInitialized, handleResize]);
 
   // Connect/disconnect analyser
   useEffect(() => {
@@ -417,12 +483,19 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
 
   return (
     <div 
-      className="fixed inset-0"
+      ref={containerRef}
       style={{ 
-        zIndex: 0,
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        width: '100vw',
+        height: '100dvh', // Dynamic viewport height for mobile (accounts for URL bar)
+        zIndex: 5, // Above page background, below player UI (z-40) and navbar (z-50)
         pointerEvents: 'none',
         overflow: 'hidden',
-        background: '#000', // Ensure black background
+        background: '#000', // Black fallback background
       }}
     >
       <canvas
@@ -432,13 +505,17 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
           position: 'absolute',
           top: 0,
           left: 0,
+          width: '100%',
+          height: '100%',
         }}
       />
       
       {/* Loading indicator */}
       {!isInitialized && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <div className="text-white/50 text-lg">Loading visualizer...</div>
+          <div className="text-white/70 text-lg font-medium p-4 bg-black/50 rounded-lg backdrop-blur-sm">
+            Loading visualizer...
+          </div>
         </div>
       )}
       
@@ -458,7 +535,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
             </svg>
           </button>
           
-          <span className="text-white/80 text-sm px-3 py-1.5 bg-black/70 rounded backdrop-blur-sm max-w-[250px] truncate">
+          <span className="text-white/80 text-sm px-3 py-1.5 bg-black/70 rounded backdrop-blur-sm max-w-62.5 truncate">
             {allPresetKeys[currentPresetIndex] || 'Loading...'}
           </span>
           

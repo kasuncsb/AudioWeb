@@ -382,9 +382,10 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
     fileInputRef.current?.click();
   };
 
+  // Container class - background should be transparent when visualization is active
   const containerClass = asPage 
-    ? "min-h-screen bg-black overflow-hidden" 
-    : "fixed left-0 right-0 bottom-0 bg-black overflow-hidden z-40" + " top-[calc(4.5rem-1px)]"; // Start 1px higher to cover navbar border
+    ? `min-h-screen overflow-hidden ${showVisualization ? 'bg-transparent' : 'bg-black'}` 
+    : `fixed left-0 right-0 bottom-0 overflow-hidden z-40 top-[calc(4.5rem-1px)] ${showVisualization ? 'bg-transparent' : 'bg-black'}`; // Start 1px higher to cover navbar border
 
   // Always render audio element to keep playback alive, but hide UI when not visible
   return (
@@ -402,6 +403,16 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
         className="hidden"
       />
 
+      {/* MilkDrop Visualization - Full viewport background, not constrained by player container */}
+      {isVisible && (
+        <MilkDropVisualizer
+          isActive={showVisualization && playlist.length > 0}
+          audioContext={getAudioContext()}
+          analyserNode={getAnalyser()}
+          trackTitle={currentTrack?.title}
+        />
+      )}
+
       {/* Player UI - only shown when visible */}
       {isVisible && (
     <div 
@@ -410,13 +421,6 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
       onDragLeave={playlist.length > 0 ? handleDragLeave : undefined}
       onDrop={playlist.length > 0 ? handleDrop : undefined}
     >
-      {/* MilkDrop Visualization - Background layer */}
-      <MilkDropVisualizer
-        isActive={showVisualization && playlist.length > 0}
-        audioContext={getAudioContext()}
-        analyserNode={getAnalyser()}
-        trackTitle={currentTrack?.title}
-      />
 
       {/* Drag and Drop Overlay - Only show when tracks are loaded */}
       {playlist.length > 0 && isDragOver && (
@@ -449,7 +453,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
           WebkitBackdropFilter: showVisualization ? 'none' : 'blur(16px) saturate(180%)',
           backgroundImage: showVisualization ? 'none' : `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='40' height='40' fill='white' fill-opacity='0'/%3E%3Ccircle cx='20' cy='20' r='1' fill='white' fill-opacity='0.04'/%3E%3C/svg%3E")`,
           backgroundBlendMode: 'overlay',
-          height: 'calc(100vh - 4.5rem)', // Full height minus navbar
+          height: 'calc(100dvh - 4.5rem)', // Full height minus navbar (dvh for mobile)
           transition: 'background 0.5s ease, backdrop-filter 0.5s ease',
         }}
       >
@@ -462,12 +466,12 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
         <LottieAnimation show={!currentTrack} />
 
         {/* Desktop and Tablet Layout */}
-        <div className="hidden md:flex w-full max-w-[1400px] gap-4 lg:gap-8 px-4 lg:px-8 pt-2">
+        <div className="hidden md:flex w-full max-w-350 gap-4 lg:gap-8 px-4 lg:px-8 pt-2">
           
           {/* Left Section - Player Controls */}
           <div className="w-72 lg:w-80 xl:w-96 flex flex-col h-[calc(100vh-140px)] lg:h-[calc(100vh-120px)] overflow-y-auto custom-scrollbar-auto">
             <div 
-              className="rounded-[20px] lg:rounded-[24px] p-4 lg:p-6 flex-shrink-0"
+              className="rounded-[20px] lg:rounded-3xl p-4 lg:p-6 shrink-0"
               style={{
                 background: 'rgba(255, 255, 255, 0.05)',
                 backdropFilter: 'blur(20px)',
@@ -526,7 +530,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
           {playlist.length > 0 && (
             <div className="flex-1 flex flex-col h-[calc(100vh-140px)] lg:h-[calc(100vh-120px)]">
               <div 
-                className="rounded-[20px] lg:rounded-[24px] p-4 lg:p-6 flex-1 overflow-y-auto custom-scrollbar-enhanced min-h-0"
+                className="rounded-[20px] lg:rounded-3xl p-4 lg:p-6 flex-1 overflow-y-auto custom-scrollbar-enhanced min-h-0"
                 style={{
                   background: 'rgba(255, 255, 255, 0.03)',
                   backdropFilter: 'blur(20px)',
@@ -544,7 +548,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
         </div>
 
         {/* Mobile and Small Tablet Layout */}
-        <div className="md:hidden w-full h-[calc(100vh-4rem)] overflow-y-auto custom-scrollbar-auto">
+        <div className="md:hidden w-full h-[calc(100dvh-4.5rem)] overflow-y-auto custom-scrollbar-auto">
           <div className="px-3 sm:px-4 pt-2 pb-6 space-y-3 sm:space-y-4">
             {/* Album Art or Upload Area */}
             <div className="flex justify-center">
@@ -631,12 +635,13 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
 
                 {/* Lyrics Display */}
                 <div 
-                  className="w-full rounded-2xl p-4 sm:p-5 flex-1 overflow-hidden"
+                  className="w-full rounded-2xl p-4 sm:p-5 overflow-hidden"
                   style={{
                     background: 'rgba(255, 255, 255, 0.03)',
                     backdropFilter: 'blur(20px)',
                     border: '1px solid rgba(255, 255, 255, 0.05)',
                     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+                    minHeight: '200px', // Reasonable height for lyrics
                   }}
                 >
                   <LyricsDisplay
