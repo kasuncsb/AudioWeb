@@ -436,7 +436,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
         className="hidden"
       />
 
-      {/* MilkDrop Visualization - Full viewport background, always mounted for smooth transitions */}
+      {/* MilkDrop Visualization - Always rendered so it shows through navbar glass even on home screen */}
       <MilkDropVisualizer
         isActive={showVisualization && playlist.length > 0}
         audioContext={getAudioContext()}

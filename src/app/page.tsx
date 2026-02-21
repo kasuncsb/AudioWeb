@@ -14,19 +14,16 @@ interface AudioTrack {
   duration: number;
 }
 
-const Header = ({ onPlayClick, showVisualization = false }: { onPlayClick: () => void; showVisualization?: boolean }) => (
+const Header = ({ onPlayClick }: { onPlayClick: () => void }) => (
   <section
     className="w-full relative flex flex-col items-center justify-center"
     style={{
-      background: showVisualization ? 'transparent' : 'rgba(20, 20, 28, 0.92)',
-      backdropFilter: showVisualization ? 'none' : 'blur(16px) saturate(180%)',
-      WebkitBackdropFilter: showVisualization ? 'none' : 'blur(16px) saturate(180%)',
-      backgroundImage: showVisualization ? 'none' : `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='40' height='40' fill='white' fill-opacity='0'/%3E%3Ccircle cx='20' cy='20' r='1' fill='white' fill-opacity='0.04'/%3E%3C/svg%3E")`,
+      background: 'rgb(20, 20, 28)',
+      backgroundImage: `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='40' height='40' fill='white' fill-opacity='0'/%3E%3Ccircle cx='20' cy='20' r='1' fill='white' fill-opacity='0.04'/%3E%3C/svg%3E")`,
       backgroundBlendMode: 'overlay',
       minHeight: 'calc(100dvh - 4.5rem)', // Full height minus navbar (dvh for mobile)
       paddingTop: '2rem',
       paddingBottom: '2rem',
-      transition: 'background 3s ease',
     }}
   >
     <div className="w-full max-w-7xl flex flex-col md:flex-row items-center justify-between gap-8 md:gap-10 px-4 md:px-8 grow">
@@ -162,8 +159,8 @@ export default function Home() {
       />
       {/* Hide home content when Player is visible to prevent showing through navbar */}
       {!isPlayerVisible && (
-        <main className="pt-18 custom-scrollbar-auto relative z-10"> {/* Account for fixed navbar, above visualizer z-5 */}
-          <Header onPlayClick={handlePlayClick} showVisualization={showVisualization} />
+        <main className="pt-18 custom-scrollbar-auto relative z-10"> {/* Account for fixed navbar, z-10 to sit above MilkDrop canvas */}
+          <Header onPlayClick={handlePlayClick} />
         </main>
       )}
       <Player
