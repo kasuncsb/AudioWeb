@@ -44,6 +44,9 @@ export const useAudioManager = (
 ) => {
   const audioRef = useRef<HTMLAudioElement>(null);
   const audioChainRef = useRef<AudioChain | null>(null);
+  // Eagerly-created AudioContext so the visualizer can bind to it before first play.
+  // The full audio chain reuses this same instance to avoid a cross-context mismatch.
+  const eagerAudioContextRef = useRef<AudioContext | null>(null);
   const [isChainReady, setIsChainReady] = useState(false);
   const fadeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isFadingRef = useRef<boolean>(false);
@@ -114,6 +117,20 @@ export const useAudioManager = (
     });
   }, []);
 
+  // Eagerly create AudioContext on mount so the visualizer can bind before first play.
+  // This won't require user interaction – only .resume() needs it. We create it here
+  // and reuse the same instance when the full chain is wired on the first play event.
+  useEffect(() => {
+    if (eagerAudioContextRef.current) return;
+    try {
+      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      eagerAudioContextRef.current = new AudioContextClass();
+      logger.debug('Eager AudioContext created');
+    } catch (e) {
+      logger.error('Failed to create eager AudioContext:', e);
+    }
+  }, []);
+
   // Initialize Web Audio API chain once
   useEffect(() => {
     const audio = audioRef.current;
@@ -132,8 +149,15 @@ export const useAudioManager = (
       try {
         logger.start('Initializing audio chain');
 
-        // Create AudioContext
-        const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+        // Reuse the eagerly-created AudioContext instead of creating a new one.
+        // This is critical: the visualizer is already bound to this context, so
+        // creating a second one here would cause an InvalidAccessError when
+        // butterchurn tries to connect an AnalyserNode from the wrong context.
+        const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+        const audioContext = eagerAudioContextRef.current ?? new AudioContextClass();
+        if (!eagerAudioContextRef.current) {
+          eagerAudioContextRef.current = audioContext;
+        }
 
         // Create MediaElementSource (can only be done once per element)
         const source = audioContext.createMediaElementSource(audio);
@@ -526,11 +550,13 @@ export const useAudioManager = (
   }, []);
 
   const getAudioContext = useCallback(() => {
+    // Return the chain context if available, otherwise the eager context so the
+    // visualizer can initialise before the first play event fires.
     const chain = audioChainRef.current;
     if (chain?.context && chain.connected) {
       return chain.context;
     }
-    return null;
+    return eagerAudioContextRef.current;
   }, []);
 
   return {

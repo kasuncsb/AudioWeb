@@ -38,7 +38,6 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
   const presetsRef = useRef<Record<string, object> | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const butterchurnRef = useRef<any>(null);
-  const localAudioContextRef = useRef<AudioContext | null>(null);
   const [allPresetKeys, setAllPresetKeys] = useState<string[]>([]);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLibraryLoaded, setIsLibraryLoaded] = useState(false);
@@ -162,15 +161,12 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
     const createVisualizerWithDimensions = (width: number, height: number) => {
       if (visualizerRef.current) return; // Already created
 
-
-
       try {
-        // Use provided audioContext or create our own
-        let ctx = audioContext;
-        if (!ctx) {
-          ctx = new AudioContext();
-          localAudioContextRef.current = ctx;
-
+        // Use provided audioContext — it is always set because useAudioManager
+        // eagerly creates one on mount. If somehow null, bail out gracefully.
+        if (!audioContext) {
+          console.warn('Visualizer: audioContext not yet available, will retry on next activation');
+          return;
         }
 
         const pixelRatio = window.devicePixelRatio || 1;
@@ -184,7 +180,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
         canvas.style.height = `${height}px`;
 
         // Create visualizer - butterchurn expects physical pixel dimensions
-        const visualizer = butterchurn.createVisualizer(ctx, canvas, {
+        const visualizer = butterchurn.createVisualizer(audioContext, canvas, {
           width: physicalWidth,
           height: physicalHeight,
           meshWidth: 64,
@@ -373,15 +369,6 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
           } catch {
             // Ignore
           }
-        }
-        // Close local audio context if we created one
-        if (localAudioContextRef.current) {
-          try {
-            localAudioContextRef.current.close();
-          } catch {
-            // Ignore
-          }
-          localAudioContextRef.current = null;
         }
         visualizerRef.current = null;
         connectedAnalyserRef.current = null;
