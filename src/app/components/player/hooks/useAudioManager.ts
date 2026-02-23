@@ -339,14 +339,19 @@ export const useAudioManager = (
       const now = chain.context.currentTime;
       const smoothTime = 0.05; // 50ms smooth transitions
 
-      // Calculate preamp reduction based on total boost (prevent clipping)
-      const totalBoost = settings.enabled
-        ? gains.reduce((sum, g) => sum + Math.max(0, g), 0) +
-        Math.max(0, settings.bassTone) +
-        Math.max(0, settings.trebleTone)
-        : 0;
+      // Calculate preamp reduction based on ACTUAL applied gains (not raw slider values)
+      const bassTone = settings.enabled ? settings.bassTone : 0;
+      const trebleTone = settings.enabled ? settings.trebleTone : 0;
 
-      // Simple preamp formula: reduce by 0.5dB per dB of total boost above 6dB
+      // Actual applied gains: bass = val×1.0 + val×0.7 = val×1.7, treble = val×1.0
+      const eqBoost = settings.enabled
+        ? gains.reduce((sum, g) => sum + Math.max(0, g), 0)
+        : 0;
+      const actualBassBoost = Math.max(0, bassTone) * 1.7;
+      const actualTrebleBoost = Math.max(0, trebleTone) * 1.0;
+      const totalBoost = eqBoost + actualBassBoost + actualTrebleBoost;
+
+      // Reduce by 0.5dB per dB of total boost above 6dB
       const preampDb = totalBoost > 6 ? -(totalBoost - 6) * 0.5 : 0;
       const preampValue = Math.max(0.3, Math.min(1.0, Math.pow(10, preampDb / 20)));
 
@@ -365,26 +370,21 @@ export const useAudioManager = (
       });
 
       // ===== BASS CONTROL =====
-      // bassTone controls the 80Hz punch - this is where you FEEL the bass
-      const bassTone = settings.enabled ? settings.bassTone : 0;
-
-      // Bass punch at 80Hz (the "thump" you feel)
-      // Scale: bassTone of 6 = +9dB punch, bassTone of 12 = +15dB punch
-      const punchGain = Math.max(-6, Math.min(15, bassTone * 1.25));
+      // Bass punch at 80Hz (the "thump" you feel) — 1:1 with slider
+      const punchGain = Math.max(-6, Math.min(12, bassTone * 1.0));
       chain.bassBoost.gain.cancelScheduledValues(now);
       chain.bassBoost.gain.setValueAtTime(chain.bassBoost.gain.value, now);
       chain.bassBoost.gain.linearRampToValueAtTime(punchGain, now + smoothTime);
 
-      // Sub-bass body at 60Hz (the "rumble" warmth)
-      // Less aggressive than punch - adds body without muddiness
-      const subGain = Math.max(-4, Math.min(10, bassTone * 0.8));
+      // Sub-bass body at 60Hz — subtler complement, symmetric cut
+      const subGain = Math.max(-6, Math.min(8, bassTone * 0.7));
       chain.subBoost.gain.cancelScheduledValues(now);
       chain.subBoost.gain.setValueAtTime(chain.subBoost.gain.value, now);
       chain.subBoost.gain.linearRampToValueAtTime(subGain, now + smoothTime);
 
       // ===== TREBLE CONTROL =====
-      const trebleTone = settings.enabled ? settings.trebleTone : 0;
-      const trebleGain = Math.max(-6, Math.min(8, trebleTone * 0.7));
+      // Treble at 8kHz — 1:1 with slider, balanced with bass
+      const trebleGain = Math.max(-6, Math.min(12, trebleTone * 1.0));
       chain.trebleBoost.gain.cancelScheduledValues(now);
       chain.trebleBoost.gain.setValueAtTime(chain.trebleBoost.gain.value, now);
       chain.trebleBoost.gain.linearRampToValueAtTime(trebleGain, now + smoothTime);
