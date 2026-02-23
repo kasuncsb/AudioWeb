@@ -4,6 +4,7 @@ import Image from "next/image";
 import Navbar from '@/app/components/navbar';
 import Player from '@/app/components/player/Player';
 import { useState } from 'react';
+import { useWakeLock } from '@/hooks/useWakeLock';
 
 interface AudioTrack {
   id: string;
@@ -96,6 +97,9 @@ export default function Home() {
   const [nextTrack, setNextTrack] = useState<AudioTrack | null>(null);
   const [sleepTimer, setSleepTimer] = useState(0);
   const [showVisualization, setShowVisualization] = useState(false);
+
+  // Keep the screen awake while the visualizer is active
+  useWakeLock(showVisualization);
 
   const handlePlayClick = () => {
     setIsPlayerVisible(true);
