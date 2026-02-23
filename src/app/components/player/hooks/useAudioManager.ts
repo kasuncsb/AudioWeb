@@ -50,6 +50,10 @@ export const useAudioManager = (
   const [isChainReady, setIsChainReady] = useState(false);
   const fadeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isFadingRef = useRef<boolean>(false);
+  // Always-current volume ref so fadeIn/chain-init read the latest value
+  // regardless of when their closures were created.
+  const volumeRef = useRef(volume);
+  useEffect(() => { volumeRef.current = volume; }, [volume]);
 
   // Fade in audio
   const fadeIn = useCallback((duration: number = 800) => {
@@ -58,7 +62,10 @@ export const useAudioManager = (
 
     if (!audio) return;
 
-    const targetVolume = volume / 100;
+    // Always read the latest volume from the ref so we fade to the correct
+    // target even if localStorage restoration happened after this callback
+    // was created.
+    const targetVolume = volumeRef.current / 100;
 
     if (chain?.outputGain && chain.connected) {
       try {
@@ -71,6 +78,14 @@ export const useAudioManager = (
         if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);
         fadeTimeoutRef.current = setTimeout(() => {
           isFadingRef.current = false;
+          // Re-sync volume after fade in case it was restored from
+          // localStorage during the fade window.
+          try {
+            const correctVolume = volumeRef.current / 100;
+            const ct = chain.context.currentTime;
+            chain.outputGain.gain.cancelScheduledValues(ct);
+            chain.outputGain.gain.setValueAtTime(correctVolume, ct);
+          } catch { /* ignore */ }
         }, duration);
         return;
       } catch (error) {
@@ -79,7 +94,7 @@ export const useAudioManager = (
     }
 
     audio.volume = targetVolume;
-  }, [volume]);
+  }, []);
 
   // Fade out audio
   const fadeOut = useCallback((duration: number = 800): Promise<void> => {
@@ -231,7 +246,7 @@ export const useAudioManager = (
 
         // ===== OUTPUT GAIN - Master volume =====
         const outputGain = audioContext.createGain();
-        outputGain.gain.value = volume / 100;
+        outputGain.gain.value = volumeRef.current / 100;
 
         // Reset HTML element volume to unity (chain controls volume)
         try {
@@ -300,7 +315,8 @@ export const useAudioManager = (
       audio.removeEventListener('play', initAudioChain);
       if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);
     };
-  }, [volume]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Apply equalizer settings - clean and simple
   const applyEqualizerSettingsToChain = (chain: AudioChain, settings: EqualizerSettings) => {
