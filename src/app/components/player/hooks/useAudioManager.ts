@@ -488,8 +488,10 @@ export const useAudioManager = (
       const audio = audioRef.current;
       if (audio && !audio.paused) {
         logger.info('Audio output device changed — pausing playback');
-        audio.pause();
-        setIsPlaying(false);
+        fadeOut().then(() => {
+          audio.pause();
+          setIsPlaying(false);
+        });
       }
     };
 
@@ -497,7 +499,7 @@ export const useAudioManager = (
     return () => {
       navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
     };
-  }, [setIsPlaying]);
+  }, [setIsPlaying, fadeOut]);
 
   // Update volume
   useEffect(() => {
