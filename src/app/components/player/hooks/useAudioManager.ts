@@ -479,58 +479,6 @@ export const useAudioManager = (
     };
   }, [repeatMode, handleNext, setCurrentTime, setDuration, setIsPlaying]);
 
-  // Auto-pause when audio output device changes (e.g. headphones plugged/unplugged)
-  // Protects ears (headphone switch) and privacy (speaker switch)
-  useEffect(() => {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) return;
-
-    let previousOutputsCount = -1;
-    let pollInterval: NodeJS.Timeout | null = null;
-
-    const handleDeviceChange = () => {
-      const audio = audioRef.current;
-      // Re-evaluate current outputs count so subsequent changes are caught
-      navigator.mediaDevices.enumerateDevices().then(devices => {
-        const outputsCount = devices.filter(d => d.kind === 'audiooutput').length;
-        previousOutputsCount = outputsCount;
-      }).catch(() => { });
-
-      if (audio && !audio.paused && isPlaying) {
-        logger.info('Audio output device changed — auto-pausing playback');
-        fadeOut().then(() => {
-          audio.pause();
-          setIsPlaying(false);
-        });
-      }
-    };
-
-    // 1. Initial baseline
-    navigator.mediaDevices.enumerateDevices().then(devices => {
-      previousOutputsCount = devices.filter(d => d.kind === 'audiooutput').length;
-    }).catch(err => logger.debug('Initial enumerateDevices failed:', err));
-
-    // 2. Standard event listener (sometimes unreliable on Windows + Bluetooth)
-    navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange);
-
-    // 3. Polling fallback for Windows Bluetooth issues
-    // Checks every 2 seconds if the number of audio output devices has changed
-    pollInterval = setInterval(() => {
-      navigator.mediaDevices.enumerateDevices().then(devices => {
-        const currentOutputsCount = devices.filter(d => d.kind === 'audiooutput').length;
-        if (previousOutputsCount !== -1 && currentOutputsCount !== previousOutputsCount) {
-          logger.debug(`Device count changed (polled): ${previousOutputsCount} -> ${currentOutputsCount}`);
-          // Trigger the same logic as the native event
-          handleDeviceChange();
-        }
-      }).catch(() => { });
-    }, 2000);
-
-    return () => {
-      navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
-      if (pollInterval) clearInterval(pollInterval);
-    };
-  }, [setIsPlaying, fadeOut, isPlaying]);
-
   // Update volume
   useEffect(() => {
     const audio = audioRef.current;
