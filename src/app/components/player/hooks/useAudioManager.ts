@@ -479,6 +479,26 @@ export const useAudioManager = (
     };
   }, [repeatMode, handleNext, setCurrentTime, setDuration, setIsPlaying]);
 
+  // Auto-pause when audio output device changes (e.g. headphones plugged/unplugged)
+  // Protects ears (headphone switch) and privacy (speaker switch)
+  useEffect(() => {
+    if (!navigator.mediaDevices) return;
+
+    const handleDeviceChange = () => {
+      const audio = audioRef.current;
+      if (audio && !audio.paused) {
+        logger.info('Audio output device changed — pausing playback');
+        audio.pause();
+        setIsPlaying(false);
+      }
+    };
+
+    navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange);
+    return () => {
+      navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
+    };
+  }, [setIsPlaying]);
+
   // Update volume
   useEffect(() => {
     const audio = audioRef.current;
