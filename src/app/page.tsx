@@ -149,11 +149,11 @@ export default function Home() {
   };
 
   const handleSleepTimerChange = (timer: number) => {
-    setSleepTimer(timer);
-    // When sleep timer expires, also turn off visualization so wake lock is released
-    if (timer === 0 && showVisualization) {
+    // Only turn off visualization when timer actually expires (was active, now 0)
+    if (timer === 0 && sleepTimer > 0 && showVisualization) {
       setShowVisualization(false);
     }
+    setSleepTimer(timer);
   };
 
   const handleVisualizationChange = (visualization: boolean) => {
