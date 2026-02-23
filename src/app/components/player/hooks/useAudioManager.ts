@@ -235,13 +235,13 @@ export const useAudioManager = (
         trebleBoost.Q.value = 0.7;
         trebleBoost.gain.value = 0;
 
-        // ===== LIMITER - Clean brick-wall protection =====
-        // Clean limiting, not harsh clipping
+        // ===== LIMITER - Relaxed to preserve micro-dynamics =====
+        // Gentle limiting that only catches real peaks
         const limiter = audioContext.createDynamicsCompressor();
-        limiter.threshold.value = -1;    // Catch peaks at -1dB
-        limiter.knee.value = 0;          // Hard knee = true limiter
-        limiter.ratio.value = 20;        // High ratio = brick wall
-        limiter.attack.value = 0.001;    // 1ms attack - catch transients fast
+        limiter.threshold.value = -6;    // Only catch actual peaks, not everything
+        limiter.knee.value = 6;          // Soft knee - gradual onset
+        limiter.ratio.value = 4;         // Gentle ratio - compress, don't crush
+        limiter.attack.value = 0.003;    // 3ms - lets transients breathe
         limiter.release.value = 0.1;     // 100ms release - smooth recovery
 
         // ===== OUTPUT GAIN - Master volume =====
