@@ -38,6 +38,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
   if (!show) return null;
 
   const handlePresetChange = (presetKey: string) => {
+    if (!settings.enabled) return;
     const preset = EQUALIZER_PRESETS[presetKey as keyof typeof EQUALIZER_PRESETS];
     if (!preset) return;
 
@@ -173,8 +174,8 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                   <button
                     onClick={handleToggleEnabled}
                     className={`px-4 py-2 rounded-xl transition-all duration-200 text-xs font-medium ${settings.enabled
-                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                        : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                      : 'bg-red-500/20 text-red-400 border border-red-500/30'
                       }`}
                   >
                     {settings.enabled ? '✓ EQ Enabled' : '✗ EQ Disabled'}
@@ -207,7 +208,10 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                       <button
                         key={presetKey}
                         onClick={() => handlePresetChange(presetKey)}
-                        className={`p-3 rounded-lg transition-all duration-200 text-left ${settings.preset === presetKey
+                        disabled={!settings.enabled}
+                        className={`p-3 rounded-lg transition-all duration-200 text-left ${!settings.enabled
+                          ? 'bg-white/5 text-white/30 border border-white/5 cursor-not-allowed'
+                          : settings.preset === presetKey
                             ? 'bg-blue-500/30 text-blue-300 border border-blue-400/50 shadow-lg'
                             : 'bg-white/5 text-white/60 hover:bg-white/10 border border-white/10'
                           }`}
@@ -606,8 +610,8 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                 <button
                   onClick={handleToggleEnabled}
                   className={`px-6 py-2.5 rounded-xl transition-all duration-200 text-sm font-medium ${settings.enabled
-                      ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                      : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                    : 'bg-red-500/20 text-red-400 border border-red-500/30'
                     }`}
                 >
                   {settings.enabled ? '✓ EQ Enabled' : '✗ EQ Disabled'}
@@ -644,7 +648,10 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                       <button
                         key={presetKey}
                         onClick={() => handlePresetChange(presetKey)}
-                        className={`w-full p-3 rounded-lg transition-all duration-200 text-left ${settings.preset === presetKey
+                        disabled={!settings.enabled}
+                        className={`w-full p-3 rounded-lg transition-all duration-200 text-left ${!settings.enabled
+                          ? 'bg-white/5 text-white/30 border border-white/5 cursor-not-allowed'
+                          : settings.preset === presetKey
                             ? 'bg-blue-500/30 text-blue-300 border border-blue-400/50 shadow-lg'
                             : 'bg-white/5 text-white/60 hover:bg-white/10 border border-white/10'
                           }`}
