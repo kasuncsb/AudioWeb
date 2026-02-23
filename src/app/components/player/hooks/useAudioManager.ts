@@ -212,26 +212,26 @@ export const useAudioManager = (
         analyser.smoothingTimeConstant = 0.8;
 
         // ===== BASS BOOST - Punchy bass =====
-        // Peaking filter at 80Hz - this is where the "punch" lives
+        // Peaking filter at 100Hz - separated from EQ band64 (64Hz) to avoid phase overlap
         const bassBoost = audioContext.createBiquadFilter();
         bassBoost.type = 'peaking';
-        bassBoost.frequency.value = 80;  // 80Hz = punch frequency
-        bassBoost.Q.value = 0.8;         // Moderate Q for musical response
+        bassBoost.frequency.value = 100;  // 100Hz = punch frequency (clear of 64Hz EQ band)
+        bassBoost.Q.value = 0.8;          // Moderate Q for musical response
         bassBoost.gain.value = 0;
 
         // ===== SUB BOOST - Deep bass body =====
-        // Low shelf at 60Hz for sub-bass body/warmth
+        // Low shelf at 45Hz - separated from EQ band32 (32Hz shelf) to avoid overlap
         const subBoost = audioContext.createBiquadFilter();
         subBoost.type = 'lowshelf';
-        subBoost.frequency.value = 60;   // Sub-bass shelf
+        subBoost.frequency.value = 45;    // Sub-bass shelf (clear of 32Hz EQ band)
         subBoost.Q.value = 0.7;
         subBoost.gain.value = 0;
 
         // ===== TREBLE BOOST =====
-        // High shelf at 8kHz for air/presence
+        // High shelf at 10kHz - separated from EQ band8k (8kHz) to avoid phase overlap
         const trebleBoost = audioContext.createBiquadFilter();
         trebleBoost.type = 'highshelf';
-        trebleBoost.frequency.value = 8000;
+        trebleBoost.frequency.value = 10000; // 10kHz (clear of 8kHz EQ band)
         trebleBoost.Q.value = 0.7;
         trebleBoost.gain.value = 0;
 
