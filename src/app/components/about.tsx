@@ -217,7 +217,7 @@ export const AboutPopup: React.FC<AboutPopupProps> = ({ show, onClose, isPlaying
               <circle cx="12" cy="12" r="10" />
               <path d="M15 9a3 3 0 0 0-6 0v6a3 3 0 0 0 6 0" />
             </svg>
-            <span className="text-sm">2025 Kasun Chanaka</span>
+            <span className="text-sm">2026 Kasun Chanaka</span>
           </div>
 
           {/* Introductory Text */}
