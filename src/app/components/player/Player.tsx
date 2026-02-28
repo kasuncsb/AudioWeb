@@ -780,7 +780,11 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
           onClose={() => setShowSleepTimer(false)}
           onMouseDown={(e) => handleMouseDown('sleepTimer', e)}
           onSetTimer={(minutes) => setSleepTimer(minutes * 60)} // Convert minutes to seconds
-          onCancelTimer={() => setSleepTimer(0)}
+          onCancelTimer={() => {
+            setSleepTimer(0);
+            // Notify parent this was a manual cancellation (should not turn off visualization)
+            if (onSleepTimerChange) onSleepTimerChange(0, true);
+          }}
           showVisualization={showVisualization}
         />
 

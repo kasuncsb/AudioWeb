@@ -148,9 +148,10 @@ export default function Home() {
     setNextTrack(next);
   };
 
-  const handleSleepTimerChange = (timer: number) => {
+  const handleSleepTimerChange = (timer: number, wasManualCancel?: boolean) => {
     // Only turn off visualization when timer actually expires (was active, now 0)
-    if (timer === 0 && sleepTimer > 0 && showVisualization) {
+    // Don't turn off visualization on manual cancellation
+    if (timer === 0 && sleepTimer > 0 && showVisualization && !wasManualCancel) {
       setShowVisualization(false);
     }
     setSleepTimer(timer);
