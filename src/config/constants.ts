@@ -423,6 +423,11 @@ export const LOG_LEVELS = {
 } as const;
 
 /**
+ * Adaptive EQ frequency cache settings
+ */
+export const FREQUENCY_CACHE_MAX_SIZE = 50;
+
+/**
  * Development mode flag
  */
 export const IS_DEV = process.env.NODE_ENV === 'development';

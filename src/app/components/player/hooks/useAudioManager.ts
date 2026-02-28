@@ -2,9 +2,133 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AudioTrack, EqualizerSettings } from '../types';
 import { createLogger } from '@/utils/logger';
 import { getAudioErrorMessage } from '@/utils/audioUtils';
-import { EQUALIZER_BANDS } from '@/config/constants';
+import { EQUALIZER_BANDS, FREQUENCY_CACHE_MAX_SIZE } from '@/config/constants';
 
 const logger = createLogger('AudioManager');
+
+// ===== ADAPTIVE FREQUENCY DETECTION =====
+// Industry-standard spectral analysis for automatic bass/treble frequency targeting
+
+interface DetectedFrequencies {
+  bassPeak: number;      // Dominant bass "punch" frequency (60-150Hz)
+  subPeak: number;       // Sub-bass "body" frequency (25-80Hz)
+  treblePeak: number;    // Treble "air" frequency (6-16kHz)
+  confidence: number;    // Analysis confidence (0-1)
+}
+
+// Default frequencies when analysis unavailable or low confidence
+const DEFAULT_FREQUENCIES: DetectedFrequencies = {
+  bassPeak: 100,
+  subPeak: 45,
+  treblePeak: 10000,
+  confidence: 0,
+};
+
+// Frequency detection bounds (industry-standard ranges)
+const FREQ_BOUNDS = {
+  bass: { min: 60, max: 150 },     // Kick drum, bass guitar punch
+  sub: { min: 25, max: 80 },       // Sub-bass, 808s, synth bass
+  treble: { min: 6000, max: 16000 }, // Air, presence, brilliance
+};
+
+// Cache detected frequencies per track URL to avoid re-analysis
+// LRU cache to prevent memory leaks
+const frequencyCache = new Map<string, DetectedFrequencies>();
+
+function cacheFrequencies(trackUrl: string, freqs: DetectedFrequencies) {
+  // Evict oldest entry if cache is full (Map maintains insertion order)
+  if (frequencyCache.size >= FREQUENCY_CACHE_MAX_SIZE) {
+    const oldestKey = frequencyCache.keys().next().value;
+    if (oldestKey) frequencyCache.delete(oldestKey);
+  }
+  frequencyCache.set(trackUrl, freqs);
+}
+
+/**
+ * Spectral Centroid Analysis - finds the "center of mass" of energy in a frequency range
+ * More accurate than simple peak detection for musical content
+ * Reference: ISO 226:2003, ITU-R BS.1770-4
+ */
+function findSpectralCentroid(
+  frequencyData: Float32Array,
+  sampleRate: number,
+  fftSize: number,
+  minFreq: number,
+  maxFreq: number
+): { frequency: number; energy: number } {
+  const binSize = sampleRate / fftSize;
+  const minBin = Math.floor(minFreq / binSize);
+  const maxBin = Math.min(Math.ceil(maxFreq / binSize), frequencyData.length - 1);
+
+  let weightedSum = 0;
+  let totalEnergy = 0;
+  let peakEnergy = -Infinity;
+
+  for (let i = minBin; i <= maxBin; i++) {
+    const freq = i * binSize;
+    // Convert from dB to linear power (dB values are negative, -100 = silence)
+    const dbValue = frequencyData[i];
+    const linearPower = Math.pow(10, dbValue / 20);
+
+    weightedSum += freq * linearPower;
+    totalEnergy += linearPower;
+    peakEnergy = Math.max(peakEnergy, dbValue);
+  }
+
+  const centroid = totalEnergy > 0 ? weightedSum / totalEnergy : (minFreq + maxFreq) / 2;
+
+  return {
+    frequency: Math.max(minFreq, Math.min(maxFreq, centroid)),
+    energy: peakEnergy,
+  };
+}
+
+/**
+ * Analyze audio spectrum to detect optimal bass and treble frequencies
+ * Uses multiple FFT frames for stability (reduces transient noise)
+ */
+function analyzeFrequencySpectrum(
+  analyser: AnalyserNode,
+  sampleRate: number
+): DetectedFrequencies {
+  const fftSize = analyser.fftSize;
+  const frequencyData = new Float32Array(analyser.frequencyBinCount);
+  analyser.getFloatFrequencyData(frequencyData);
+
+  // Detect bass punch frequency (60-150Hz) - where kick drums and bass attack live
+  const bassResult = findSpectralCentroid(
+    frequencyData, sampleRate, fftSize,
+    FREQ_BOUNDS.bass.min, FREQ_BOUNDS.bass.max
+  );
+
+  // Detect sub-bass frequency (25-80Hz) - where 808s and synth subs live
+  const subResult = findSpectralCentroid(
+    frequencyData, sampleRate, fftSize,
+    FREQ_BOUNDS.sub.min, FREQ_BOUNDS.sub.max
+  );
+
+  // Detect treble frequency (6-16kHz) - where air and brilliance live
+  const trebleResult = findSpectralCentroid(
+    frequencyData, sampleRate, fftSize,
+    FREQ_BOUNDS.treble.min, FREQ_BOUNDS.treble.max
+  );
+
+  // Calculate confidence based on energy levels (higher energy = more reliable detection)
+  // Threshold: -80dB is considered meaningful signal (Web Audio FFT typically ranges -100 to 0)
+  const noiseFloor = -80;
+  const signalRange = 50; // dB range for 0-100% confidence
+  const bassConfidence = Math.min(1, Math.max(0, (bassResult.energy - noiseFloor) / signalRange));
+  const subConfidence = Math.min(1, Math.max(0, (subResult.energy - noiseFloor) / signalRange));
+  const trebleConfidence = Math.min(1, Math.max(0, (trebleResult.energy - noiseFloor) / signalRange));
+  const overallConfidence = (bassConfidence + subConfidence + trebleConfidence) / 3;
+
+  return {
+    bassPeak: Math.round(bassResult.frequency),
+    subPeak: Math.round(subResult.frequency),
+    treblePeak: Math.round(trebleResult.frequency),
+    confidence: overallConfidence,
+  };
+}
 
 // Clean, Simple Audio Chain
 // Focus: Clarity, Punchy Bass, No Artifacts
@@ -13,14 +137,14 @@ interface AudioChain {
   source: MediaElementAudioSourceNode;
 
   // Simple Signal Flow:
-  // Source → Preamp → HPF → EQ → Bass → Treble → Limiter → Output
+  // Source → Analyser → Preamp → HPF → EQ → Bass → Treble → Limiter → Output
   preamp: GainNode;                    // Input headroom control
   highPass: BiquadFilterNode;          // Rumble removal
   filters: BiquadFilterNode[];         // 10-band EQ
-  analyser: AnalyserNode;              // Visualization
-  bassBoost: BiquadFilterNode;         // Bass punch (peaking ~80Hz)
-  subBoost: BiquadFilterNode;          // Sub bass (low shelf ~60Hz)
-  trebleBoost: BiquadFilterNode;       // Treble control (high shelf)
+  analyser: AnalyserNode;              // Raw frequency analysis (visualization + adaptive EQ)
+  bassBoost: BiquadFilterNode;         // Bass punch (adaptive frequency)
+  subBoost: BiquadFilterNode;          // Sub bass (adaptive frequency)
+  trebleBoost: BiquadFilterNode;       // Treble control (adaptive frequency)
   limiter: DynamicsCompressorNode;     // Clean brick-wall limiter
   outputGain: GainNode;                // Master volume
 
@@ -54,6 +178,98 @@ export const useAudioManager = (
   // regardless of when their closures were created.
   const volumeRef = useRef(volume);
   useEffect(() => { volumeRef.current = volume; }, [volume]);
+
+  // ===== ADAPTIVE FREQUENCY STATE =====
+  const detectedFreqRef = useRef<DetectedFrequencies>(DEFAULT_FREQUENCIES);
+  const analysisFrameRef = useRef<number | null>(null);
+  const analysisCompleteRef = useRef<boolean>(false);
+  const currentTrackUrlRef = useRef<string>('');
+
+  /**
+   * Run multi-frame frequency analysis for stable detection
+   * Collects 10 frames over ~500ms, averages results
+   */
+  const runFrequencyAnalysis = useCallback((trackUrl: string) => {
+    const chain = audioChainRef.current;
+    if (!chain?.analyser || !chain.connected) return;
+
+    // Check cache first
+    const cached = frequencyCache.get(trackUrl);
+    if (cached) {
+      logger.debug(`Using cached frequencies for track: bass=${cached.bassPeak}Hz, sub=${cached.subPeak}Hz, treble=${cached.treblePeak}Hz`);
+      detectedFreqRef.current = cached;
+      applyDetectedFrequencies(chain, cached);
+      return;
+    }
+
+    // Multi-frame analysis for stability
+    const sampleRate = chain.context.sampleRate;
+    const frameResults: DetectedFrequencies[] = [];
+    const targetFrames = 10;
+    let frameCount = 0;
+
+    const collectFrame = () => {
+      if (frameCount >= targetFrames || currentTrackUrlRef.current !== trackUrl) {
+        // Analysis complete - average results
+        if (frameResults.length > 0) {
+          const avgFreqs: DetectedFrequencies = {
+            bassPeak: Math.round(frameResults.reduce((s, f) => s + f.bassPeak, 0) / frameResults.length),
+            subPeak: Math.round(frameResults.reduce((s, f) => s + f.subPeak, 0) / frameResults.length),
+            treblePeak: Math.round(frameResults.reduce((s, f) => s + f.treblePeak, 0) / frameResults.length),
+            confidence: frameResults.reduce((s, f) => s + f.confidence, 0) / frameResults.length,
+          };
+
+          // Always use detected frequencies - they're track-specific and better than generic defaults
+          // Confidence is informational only (low confidence = quiet track or analysis during quiet section)
+          detectedFreqRef.current = avgFreqs;
+          cacheFrequencies(trackUrl, avgFreqs);
+          analysisCompleteRef.current = true;
+
+          const confidenceLabel = avgFreqs.confidence > 0.5 ? 'high' : avgFreqs.confidence > 0.2 ? 'medium' : 'low';
+          logger.info(`Adaptive EQ: bass=${avgFreqs.bassPeak}Hz, sub=${avgFreqs.subPeak}Hz, treble=${avgFreqs.treblePeak}Hz (confidence level: ${confidenceLabel})`);
+          
+          applyDetectedFrequencies(chain, avgFreqs);
+        }
+        return;
+      }
+
+      frameResults.push(analyzeFrequencySpectrum(chain.analyser, sampleRate));
+      frameCount++;
+
+      // Schedule next frame (~50ms apart)
+      analysisFrameRef.current = window.setTimeout(collectFrame, 50);
+    };
+
+    // Start analysis after a brief delay to let audio start flowing
+    analysisFrameRef.current = window.setTimeout(collectFrame, 100);
+  }, []);
+
+  /**
+   * Apply detected frequencies to boost filters with smooth transition
+   */
+  const applyDetectedFrequencies = useCallback((chain: AudioChain, freqs: DetectedFrequencies) => {
+    if (!chain.connected) return;
+
+    const now = chain.context.currentTime;
+    const transitionTime = 0.3; // 300ms smooth transition
+
+    // Apply bass punch frequency
+    chain.bassBoost.frequency.cancelScheduledValues(now);
+    chain.bassBoost.frequency.setValueAtTime(chain.bassBoost.frequency.value, now);
+    chain.bassBoost.frequency.linearRampToValueAtTime(freqs.bassPeak, now + transitionTime);
+
+    // Apply sub-bass frequency
+    chain.subBoost.frequency.cancelScheduledValues(now);
+    chain.subBoost.frequency.setValueAtTime(chain.subBoost.frequency.value, now);
+    chain.subBoost.frequency.linearRampToValueAtTime(freqs.subPeak, now + transitionTime);
+
+    // Apply treble frequency
+    chain.trebleBoost.frequency.cancelScheduledValues(now);
+    chain.trebleBoost.frequency.setValueAtTime(chain.trebleBoost.frequency.value, now);
+    chain.trebleBoost.frequency.linearRampToValueAtTime(freqs.treblePeak, now + transitionTime);
+
+    logger.debug(`Applied adaptive frequencies - Bass: ${freqs.bassPeak}Hz, Sub: ${freqs.subPeak}Hz, Treble: ${freqs.treblePeak}Hz`);
+  }, []);
 
   // Fade in audio
   const fadeIn = useCallback((duration: number = 800) => {
@@ -206,32 +422,33 @@ export const useAudioManager = (
           filters.push(filter);
         });
 
-        // ===== ANALYSER - Visualization =====
+        // ===== ANALYSER - Raw frequency analysis =====
+        // Placed early in chain for unprocessed signal analysis (visualization + adaptive detection)
         const analyser = audioContext.createAnalyser();
-        analyser.fftSize = 2048;
+        analyser.fftSize = 2048;          // Good frequency resolution for detection
         analyser.smoothingTimeConstant = 0.8;
 
-        // ===== BASS BOOST - Punchy bass =====
-        // Peaking filter at 100Hz - separated from EQ band64 (64Hz) to avoid phase overlap
+        // ===== BASS BOOST - Adaptive punchy bass =====
+        // Peaking filter - frequency auto-adjusted based on track analysis
         const bassBoost = audioContext.createBiquadFilter();
         bassBoost.type = 'peaking';
-        bassBoost.frequency.value = 100;  // 100Hz = punch frequency (clear of 64Hz EQ band)
+        bassBoost.frequency.value = DEFAULT_FREQUENCIES.bassPeak;  // Will be adapted per track
         bassBoost.Q.value = 0.8;          // Moderate Q for musical response
         bassBoost.gain.value = 0;
 
-        // ===== SUB BOOST - Deep bass body =====
-        // Low shelf at 45Hz - separated from EQ band32 (32Hz shelf) to avoid overlap
+        // ===== SUB BOOST - Adaptive deep bass body =====
+        // Low shelf filter - frequency auto-adjusted based on track analysis
         const subBoost = audioContext.createBiquadFilter();
         subBoost.type = 'lowshelf';
-        subBoost.frequency.value = 45;    // Sub-bass shelf (clear of 32Hz EQ band)
+        subBoost.frequency.value = DEFAULT_FREQUENCIES.subPeak;  // Will be adapted per track
         subBoost.Q.value = 0.7;
         subBoost.gain.value = 0;
 
-        // ===== TREBLE BOOST =====
-        // High shelf at 10kHz - separated from EQ band8k (8kHz) to avoid phase overlap
+        // ===== TREBLE BOOST - Adaptive high frequency enhancement =====
+        // High shelf filter - frequency auto-adjusted based on track analysis
         const trebleBoost = audioContext.createBiquadFilter();
         trebleBoost.type = 'highshelf';
-        trebleBoost.frequency.value = 10000; // 10kHz (clear of 8kHz EQ band)
+        trebleBoost.frequency.value = DEFAULT_FREQUENCIES.treblePeak;  // Will be adapted per track
         trebleBoost.Q.value = 0.7;
         trebleBoost.gain.value = 0;
 
@@ -254,8 +471,10 @@ export const useAudioManager = (
         } catch { }
 
         // ===== CONNECT SIMPLE CHAIN =====
-        // Source → Preamp → HPF → EQ (10 bands) → Analyser → Bass → Sub → Treble → Limiter → Output
-        source.connect(preamp);
+        // Source → Analyser → Preamp → HPF → EQ (10 bands) → Bass → Sub → Treble → Limiter → Output
+        // Analyser placed early for raw frequency analysis (visualization + adaptive EQ detection)
+        source.connect(analyser);
+        analyser.connect(preamp);
         preamp.connect(highPass);
 
         // Connect EQ chain
@@ -266,8 +485,7 @@ export const useAudioManager = (
         });
 
         // Continue chain
-        currentNode.connect(analyser);
-        analyser.connect(bassBoost);
+        currentNode.connect(bassBoost);
         bassBoost.connect(subBoost);
         subBoost.connect(trebleBoost);
         trebleBoost.connect(limiter);
@@ -295,7 +513,7 @@ export const useAudioManager = (
         setIsChainReady(true);
 
         logger.info('Audio chain initialized');
-        logger.debug('Signal Flow: Source → Preamp → HPF → 10-Band EQ → Bass → Sub → Treble → Limiter → Output');
+        logger.debug('Signal Flow: Source → Analyser → Preamp → HPF → 10-Band EQ → Bass → Sub → Treble → Limiter → Output');
 
       } catch (error: unknown) {
         const err = error as Error;
@@ -314,6 +532,7 @@ export const useAudioManager = (
     return () => {
       audio.removeEventListener('play', initAudioChain);
       if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);
+      if (analysisFrameRef.current) clearTimeout(analysisFrameRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -437,6 +656,52 @@ export const useAudioManager = (
       }
     }
   }, [playlist, currentTrackIndex, isPlaying, setIsPlaying, fadeIn]);
+
+  // ===== ADAPTIVE FREQUENCY ANALYSIS =====
+  // Analyze track's frequency content when playback starts
+  useEffect(() => {
+    const audio = audioRef.current;
+    const currentTrack = playlist[currentTrackIndex];
+    if (!audio || !currentTrack || !isChainReady) return;
+
+    const trackUrl = currentTrack.url;
+
+    // Track URL changed - reset analysis state
+    if (currentTrackUrlRef.current !== trackUrl) {
+      currentTrackUrlRef.current = trackUrl;
+      analysisCompleteRef.current = false;
+
+      // Cancel any pending analysis
+      if (analysisFrameRef.current) {
+        clearTimeout(analysisFrameRef.current);
+        analysisFrameRef.current = null;
+      }
+    }
+
+    // Start analysis when audio begins playing
+    const handlePlaying = () => {
+      if (!analysisCompleteRef.current && currentTrackUrlRef.current === trackUrl) {
+        logger.debug('Starting adaptive frequency analysis for:', currentTrack.title);
+        runFrequencyAnalysis(trackUrl);
+      }
+    };
+
+    audio.addEventListener('playing', handlePlaying);
+
+    // If already playing, run analysis immediately
+    if (!audio.paused && !analysisCompleteRef.current) {
+      handlePlaying();
+    }
+
+    return () => {
+      audio.removeEventListener('playing', handlePlaying);
+      // Clean up any pending analysis timeout
+      if (analysisFrameRef.current) {
+        clearTimeout(analysisFrameRef.current);
+        analysisFrameRef.current = null;
+      }
+    };
+  }, [playlist, currentTrackIndex, isChainReady, runFrequencyAnalysis]);
 
   // Audio event listeners
   useEffect(() => {
