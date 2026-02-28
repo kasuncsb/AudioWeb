@@ -183,6 +183,7 @@ export const useAudioManager = (
   const detectedFreqRef = useRef<DetectedFrequencies>(DEFAULT_FREQUENCIES);
   const analysisFrameRef = useRef<number | null>(null);
   const analysisCompleteRef = useRef<boolean>(false);
+  const analysisInProgressRef = useRef<boolean>(false);
   const currentTrackUrlRef = useRef<string>('');
 
   /**
@@ -193,14 +194,21 @@ export const useAudioManager = (
     const chain = audioChainRef.current;
     if (!chain?.analyser || !chain.connected) return;
 
+    // Prevent duplicate analysis runs
+    if (analysisInProgressRef.current || analysisCompleteRef.current) return;
+
     // Check cache first
     const cached = frequencyCache.get(trackUrl);
     if (cached) {
       logger.debug(`Using cached frequencies for track: bass=${cached.bassPeak}Hz, sub=${cached.subPeak}Hz, treble=${cached.treblePeak}Hz`);
       detectedFreqRef.current = cached;
+      analysisCompleteRef.current = true;
       applyDetectedFrequencies(chain, cached);
       return;
     }
+
+    // Mark analysis as in progress
+    analysisInProgressRef.current = true;
 
     // Multi-frame analysis for stability
     const sampleRate = chain.context.sampleRate;
@@ -224,6 +232,7 @@ export const useAudioManager = (
           detectedFreqRef.current = avgFreqs;
           cacheFrequencies(trackUrl, avgFreqs);
           analysisCompleteRef.current = true;
+          analysisInProgressRef.current = false;
 
           const confidenceLabel = avgFreqs.confidence > 0.5 ? 'high' : avgFreqs.confidence > 0.2 ? 'medium' : 'low';
           logger.info(`Adaptive EQ: bass=${avgFreqs.bassPeak}Hz, sub=${avgFreqs.subPeak}Hz, treble=${avgFreqs.treblePeak}Hz (confidence level: ${confidenceLabel})`);
@@ -670,6 +679,7 @@ export const useAudioManager = (
     if (currentTrackUrlRef.current !== trackUrl) {
       currentTrackUrlRef.current = trackUrl;
       analysisCompleteRef.current = false;
+      analysisInProgressRef.current = false;
 
       // Cancel any pending analysis
       if (analysisFrameRef.current) {
