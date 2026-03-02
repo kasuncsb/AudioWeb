@@ -26,8 +26,6 @@ import { ERROR_MESSAGES, SUCCESS_MESSAGES, PERFORMANCE } from '@/config/constant
 import {
   buildCacheKey,
   cacheTrack,
-  cacheAlbumArt,
-  ensureSpace,
 } from '@/utils/cacheManager';
 
 const logger = createLogger('FileHandler');
@@ -386,7 +384,7 @@ export const useFileHandler = (
             albumArt: metadata.albumArt,
             lyrics: finalLyrics,
             lrcLyrics: finalLrcLyrics,
-            cacheKey: buildCacheKey(file),
+            cacheKey: await buildCacheKey(file),
             isCached: true, // Track will be persisted to cache
             metadata: {
               albumArtist: metadata.albumArtist,
@@ -405,21 +403,16 @@ export const useFileHandler = (
           };
 
           // ── Persist to cache (non-blocking) ──
-          // Deduplicate album art: if we have album art, hash and cache it
-          let albumArtHash: string | undefined;
+          // Convert album art blob URL back to Blob for inline storage
+          let albumArtBlob: Blob | undefined;
           if (metadata.albumArt) {
             try {
-              // The albumArt is an object URL from a Blob — fetch it back to get the Blob
               const artResp = await fetch(metadata.albumArt);
-              const artBlob = await artResp.blob();
-              albumArtHash = await cacheAlbumArt(artBlob);
+              albumArtBlob = await artResp.blob();
             } catch (e) {
-              logger.warn('Failed to cache album art:', e);
+              logger.warn('Failed to fetch album art blob:', e);
             }
           }
-
-          // Ensure enough space before caching the audio blob
-          ensureSpace(file.size).catch(() => {});
 
           cacheTrack(file, {
             title: track.title,
@@ -428,12 +421,10 @@ export const useFileHandler = (
             year: track.year,
             genre: track.genre,
             duration: track.duration,
-            albumArtHash,
+            albumArt: albumArtBlob,
             lyrics: finalLyrics || undefined,
             lrcLyricsJson: finalLrcLyrics ? JSON.stringify(finalLrcLyrics) : undefined,
-            metadataJson: track.metadata ? JSON.stringify(track.metadata) : undefined,
             playlistOrder: playlist.length + globalIndex,
-            lastPlayedAt: Date.now(),
           }).catch(err => logger.error('Failed to cache track:', err));
 
           return track;
@@ -473,11 +464,12 @@ export const useFileHandler = (
     }
 
     setPlaylist(prev => {
-      // Filter out duplicates based on cacheKey (name+size+lastModified) or file identity
+      // Filter out duplicates based on cacheKey (already computed during track creation)
       const filteredTracks = newTracks.filter(newTrack => {
-        const newKey = newTrack.cacheKey || buildCacheKey(newTrack.file);
+        const newKey = newTrack.cacheKey;
+        if (!newKey) return true; // Keep tracks without cache keys
         return !prev.some(existingTrack => {
-          const existingKey = existingTrack.cacheKey || buildCacheKey(existingTrack.file);
+          const existingKey = existingTrack.cacheKey;
           return existingKey === newKey;
         });
       });

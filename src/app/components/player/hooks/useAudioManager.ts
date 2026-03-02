@@ -4,11 +4,6 @@ import { createLogger } from '@/utils/logger';
 import { STORAGE_KEYS } from '@/config/constants';
 import { getAudioErrorMessage } from '@/utils/audioUtils';
 import { EQUALIZER_BANDS, FREQUENCY_CACHE_MAX_SIZE } from '@/config/constants';
-import {
-  getCachedFrequency,
-  cacheFrequencyAnalysis,
-  buildCacheKey,
-} from '@/utils/cacheManager';
 
 const logger = createLogger('AudioManager');
 
@@ -202,28 +197,6 @@ async function analyzeFullTrack(trackUrl: string, file?: File): Promise<Detected
     return cached;
   }
 
-  // Check persistent IndexedDB cache (survives page reload)
-  if (file) {
-    try {
-      const cacheKey = buildCacheKey(file);
-      const persisted = await getCachedFrequency(cacheKey);
-      if (persisted) {
-        const detected: DetectedFrequencies = {
-          bassPeak: persisted.bassPeak,
-          subPeak: persisted.subPeak,
-          treblePeak: persisted.treblePeak,
-          confidence: persisted.confidence,
-        };
-        // Promote to in-memory cache
-        cacheFrequencies(trackUrl, detected);
-        logger.debug(`Using persisted frequencies: bass=${detected.bassPeak}Hz, sub=${detected.subPeak}Hz, treble=${detected.treblePeak}Hz`);
-        return detected;
-      }
-    } catch {
-      // Ignore IndexedDB errors — fall through to analysis
-    }
-  }
-
   // Check if analysis is already in progress
   const existingPromise = analysisPromises.get(trackUrl);
   if (existingPromise) {
@@ -340,14 +313,8 @@ async function analyzeFullTrack(trackUrl: string, file?: File): Promise<Detected
       const trebleDisplay = treblePeak >= 1000 ? `${(treblePeak / 1000).toFixed(1)}k` : `${treblePeak}`;
       logger.info(`EQ tuned: ${bassPeak}Hz / ${subPeak}Hz / ${trebleDisplay}Hz (${(elapsed / 1000).toFixed(1)}s)`);
 
-      // Cache result (in-memory)
+      // Cache result (in-memory only)
       cacheFrequencies(trackUrl, detected);
-
-      // Persist to IndexedDB so analysis survives page reload
-      if (file) {
-        const cacheKey = buildCacheKey(file);
-        cacheFrequencyAnalysis(cacheKey, detected).catch(() => {});
-      }
       
       return detected;
     } catch (error) {

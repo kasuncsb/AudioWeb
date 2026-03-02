@@ -1,16 +1,15 @@
 /**
  * AudioWeb Cache Manager
  *
- * Provides persistent browser caching for audio tracks, metadata, album art,
- * frequency analysis results, and user configuration using:
+ * Provides persistent browser caching for audio tracks and metadata using:
  *  - Cache API  → audio file blobs (optimized for large binary streaming)
- *  - IndexedDB  → track metadata, album art (deduplicated), frequency analysis, config
+ *  - IndexedDB  → track metadata (including inline album art) and config
  *
  * Design principles:
  *  - Two-phase load: metadata first (instant), blobs on-demand (lazy)
- *  - Only current + next track blob URLs alive at any time (memory-safe for 2GB devices)
- *  - LRU eviction when quota runs low
- *  - Album art deduplicated by SHA-256 hash
+ *  - Only current + next track blob URLs alive at any time (memory-safe for mobile)
+ *  - Cache keys use SHA-256 hash for fast lookups
+ *  - Trust browser's built-in quota management
  */
 
 import { createLogger } from './logger';
@@ -20,40 +19,22 @@ const logger = createLogger('CacheManager');
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const DB_NAME = 'aw-cache';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented for schema changes
 
 /** IndexedDB store names */
 const STORES = {
   TRACKS: 'tracks',
-  ALBUM_ART: 'albumArt',
-  FREQUENCY: 'frequency',
   CONFIG: 'config',
 } as const;
 
 /** Cache API cache name for audio blobs */
-const AUDIO_CACHE_NAME = 'aw_media';
-
-/** Prefix for Cache API keys so they look like URLs */
-const CACHE_KEY_PREFIX = '/aw-cache/audio/';
-
-/** Maximum cache size in bytes before LRU eviction kicks in (500 MB) */
-const MAX_CACHE_BYTES = 500 * 1024 * 1024;
-
-/** Minimum free quota percentage before eviction triggers */
-const EVICTION_THRESHOLD_PERCENT = 15;
+const AUDIO_CACHE_NAME = 'aw-media';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
-/** Composite key used to uniquely identify an audio file */
-export interface TrackCacheKey {
-  name: string;
-  size: number;
-  lastModified: number;
-}
-
 /** Metadata stored in IndexedDB for each cached track */
 export interface CachedTrackMeta {
-  /** Composite key string: "name|size|lastModified" */
+  /** SHA-256 hash used as unique key: hash(name|size|lastModified) */
   cacheKey: string;
   title: string;
   artist: string;
@@ -61,18 +42,14 @@ export interface CachedTrackMeta {
   year?: number;
   genre?: string;
   duration: number;
-  /** SHA-256 hash of album art blob (references albumArt store) */
-  albumArtHash?: string;
+  /** Album art blob stored inline */
+  albumArt?: Blob;
   /** Plain text lyrics */
   lyrics?: string;
   /** Serialized LRC lyrics (JSON array of {time, text}) */
   lrcLyricsJson?: string;
-  /** Full AudioMetadata as JSON string */
-  metadataJson?: string;
   /** Playlist order index for restoration */
   playlistOrder: number;
-  /** Last time this track was played (for LRU eviction) */
-  lastPlayedAt: number;
   /** Original file MIME type (for reconstructing File from blob) */
   fileMimeType: string;
   /** Original file name */
@@ -83,41 +60,19 @@ export interface CachedTrackMeta {
   fileLastModified: number;
 }
 
-/** Frequency analysis result stored per track */
-export interface CachedFrequency {
-  cacheKey: string;
-  bassPeak: number;
-  subPeak: number;
-  treblePeak: number;
-  confidence: number;
-}
-
-/** Album art entry (deduplicated by hash) */
-export interface CachedAlbumArt {
-  hash: string;
-  blob: Blob;
-}
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Build a composite cache key string from file properties */
-export function buildCacheKey(file: File): string;
-export function buildCacheKey(key: TrackCacheKey): string;
-export function buildCacheKey(input: File | TrackCacheKey): string {
-  if (input instanceof File) {
-    return `${input.name}|${input.size}|${input.lastModified}`;
-  }
-  return `${input.name}|${input.size}|${input.lastModified}`;
+/** Build a SHA-256 hash cache key from file properties */
+export async function buildCacheKey(file: File): Promise<string> {
+  const composite = `${file.name}|${file.size}|${file.lastModified}`;
+  return sha256Text(composite);
 }
 
-/** Parse a composite cache key string back into parts */
-export function parseCacheKey(key: string): TrackCacheKey {
-  const parts = key.split('|');
-  return {
-    name: parts[0],
-    size: parseInt(parts[1], 10),
-    lastModified: parseInt(parts[2], 10),
-  };
+/** SHA-256 hash of text string, returned as hex string */
+async function sha256Text(text: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  return sha256(data.buffer);
 }
 
 /** SHA-256 hash of an ArrayBuffer, returned as hex string */
@@ -137,25 +92,30 @@ function openDB(): Promise<IDBDatabase> {
   dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-    request.onupgradeneeded = () => {
+    request.onupgradeneeded = (event) => {
       const db = request.result;
+      const oldVersion = event.oldVersion;
 
-      // Tracks store
+      // Migrate from v1 to v2
+      if (oldVersion < 2) {
+        // Remove old stores if they exist
+        if (db.objectStoreNames.contains('albumArt')) {
+          db.deleteObjectStore('albumArt');
+        }
+        if (db.objectStoreNames.contains('frequency')) {
+          db.deleteObjectStore('frequency');
+        }
+        
+        // Delete old tracks store to rebuild with new schema
+        if (db.objectStoreNames.contains(STORES.TRACKS)) {
+          db.deleteObjectStore(STORES.TRACKS);
+        }
+      }
+
+      // Create tracks store with simplified schema
       if (!db.objectStoreNames.contains(STORES.TRACKS)) {
         const trackStore = db.createObjectStore(STORES.TRACKS, { keyPath: 'cacheKey' });
         trackStore.createIndex('playlistOrder', 'playlistOrder', { unique: false });
-        trackStore.createIndex('lastPlayedAt', 'lastPlayedAt', { unique: false });
-        trackStore.createIndex('albumArtHash', 'albumArtHash', { unique: false });
-      }
-
-      // Album art store (deduplicated by SHA-256 hash)
-      if (!db.objectStoreNames.contains(STORES.ALBUM_ART)) {
-        db.createObjectStore(STORES.ALBUM_ART, { keyPath: 'hash' });
-      }
-
-      // Frequency analysis cache
-      if (!db.objectStoreNames.contains(STORES.FREQUENCY)) {
-        db.createObjectStore(STORES.FREQUENCY, { keyPath: 'cacheKey' });
       }
 
       // Config store (EQ, visualizer, etc.)
@@ -211,18 +171,6 @@ async function idbDelete(storeName: string, key: string): Promise<void> {
   });
 }
 
-/** Get all records from a store */
-async function idbGetAll<T>(storeName: string): Promise<T[]> {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readonly');
-    const store = tx.objectStore(storeName);
-    const req = store.getAll();
-    req.onsuccess = () => resolve(req.result as T[]);
-    req.onerror = () => reject(req.error);
-  });
-}
-
 /** Get all records from a store, ordered by an index */
 async function idbGetAllByIndex<T>(storeName: string, indexName: string): Promise<T[]> {
   const db = await openDB();
@@ -253,16 +201,13 @@ async function idbCount(storeName: string): Promise<number> {
 async function cacheAudioBlob(cacheKey: string, file: File): Promise<void> {
   try {
     const cache = await caches.open(AUDIO_CACHE_NAME);
-    const url = CACHE_KEY_PREFIX + encodeURIComponent(cacheKey);
     const response = new Response(file, {
       headers: {
         'Content-Type': file.type || 'audio/mpeg',
         'Content-Length': String(file.size),
-        // Note: X-Cache-Key header removed — non-ASCII filenames cause Response constructor to fail
-        // The cache key is already encoded in the URL path
       },
     });
-    await cache.put(url, response);
+    await cache.put(cacheKey, response);
     logger.debug(`Cached audio blob: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
   } catch (error) {
     logger.error('Failed to cache audio blob:', error);
@@ -273,8 +218,7 @@ async function cacheAudioBlob(cacheKey: string, file: File): Promise<void> {
 async function getAudioBlob(cacheKey: string): Promise<Blob | null> {
   try {
     const cache = await caches.open(AUDIO_CACHE_NAME);
-    const url = CACHE_KEY_PREFIX + encodeURIComponent(cacheKey);
-    const response = await cache.match(url);
+    const response = await cache.match(cacheKey);
     if (!response) return null;
     return await response.blob();
   } catch (error) {
@@ -287,64 +231,9 @@ async function getAudioBlob(cacheKey: string): Promise<Blob | null> {
 async function deleteAudioBlob(cacheKey: string): Promise<void> {
   try {
     const cache = await caches.open(AUDIO_CACHE_NAME);
-    const url = CACHE_KEY_PREFIX + encodeURIComponent(cacheKey);
-    await cache.delete(url);
+    await cache.delete(cacheKey);
   } catch (error) {
     logger.error('Failed to delete audio blob:', error);
-  }
-}
-
-// ─── Album Art (deduplicated) ────────────────────────────────────────────────
-
-/**
- * Store album art with deduplication.
- * Returns the SHA-256 hash used as key, or undefined if no art.
- */
-export async function cacheAlbumArt(artBlob: Blob): Promise<string> {
-  const buffer = await artBlob.arrayBuffer();
-  const hash = await sha256(buffer);
-
-  // Check if already stored
-  const existing = await idbGet<CachedAlbumArt>(STORES.ALBUM_ART, hash);
-  if (existing) {
-    logger.debug(`Album art already cached (dedup hit): ${hash.slice(0, 8)}…`);
-    return hash;
-  }
-
-  await idbPut(STORES.ALBUM_ART, { hash, blob: artBlob });
-  logger.debug(`Cached album art: ${hash.slice(0, 8)}… (${(artBlob.size / 1024).toFixed(1)}KB)`);
-  return hash;
-}
-
-/** Retrieve album art blob by hash */
-export async function getAlbumArt(hash: string): Promise<Blob | null> {
-  const entry = await idbGet<CachedAlbumArt>(STORES.ALBUM_ART, hash);
-  return entry?.blob ?? null;
-}
-
-/**
- * Clean up orphaned album art entries that no tracks reference.
- * Export for use when tracks are manually removed.
- */
-export async function cleanOrphanedAlbumArt(): Promise<void> {
-  try {
-    const tracks = await idbGetAll<CachedTrackMeta>(STORES.TRACKS);
-    const usedHashes = new Set(tracks.map(t => t.albumArtHash).filter(Boolean));
-
-    const allArt = await idbGetAll<CachedAlbumArt>(STORES.ALBUM_ART);
-    let removed = 0;
-    for (const art of allArt) {
-      if (!usedHashes.has(art.hash)) {
-        await idbDelete(STORES.ALBUM_ART, art.hash);
-        removed++;
-      }
-    }
-
-    if (removed > 0) {
-      logger.info(`Cleaned ${removed} orphaned album art entries`);
-    }
-  } catch (error) {
-    logger.error('Failed to clean orphaned album art:', error);
   }
 }
 
@@ -355,7 +244,7 @@ export async function cacheTrack(
   file: File,
   meta: Omit<CachedTrackMeta, 'cacheKey' | 'fileName' | 'fileSize' | 'fileLastModified' | 'fileMimeType'>
 ): Promise<string> {
-  const cacheKey = buildCacheKey(file);
+  const cacheKey = await buildCacheKey(file);
 
   // Store metadata in IndexedDB
   const record: CachedTrackMeta = {
@@ -400,42 +289,29 @@ export async function updateTrackOrder(cacheKey: string, playlistOrder: number):
 /** Batch update playlist order for all tracks */
 export async function updatePlaylistOrder(orderedCacheKeys: string[]): Promise<void> {
   const db = await openDB();
+  const orderMap = new Map(orderedCacheKeys.map((key, index) => [key, index]));
+  
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORES.TRACKS, 'readwrite');
     const store = tx.objectStore(STORES.TRACKS);
+    const cursorReq = store.openCursor();
 
-    let completed = 0;
-    for (let i = 0; i < orderedCacheKeys.length; i++) {
-      const getReq = store.get(orderedCacheKeys[i]);
-      getReq.onsuccess = () => {
-        const meta = getReq.result as CachedTrackMeta | undefined;
-        if (meta) {
-          meta.playlistOrder = i;
-          store.put(meta);
+    cursorReq.onsuccess = () => {
+      const cursor = cursorReq.result;
+      if (cursor) {
+        const meta = cursor.value as CachedTrackMeta;
+        const newOrder = orderMap.get(meta.cacheKey);
+        if (newOrder !== undefined) {
+          meta.playlistOrder = newOrder;
+          cursor.update(meta);
         }
-        completed++;
-        if (completed === orderedCacheKeys.length) {
-          // All updates done — transaction will auto-commit
-        }
-      };
-    }
+        cursor.continue();
+      }
+    };
 
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
   });
-}
-
-/** Update lastPlayedAt for a track (for LRU eviction) */
-export async function touchTrack(cacheKey: string): Promise<void> {
-  try {
-    const meta = await idbGet<CachedTrackMeta>(STORES.TRACKS, cacheKey);
-    if (meta) {
-      meta.lastPlayedAt = Date.now();
-      await idbPut(STORES.TRACKS, meta);
-    }
-  } catch (error) {
-    logger.error('Failed to touch track:', error);
-  }
 }
 
 /** Remove a track from cache (metadata + audio blob) */
@@ -462,53 +338,12 @@ export async function clearAllCachedTracks(): Promise<void> {
       req.onerror = () => reject(req.error);
     });
 
-    // Clear frequency store
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORES.FREQUENCY, 'readwrite');
-      const req = tx.objectStore(STORES.FREQUENCY).clear();
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
-
-    // Clear album art store
-    await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORES.ALBUM_ART, 'readwrite');
-      const req = tx.objectStore(STORES.ALBUM_ART).clear();
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
-    });
-
     // Clear audio cache
     await caches.delete(AUDIO_CACHE_NAME);
 
     logger.info('Cleared all cached tracks and data');
   } catch (error) {
     logger.error('Failed to clear all caches:', error);
-  }
-}
-
-// ─── Frequency Analysis Cache ────────────────────────────────────────────────
-
-/** Cache frequency analysis result for a track */
-export async function cacheFrequencyAnalysis(
-  cacheKey: string,
-  result: { bassPeak: number; subPeak: number; treblePeak: number; confidence: number }
-): Promise<void> {
-  try {
-    await idbPut(STORES.FREQUENCY, { cacheKey, ...result });
-    logger.debug(`Cached frequency analysis for: ${cacheKey.split('|')[0]}`);
-  } catch (error) {
-    logger.error('Failed to cache frequency analysis:', error);
-  }
-}
-
-/** Get cached frequency analysis for a track */
-export async function getCachedFrequency(cacheKey: string): Promise<CachedFrequency | null> {
-  try {
-    const entry = await idbGet<CachedFrequency>(STORES.FREQUENCY, cacheKey);
-    return entry ?? null;
-  } catch {
-    return null;
   }
 }
 
@@ -591,7 +426,7 @@ export function revokeAllCachedBlobURLs(): void {
   activeBlobURLs.clear();
 }
 
-// ─── Quota & Eviction ────────────────────────────────────────────────────────
+// ─── Storage Info ────────────────────────────────────────────────────────────
 
 /** Check current storage usage */
 export async function getStorageEstimate(): Promise<{ usage: number; quota: number; percentUsed: number }> {
@@ -606,88 +441,6 @@ export async function getStorageEstimate(): Promise<{ usage: number; quota: numb
   return { usage: 0, quota: 0, percentUsed: 0 };
 }
 
-/** Request persistent storage to avoid browser auto-eviction */
-export async function requestPersistentStorage(): Promise<boolean> {
-  try {
-    if (navigator.storage?.persist) {
-      const granted = await navigator.storage.persist();
-      logger.info(`Persistent storage ${granted ? 'granted' : 'denied'}`);
-      return granted;
-    }
-  } catch (error) {
-    logger.error('Failed to request persistent storage:', error);
-  }
-  return false;
-}
-
-/**
- * Evict least-recently-played tracks until usage is under threshold.
- * Returns the number of tracks evicted.
- */
-export async function evictLRU(targetFreeBytes?: number): Promise<number> {
-  try {
-    const estimate = await getStorageEstimate();
-
-    // Determine if eviction is needed
-    const freePercent = 100 - estimate.percentUsed;
-    const needsEviction =
-      freePercent < EVICTION_THRESHOLD_PERCENT ||
-      (targetFreeBytes && (estimate.quota - estimate.usage) < targetFreeBytes);
-
-    if (!needsEviction) return 0;
-
-    // Get tracks sorted by lastPlayedAt ascending (oldest first)
-    const tracks = await idbGetAllByIndex<CachedTrackMeta>(STORES.TRACKS, 'lastPlayedAt');
-
-    let evicted = 0;
-    let freedBytes = 0;
-    const targetFree = targetFreeBytes || MAX_CACHE_BYTES * 0.2; // Free 20% of max cache
-
-    for (const track of tracks) {
-      if (freedBytes >= targetFree) break;
-
-      // Don't evict if we only have a few tracks left
-      const remaining = await idbCount(STORES.TRACKS);
-      if (remaining <= 1) break;
-
-      freedBytes += track.fileSize;
-      await removeCachedTrack(track.cacheKey);
-      evicted++;
-      logger.info(`Evicted: ${track.fileName} (${(track.fileSize / 1024 / 1024).toFixed(1)}MB, last played ${new Date(track.lastPlayedAt).toLocaleDateString()})`);
-    }
-
-    // Clean up orphaned album art
-    if (evicted > 0) {
-      await cleanOrphanedAlbumArt();
-    }
-
-    logger.info(`LRU eviction complete: ${evicted} track(s), freed ${(freedBytes / 1024 / 1024).toFixed(1)}MB`);
-    return evicted;
-  } catch (error) {
-    logger.error('LRU eviction failed:', error);
-    return 0;
-  }
-}
-
-/**
- * Ensure there's enough space to cache a file of the given size.
- * Triggers LRU eviction if needed.
- */
-export async function ensureSpace(neededBytes: number): Promise<boolean> {
-  try {
-    const estimate = await getStorageEstimate();
-    const available = estimate.quota - estimate.usage;
-
-    if (available > neededBytes * 1.2) return true; // 20% headroom
-
-    // Try to free space
-    const evicted = await evictLRU(neededBytes);
-    return evicted > 0;
-  } catch {
-    return true; // Optimistic fallback — let the write attempt proceed
-  }
-}
-
 // ─── Initialization ──────────────────────────────────────────────────────────
 
 let initPromise: Promise<void> | null = null;
@@ -695,7 +448,6 @@ let initPromise: Promise<void> | null = null;
 /**
  * Initialize the cache system.
  * Safe to call multiple times — will only run once.
- * Requests persistent storage on first call.
  */
 export function initCache(): Promise<void> {
   if (initPromise) return initPromise;
@@ -705,17 +457,16 @@ export function initCache(): Promise<void> {
       await openDB();
       logger.info('Cache system initialized');
 
-      // Request persistent storage (non-blocking)
-      requestPersistentStorage().catch(() => {});
-
-      // Log storage stats
-      const estimate = await getStorageEstimate();
-      if (estimate.quota > 0) {
-        logger.info(
-          `Storage: ${(estimate.usage / 1024 / 1024).toFixed(1)}MB used / ` +
-          `${(estimate.quota / 1024 / 1024).toFixed(0)}MB quota ` +
-          `(${estimate.percentUsed.toFixed(1)}%)`
-        );
+      // Log storage stats (debug only)
+      if (process.env.NODE_ENV === 'development') {
+        const estimate = await getStorageEstimate();
+        if (estimate.quota > 0) {
+          logger.info(
+            `Storage: ${(estimate.usage / 1024 / 1024).toFixed(1)}MB / ` +
+            `${(estimate.quota / 1024 / 1024).toFixed(0)}MB ` +
+            `(${estimate.percentUsed.toFixed(1)}%)`
+          );
+        }
       }
     } catch (error) {
       logger.error('Cache initialization failed:', error);
@@ -730,7 +481,7 @@ export function initCache(): Promise<void> {
  * Check if a track is cached (has metadata in IndexedDB)
  */
 export async function isTrackCached(file: File): Promise<boolean> {
-  const cacheKey = buildCacheKey(file);
+  const cacheKey = await buildCacheKey(file);
   const meta = await idbGet<CachedTrackMeta>(STORES.TRACKS, cacheKey);
   return !!meta;
 }

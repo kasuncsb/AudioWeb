@@ -5,14 +5,11 @@ import { STORAGE_KEYS } from '@/config/constants';
 import {
   initCache,
   getAllCachedTracks,
-  getAlbumArt,
   getTrackBlobURL,
   retainOnlyBlobURLs,
   revokeTrackBlobURL,
   removeCachedTrack,
   updatePlaylistOrder,
-  touchTrack,
-  cleanOrphanedAlbumArt,
   CachedTrackMeta,
 } from '@/utils/cacheManager';
 
@@ -150,9 +147,6 @@ export function useCacheRestore(
         }
         retainOnlyBlobURLs(keysToKeep);
 
-        // Touch current track for LRU tracking
-        touchTrack(currentTrack.cacheKey!).catch(() => {});
-
       } catch (error) {
         logger.error('Failed to load blob URL for track:', error);
       }
@@ -241,8 +235,6 @@ export function useCacheRestore(
     if (track.cacheKey) {
       revokeTrackBlobURL(track.cacheKey);
       await removeCachedTrack(track.cacheKey);
-      // Clean up orphaned album art (non-blocking)
-      cleanOrphanedAlbumArt().catch(() => {});
       logger.debug(`Removed from cache: ${track.title}`);
     }
   }, []);
@@ -262,13 +254,10 @@ async function reconstructTrack(
   index: number
 ): Promise<AudioTrack | null> {
   try {
-    // Reconstruct album art URL from deduplicated store
+    // Reconstruct album art URL from inline blob
     let albumArt: string | undefined;
-    if (meta.albumArtHash) {
-      const artBlob = await getAlbumArt(meta.albumArtHash);
-      if (artBlob) {
-        albumArt = URL.createObjectURL(artBlob);
-      }
+    if (meta.albumArt) {
+      albumArt = URL.createObjectURL(meta.albumArt);
     }
 
     // Parse serialized LRC lyrics
@@ -276,14 +265,6 @@ async function reconstructTrack(
     if (meta.lrcLyricsJson) {
       try {
         lrcLyrics = JSON.parse(meta.lrcLyricsJson) as LyricLine[];
-      } catch { /* ignore parse error */ }
-    }
-
-    // Parse serialized metadata
-    let metadata: AudioMetadata | undefined;
-    if (meta.metadataJson) {
-      try {
-        metadata = JSON.parse(meta.metadataJson) as AudioMetadata;
       } catch { /* ignore parse error */ }
     }
 
@@ -316,7 +297,6 @@ async function reconstructTrack(
       albumArt,
       lyrics: meta.lyrics,
       lrcLyrics,
-      metadata,
       cacheKey: meta.cacheKey,
       isCached: true,
     };
