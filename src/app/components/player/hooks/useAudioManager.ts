@@ -257,8 +257,12 @@ async function analyzeFullTrack(trackUrl: string, file?: File, cacheKey?: string
         return DEFAULT_FREQUENCIES;
       }
 
-      // Decode audio
-      const audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+      // Decode audio using a temporary context that matches the playback
+      // latencyHint.  Mixing 'interactive' (default) and 'playback' contexts
+      // can force the browser to renegotiate audio buffer sizes, which causes
+      // brief glitches/dropouts on the main playback context.
+      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const audioContext = new AudioContextClass({ latencyHint: 'playback' });
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
       await audioContext.close();
 
