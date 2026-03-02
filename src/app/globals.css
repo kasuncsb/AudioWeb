@@ -463,14 +463,8 @@ body {
 
 .popup-content > .scroll-content {
   flex: 1;
-  overflow-y: auto;
+  overflow: hidden;
   min-height: 0;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.popup-content > .scroll-content::-webkit-scrollbar {
-  display: none;
 }
 
 .page-scroll {
