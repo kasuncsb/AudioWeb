@@ -404,6 +404,9 @@ export const useAudioManager = (
   const detectedFreqRef = useRef<DetectedFrequencies>(DEFAULT_FREQUENCIES);
   const analysisCompleteRef = useRef<boolean>(false);
   const currentTrackUrlRef = useRef<string>('');
+  
+  // Track whether we've attempted position restore this session (prevent duplicate seeks)
+  const hasRestoredPositionRef = useRef<boolean>(false);
 
   /**
    * Apply detected frequencies to boost filters with smooth transition
@@ -821,34 +824,6 @@ export const useAudioManager = (
       audio.src = currentTrack.url;
       audio.load();
 
-      // Check for saved position to restore (runs once on initial load)
-      const savedKey = localStorage.getItem(STORAGE_KEYS.LAST_TRACK_KEY);
-      const savedPos = localStorage.getItem(STORAGE_KEYS.LAST_POSITION);
-
-      // Only restore position if we have a valid cache key match
-      if (currentTrack.cacheKey && savedKey === currentTrack.cacheKey && savedPos) {
-        const seekTime = parseFloat(savedPos);
-        if (!isNaN(seekTime) && seekTime > 0) {
-          // Wait for 'canplay' instead of 'loadedmetadata' to ensure the audio
-          // is buffered enough to handle the seek without stuttering. Seeking
-          // at 'loadedmetadata' (before any data is buffered) forces the browser
-          // to dump the buffer and re-fetch from the seek position, which causes
-          // audio glitches especially with blob URLs and slow Cache API access.
-          const onCanPlay = () => {
-            // Verify duration is available and position is valid
-            if (audio.duration && seekTime < audio.duration) {
-              audio.currentTime = seekTime;
-              setCurrentTime(seekTime);
-              logger.info(`Restored playback position to ${seekTime.toFixed(1)}s`);
-            }
-            // Clear to prevent re-seeking on next track change
-            localStorage.removeItem(STORAGE_KEYS.LAST_POSITION);
-            audio.removeEventListener('canplay', onCanPlay);
-          };
-          audio.addEventListener('canplay', onCanPlay, { once: true });
-        }
-      }
-
       if (isPlaying) {
         const playNewTrack = async () => {
           try {
@@ -869,7 +844,52 @@ export const useAudioManager = (
         playNewTrack();
       }
     }
-  }, [playlist, currentTrackIndex, isPlaying, setIsPlaying, setCurrentTime, fadeIn]);
+  }, [playlist, currentTrackIndex, isPlaying, setIsPlaying, fadeIn]);
+
+  // Position restore on page load (separate effect for reliability on mobile)
+  useEffect(() => {
+    const audio = audioRef.current;
+    const currentTrack = playlist[currentTrackIndex];
+    
+    // Do nothing if already restored or no track loaded
+    if (!audio || !currentTrack || hasRestoredPositionRef.current) return;
+    
+    // Check for saved position to restore
+    const savedKey = localStorage.getItem(STORAGE_KEYS.LAST_TRACK_KEY);
+    const savedPos = localStorage.getItem(STORAGE_KEYS.LAST_POSITION);
+    
+    // Only restore position if we have a valid cache key match
+    if (!currentTrack.cacheKey || savedKey !== currentTrack.cacheKey || !savedPos) return;
+    
+    const seekTime = parseFloat(savedPos);
+    if (isNaN(seekTime) || seekTime <= 0) return;
+    
+    // Wait for 'canplay' to ensure the audio is buffered enough to handle
+    // the seek without stuttering. On mobile, blob URL loading might complete
+    // after this effect runs, so we need a persistent listener that survives
+    // React re-renders and state batching.
+    const onCanPlay = () => {
+      // Double-check we haven't already restored (could fire multiple times)
+      if (hasRestoredPositionRef.current) return;
+      
+      // Verify duration is available and position is valid
+      if (audio.duration && seekTime < audio.duration) {
+        audio.currentTime = seekTime;
+        setCurrentTime(seekTime);
+        hasRestoredPositionRef.current = true;
+        logger.info(`Restored playback position to ${seekTime.toFixed(1)}s`);
+      }
+      
+      // Clear saved position to prevent re-seeking on next track change
+      localStorage.removeItem(STORAGE_KEYS.LAST_POSITION);
+    };
+    
+    audio.addEventListener('canplay', onCanPlay, { once: true });
+    
+    return () => {
+      audio.removeEventListener('canplay', onCanPlay);
+    };
+  }, [playlist, currentTrackIndex, setCurrentTime]);
 
   // ===== ADAPTIVE FREQUENCY ANALYSIS =====
   // Analyze track's frequency content when track changes (full offline scan)
