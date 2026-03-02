@@ -6,6 +6,7 @@ import {
   initCache,
   getAllCachedTracks,
   getTrackBlobURL,
+  isBlobURLActive,
   retainOnlyBlobURLs,
   revokeTrackBlobURL,
   removeCachedTrack,
@@ -103,11 +104,15 @@ export function useCacheRestore(
     const currentTrack = playlist[currentTrackIndex];
     if (!currentTrack?.cacheKey || !currentTrack.isCached) return;
 
-    // Load current track's blob URL if not already set (placeholder URL)
+    // Load current track's blob URL if not already set or if previously revoked
     (async () => {
       try {
-        // Load current track
-        if (currentTrack.url === '' || currentTrack.url.startsWith('pending:')) {
+        // Check if current track needs a (re)loaded blob URL
+        const needsBlobLoad = currentTrack.url === '' ||
+          currentTrack.url.startsWith('pending:') ||
+          (currentTrack.url.startsWith('blob:') && !isBlobURLActive(currentTrack.cacheKey!));
+
+        if (needsBlobLoad) {
           const blobUrl = await getTrackBlobURL(currentTrack.cacheKey!);
           if (blobUrl) {
             setPlaylist(prev => prev.map((t, i) =>
@@ -128,7 +133,8 @@ export function useCacheRestore(
         if (nextIndex < playlist.length) {
           const nextTrack = playlist[nextIndex];
           if (nextTrack?.cacheKey && nextTrack.isCached &&
-            (nextTrack.url === '' || nextTrack.url.startsWith('pending:'))) {
+            (nextTrack.url === '' || nextTrack.url.startsWith('pending:') ||
+             (nextTrack.url.startsWith('blob:') && !isBlobURLActive(nextTrack.cacheKey)))) {
             const nextBlobUrl = await getTrackBlobURL(nextTrack.cacheKey);
             if (nextBlobUrl) {
               setPlaylist(prev => prev.map((t, i) =>
@@ -217,7 +223,7 @@ export function useCacheRestore(
       if (!track) return;
 
       try {
-        // Only save if we have a valid hash-based cache key
+        // Only save if we have a valid cache key
         if (track.cacheKey) {
           localStorage.setItem(STORAGE_KEYS.LAST_TRACK_KEY, track.cacheKey);
           localStorage.setItem(STORAGE_KEYS.LAST_POSITION, String(time));

@@ -57,12 +57,12 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
     isLoaded: isEqualizerLoaded,
   } = useEqualizerPersistence(isVisible && playlist.length > 0);
 
-  // Use visualizer persistence hook
+  // Use visualizer persistence hook - don't manage enabled state here (page.tsx owns that)
   const {
     visualizerSettings,
     updateVisualizerSettings,
     isLoaded: isVisualizerLoaded,
-  } = useVisualizerPersistence();
+  } = useVisualizerPersistence({ manageEnabled: false });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentTrack = playlist[currentTrackIndex];

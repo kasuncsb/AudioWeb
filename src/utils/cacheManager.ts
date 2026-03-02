@@ -212,7 +212,7 @@ async function cacheAudioBlob(cacheKey: string, file: File): Promise<void> {
 }
 
 /** Retrieve an audio file blob from Cache API */
-async function getAudioBlob(cacheKey: string): Promise<Blob | null> {
+export async function getAudioBlob(cacheKey: string): Promise<Blob | null> {
   try {
     const cache = await caches.open(AUDIO_CACHE_NAME);
     const url = cacheKeyToUrl(cacheKey);
@@ -392,6 +392,13 @@ export async function getTrackBlobURL(cacheKey: string): Promise<string | null> 
   const url = URL.createObjectURL(blob);
   activeBlobURLs.set(cacheKey, url);
   return url;
+}
+
+/**
+ * Check if a blob URL is still active (not yet revoked) for a given cache key
+ */
+export function isBlobURLActive(cacheKey: string): boolean {
+  return activeBlobURLs.has(cacheKey);
 }
 
 /**

@@ -3,6 +3,7 @@ import { AudioTrack, EqualizerSettings } from '../types';
 import { createLogger } from '@/utils/logger';
 import { STORAGE_KEYS } from '@/config/constants';
 import { getAudioErrorMessage } from '@/utils/audioUtils';
+import { isBlobURLActive, getAudioBlob } from '@/utils/cacheManager';
 import { EQUALIZER_BANDS, FREQUENCY_CACHE_MAX_SIZE } from '@/config/constants';
 
 const logger = createLogger('AudioManager');
@@ -189,7 +190,7 @@ function findCentroidInRange(
  * Full-track offline frequency analysis
  * Decodes entire audio file and samples at multiple positions for accurate detection
  */
-async function analyzeFullTrack(trackUrl: string, file?: File): Promise<DetectedFrequencies> {
+async function analyzeFullTrack(trackUrl: string, file?: File, cacheKey?: string): Promise<DetectedFrequencies> {
   // Check in-memory cache first
   const cached = frequencyCache.get(trackUrl);
   if (cached) {
@@ -226,14 +227,21 @@ async function analyzeFullTrack(trackUrl: string, file?: File): Promise<Detected
         if (file) {
           // Cache-restored tracks have a 0-byte placeholder File with an
           // overridden .size property.  Detect this by reading the real
-          // Blob size via the prototype, and fall back to fetching from
-          // the blob URL (which the cache restore hook has materialised).
+          // Blob size via the prototype, and fall back to the Cache API
+          // (more reliable than fetching a blob URL which may be revoked).
           const realBlobSize = Blob.prototype.slice.call(file, 0).size;
           if (realBlobSize > 0) {
             return await file.arrayBuffer();
           }
-          // Placeholder file — fall through to fetch from trackUrl
+          // Placeholder file — read audio blob directly from Cache API
+          if (cacheKey) {
+            const blob = await getAudioBlob(cacheKey);
+            if (blob) {
+              return await blob.arrayBuffer();
+            }
+          }
         }
+        // Fallback: fetch from the trackUrl (non-cached files)
         const response = await fetch(trackUrl);
         return await response.arrayBuffer();
       })();
@@ -414,9 +422,9 @@ export const useAudioManager = (
    * Run full-track frequency analysis (async, offline)
    * Analyzes entire audio file for accurate frequency detection
    */
-  const runFrequencyAnalysis = useCallback(async (trackUrl: string, file?: File) => {
+  const runFrequencyAnalysis = useCallback(async (trackUrl: string, file?: File, cacheKey?: string) => {
     // Run analysis (uses cache if available)
-    const detected = await analyzeFullTrack(trackUrl, file);
+    const detected = await analyzeFullTrack(trackUrl, file, cacheKey);
     detectedFreqRef.current = detected;
     analysisCompleteRef.current = true;
 
@@ -787,6 +795,13 @@ export const useAudioManager = (
     // Skip if URL is empty (waiting for blob URL to load from cache)
     if (!currentTrack.url || currentTrack.url === '') return;
 
+    // Skip if blob URL has been revoked (cache restore will reload it)
+    if (currentTrack.isCached && currentTrack.url.startsWith('blob:') &&
+        currentTrack.cacheKey && !isBlobURLActive(currentTrack.cacheKey)) {
+      logger.debug('Blob URL revoked, waiting for cache reload:', currentTrack.title);
+      return;
+    }
+
     if (audio.src !== currentTrack.url) {
       logger.debug('Loading track:', currentTrack.title);
       audio.src = currentTrack.url;
@@ -796,7 +811,7 @@ export const useAudioManager = (
       const savedKey = localStorage.getItem(STORAGE_KEYS.LAST_TRACK_KEY);
       const savedPos = localStorage.getItem(STORAGE_KEYS.LAST_POSITION);
 
-      // Only restore position if we have a valid hash-based cache key match
+      // Only restore position if we have a valid cache key match
       if (currentTrack.cacheKey && savedKey === currentTrack.cacheKey && savedPos) {
         const seekTime = parseFloat(savedPos);
         if (!isNaN(seekTime) && seekTime > 0) {
@@ -848,6 +863,12 @@ export const useAudioManager = (
     // Skip if URL is empty (waiting for blob URL to load from cache)
     if (!trackUrl || trackUrl === '') return;
 
+    // Skip if blob URL has been revoked (cache restore will reload it)
+    if (currentTrack.isCached && trackUrl.startsWith('blob:') &&
+        currentTrack.cacheKey && !isBlobURLActive(currentTrack.cacheKey)) {
+      return;
+    }
+
     // Track URL changed - run analysis
     if (currentTrackUrlRef.current !== trackUrl) {
       currentTrackUrlRef.current = trackUrl;
@@ -855,7 +876,7 @@ export const useAudioManager = (
 
       // Run full-track analysis (async, doesn't block playback)
       logger.debug('Starting full-track frequency analysis for:', currentTrack.title);
-      runFrequencyAnalysis(trackUrl, currentTrack.file);
+      runFrequencyAnalysis(trackUrl, currentTrack.file, currentTrack.cacheKey);
     }
   }, [playlist, currentTrackIndex, runFrequencyAnalysis]);
 
@@ -941,6 +962,13 @@ export const useAudioManager = (
     // Skip if URL is empty (waiting for blob URL to load from cache)
     if (!currentTrack.url || currentTrack.url === '') {
       logger.debug('Waiting for blob URL to load...');
+      return;
+    }
+
+    // Skip if blob URL has been revoked (cache restore will reload it)
+    if (currentTrack.isCached && currentTrack.url.startsWith('blob:') &&
+        currentTrack.cacheKey && !isBlobURLActive(currentTrack.cacheKey)) {
+      logger.debug('Blob URL revoked, waiting for cache reload...');
       return;
     }
 
