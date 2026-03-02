@@ -75,11 +75,11 @@ export async function buildCacheKey(file: File): Promise<string> {
 async function sha256Text(text: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(text);
-  return sha256(data.buffer);
+  return sha256(data);
 }
 
-/** SHA-256 hash of an ArrayBuffer, returned as hex string */
-async function sha256(buffer: ArrayBuffer): Promise<string> {
+/** SHA-256 hash of a BufferSource, returned as hex string */
+async function sha256(buffer: BufferSource): Promise<string> {
   const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
