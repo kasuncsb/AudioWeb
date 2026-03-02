@@ -31,7 +31,7 @@ const STORES = {
 } as const;
 
 /** Cache API cache name for audio blobs */
-const AUDIO_CACHE_NAME = 'aw-audio-v1';
+const AUDIO_CACHE_NAME = 'aw_media';
 
 /** Prefix for Cache API keys so they look like URLs */
 const CACHE_KEY_PREFIX = '/aw-cache/audio/';
