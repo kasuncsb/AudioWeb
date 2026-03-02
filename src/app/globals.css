@@ -261,6 +261,20 @@ pre {
   /* override the global hide */
 }
 
+/* Mobile: wider playlist scrollbar for easier touch dragging */
+@media (pointer: coarse) {
+  .playlist-popup .scroll-content::-webkit-scrollbar,
+  .playlist-popup .playlist-scroll-area::-webkit-scrollbar {
+    width: 14px;
+  }
+
+  .playlist-popup .scroll-content::-webkit-scrollbar-thumb,
+  .playlist-popup .playlist-scroll-area::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+}
+
 .playlist-popup .scroll-content::-webkit-scrollbar-track,
 .playlist-popup .playlist-scroll-area::-webkit-scrollbar-track {
   background: var(--playlist-scroll-track);
@@ -392,24 +406,15 @@ body {
   scroll-behavior: smooth;
 }
 
-/* Custom scrollbar utility classes */
+/* Custom scrollbar utility classes — overflow is set here; hiding is
+   handled by ScrollStyles (desktop-only via pointer:fine media query). */
 .custom-scrollbar,
 .custom-scrollbar-enhanced,
 .custom-scrollbar-thin,
 .custom-scrollbar-invisible,
 .custom-scrollbar-auto {
   overflow-y: auto;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
   -webkit-overflow-scrolling: touch;
-}
-
-.custom-scrollbar::-webkit-scrollbar,
-.custom-scrollbar-enhanced::-webkit-scrollbar,
-.custom-scrollbar-thin::-webkit-scrollbar,
-.custom-scrollbar-invisible::-webkit-scrollbar,
-.custom-scrollbar-auto::-webkit-scrollbar {
-  display: none;
 }
 
 /* Themed scrollbar (visible, used by playlist) */
@@ -441,17 +446,23 @@ body {
   background: rgba(255, 255, 255, 0.6);
 }
 
-/* Scroll containers */
+/* Mobile: wider themed scrollbar for easier touch dragging */
+@media (pointer: coarse) {
+  .custom-scrollbar-themed::-webkit-scrollbar {
+    width: 14px;
+  }
+
+  .custom-scrollbar-themed::-webkit-scrollbar-thumb {
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+}
+
+/* Scroll containers — hiding is handled by ScrollStyles (desktop-only). */
 .scroll-container {
   overflow-y: auto;
   min-height: 0;
   flex: 1;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-.scroll-container::-webkit-scrollbar {
-  display: none;
 }
 
 .popup-content {
