@@ -119,7 +119,7 @@ export interface AudioTrack {
   /** Loading state */
   isLoading?: boolean;
 
-  /** Cache key for persistent storage (name|size|lastModified) */
+  /** Cache key for persistent storage (SHA-256 hash of name|size|lastModified) */
   cacheKey?: string;
 
   /** Whether this track was restored from cache */
@@ -169,4 +169,5 @@ export interface EqualizerSettings {
 export interface VisualizerSettings {
   mode: 'Automatic' | 'Manual';
   activePreset: string;
+  enabled: boolean;
 }

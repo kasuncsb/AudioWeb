@@ -5,6 +5,7 @@ import { VisualizerSettings } from '../app/components/player/types';
 const defaultSettings: VisualizerSettings = {
     mode: 'Automatic',
     activePreset: '', // Blank initially means it will pick a random one if in Auto, or default to the first
+    enabled: false,
 };
 
 export function useVisualizerPersistence() {
@@ -52,5 +53,8 @@ export function useVisualizerPersistence() {
         visualizerSettings: settings,
         updateVisualizerSettings: updateSettings,
         isLoaded,
+        // Expose enabled state separately for convenience
+        isVisualizerEnabled: settings.enabled,
+        setVisualizerEnabled: (enabled: boolean) => updateSettings({ enabled }),
     };
 }

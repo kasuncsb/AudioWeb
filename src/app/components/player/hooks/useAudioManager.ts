@@ -795,9 +795,9 @@ export const useAudioManager = (
       // Check for saved position to restore (runs once on initial load)
       const savedKey = localStorage.getItem(STORAGE_KEYS.LAST_TRACK_KEY);
       const savedPos = localStorage.getItem(STORAGE_KEYS.LAST_POSITION);
-      const trackKey = currentTrack.cacheKey || `${currentTrack.file?.name}|${currentTrack.file?.size}|${currentTrack.file?.lastModified}`;
 
-      if (savedKey === trackKey && savedPos) {
+      // Only restore position if we have a valid hash-based cache key match
+      if (currentTrack.cacheKey && savedKey === currentTrack.cacheKey && savedPos) {
         const seekTime = parseFloat(savedPos);
         if (!isNaN(seekTime) && seekTime > 0) {
           // Attach one-time listener to seek after metadata loads

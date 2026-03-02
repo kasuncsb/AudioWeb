@@ -45,6 +45,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
   const [showSleepTimer, setShowSleepTimer] = useState(false);
   const [isShuffling, setIsShuffling] = useState(false);
   const [skipDirection, setSkipDirection] = useState<'next' | 'prev'>('next');
+  const [isRepeatLoaded, setIsRepeatLoaded] = useState(false);
 
   // Available loaded presets from MilkDropVisualizer
   const [availablePresets, setAvailablePresets] = useState<string[]>([]);
@@ -65,6 +66,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentTrack = playlist[currentTrackIndex];
+  const syncPlaylistRef = useRef<((tracks: AudioTrack[]) => void) | null>(null);
 
   // Notify parent component when playing state changes
   useEffect(() => {
@@ -97,7 +99,30 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
     }
   }, [sleepTimer, onSleepTimerChange]);
 
-  // Removed unused useEffect checking showVisualization local state since it's now a prop
+  // Load repeat mode from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.REPEAT_MODE);
+      if (saved !== null) {
+        setRepeatMode(parseInt(saved, 10));
+      }
+    } catch (error) {
+      console.error('Failed to load repeat mode:', error);
+    } finally {
+      setIsRepeatLoaded(true);
+    }
+  }, []);
+
+  // Save repeat mode to localStorage when it changes
+  useEffect(() => {
+    if (isRepeatLoaded) {
+      try {
+        localStorage.setItem(STORAGE_KEYS.REPEAT_MODE, String(repeatMode));
+      } catch (error) {
+        console.error('Failed to save repeat mode:', error);
+      }
+    }
+  }, [repeatMode, isRepeatLoaded]);
 
   // Shuffle utility function - reorders the playlist
   const shufflePlaylist = useCallback(() => {
@@ -133,6 +158,13 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
 
     setPlaylist(shuffledPlaylist);
     setCurrentTrackIndex(0);
+    
+    // Sync shuffled playlist order to cache
+    setTimeout(() => {
+      if (syncPlaylistRef.current) {
+        syncPlaylistRef.current(shuffledPlaylist);
+      }
+    }, 100);
   }, [playlist, currentTrackIndex]);
 
   // Navigation state helpers
@@ -195,13 +227,18 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
   }, [currentTrackIndex]);
 
   // Restore cached tracks on page load & manage cache blob URLs
-  const { removeFromCache } = useCacheRestore(
+  const { removeFromCache, syncPlaylistOrder } = useCacheRestore(
     playlist,
     setPlaylist,
     setCurrentTrackIndex,
     currentTrackIndex,
     currentTime,
   );
+
+  // Store sync function in ref so shuffle can access it
+  useEffect(() => {
+    syncPlaylistRef.current = syncPlaylistOrder;
+  }, [syncPlaylistOrder]);
 
   const removeTrack = useCallback((indexToRemove: number) => {
     setPlaylist(prev => {

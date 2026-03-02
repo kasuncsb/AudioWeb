@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
-import { AudioTrack, LyricLine, AudioMetadata } from '../types';
+import { AudioTrack, LyricLine } from '../types';
 import { createLogger } from '@/utils/logger';
 import { STORAGE_KEYS } from '@/config/constants';
 import {
@@ -217,9 +217,11 @@ export function useCacheRestore(
       if (!track) return;
 
       try {
-        const key = track.cacheKey || `${track.file?.name}|${track.file?.size}|${track.file?.lastModified}`;
-        localStorage.setItem(STORAGE_KEYS.LAST_TRACK_KEY, key);
-        localStorage.setItem(STORAGE_KEYS.LAST_POSITION, String(time));
+        // Only save if we have a valid hash-based cache key
+        if (track.cacheKey) {
+          localStorage.setItem(STORAGE_KEYS.LAST_TRACK_KEY, track.cacheKey);
+          localStorage.setItem(STORAGE_KEYS.LAST_POSITION, String(time));
+        }
       } catch { /* quota or private mode */ }
     }, 1000);
 
@@ -239,7 +241,7 @@ export function useCacheRestore(
     }
   }, []);
 
-  return { removeFromCache };
+  return { removeFromCache, syncPlaylistOrder };
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import { useState } from 'react';
 import { useWakeLock } from '@/hooks/useWakeLock';
 import { AudioTrack } from '@/app/components/player/types';
 import { ErrorBoundary } from '@/app/components/ErrorBoundary';
+import { useVisualizerPersistence } from '@/hooks/useVisualizerPersistence';
 
 const Header = ({ onPlayClick }: { onPlayClick: () => void }) => (
   <section
@@ -91,10 +92,12 @@ export default function Home() {
   const [currentTrack, setCurrentTrack] = useState<AudioTrack | null>(null);
   const [nextTrack, setNextTrack] = useState<AudioTrack | null>(null);
   const [sleepTimer, setSleepTimer] = useState(0);
-  const [showVisualization, setShowVisualization] = useState(false);
+  
+  // Use visualizer persistence hook to manage visualizer enabled state
+  const { isVisualizerEnabled, setVisualizerEnabled } = useVisualizerPersistence();
 
   // Keep the screen awake while the visualizer is active
-  useWakeLock(showVisualization);
+  useWakeLock(isVisualizerEnabled);
 
   const handlePlayClick = () => {
     setIsPlayerVisible(true);
@@ -120,14 +123,14 @@ export default function Home() {
   const handleSleepTimerChange = (timer: number, wasManualCancel?: boolean) => {
     // Only turn off visualization when timer actually expires (was active, now 0)
     // Don't turn off visualization on manual cancellation
-    if (timer === 0 && sleepTimer > 0 && showVisualization && !wasManualCancel) {
-      setShowVisualization(false);
+    if (timer === 0 && sleepTimer > 0 && isVisualizerEnabled && !wasManualCancel) {
+      setVisualizerEnabled(false);
     }
     setSleepTimer(timer);
   };
 
   const handleVisualizationChange = (visualization: boolean) => {
-    setShowVisualization(visualization);
+    setVisualizerEnabled(visualization);
   };
 
   const handlePlayPause = () => {
@@ -159,7 +162,7 @@ export default function Home() {
         onNext={handleNext}
         onPrevious={handlePrevious}
         onOpenPlayer={handleOpenPlayer}
-        showVisualization={showVisualization}
+        showVisualization={isVisualizerEnabled}
       />
       {/* Hide home content when Player is visible to prevent showing through navbar */}
       {!isPlayerVisible && (
@@ -175,7 +178,7 @@ export default function Home() {
           onTrackChange={handleTrackChange}
           onSleepTimerChange={handleSleepTimerChange}
           onVisualizationChange={handleVisualizationChange}
-          showVisualization={showVisualization}
+          showVisualization={isVisualizerEnabled}
         />
       </ErrorBoundary>
     </div>
