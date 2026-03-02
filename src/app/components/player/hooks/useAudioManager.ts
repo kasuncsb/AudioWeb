@@ -845,6 +845,9 @@ export const useAudioManager = (
 
     const trackUrl = currentTrack.url;
 
+    // Skip if URL is empty (waiting for blob URL to load from cache)
+    if (!trackUrl || trackUrl === '') return;
+
     // Track URL changed - run analysis
     if (currentTrackUrlRef.current !== trackUrl) {
       currentTrackUrlRef.current = trackUrl;
@@ -934,6 +937,12 @@ export const useAudioManager = (
     const audio = audioRef.current;
     const currentTrack = playlist[currentTrackIndex];
     if (!audio || !currentTrack) return;
+
+    // Skip if URL is empty (waiting for blob URL to load from cache)
+    if (!currentTrack.url || currentTrack.url === '') {
+      logger.debug('Waiting for blob URL to load...');
+      return;
+    }
 
     if (isPlaying) {
       fadeOut(800).then(() => {
