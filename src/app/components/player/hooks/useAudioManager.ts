@@ -854,6 +854,17 @@ export const useAudioManager = (
     // Do nothing if already restored or no track loaded
     if (!audio || !currentTrack || hasRestoredPositionRef.current) return;
     
+    // CRITICAL: Wait for blob URL to be loaded before attempting restore
+    // On mobile, cache restore runs in two phases: metadata first, then blob URLs.
+    // This effect must wait for the URL to be valid before proceeding.
+    if (!currentTrack.url || currentTrack.url === '') return;
+    
+    // Skip if blob URL has been revoked
+    if (currentTrack.isCached && currentTrack.url.startsWith('blob:') &&
+        currentTrack.cacheKey && !isBlobURLActive(currentTrack.cacheKey)) {
+      return;
+    }
+    
     // Check for saved position to restore
     const savedKey = localStorage.getItem(STORAGE_KEYS.LAST_TRACK_KEY);
     const savedPos = localStorage.getItem(STORAGE_KEYS.LAST_POSITION);
