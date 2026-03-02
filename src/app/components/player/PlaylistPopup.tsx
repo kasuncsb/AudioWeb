@@ -60,18 +60,18 @@ export const PlaylistPopup: React.FC<PlaylistPopupProps> = ({
           {playlist.map((track, index) => (
             <div
               key={track.id}
-              className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer group relative overflow-hidden ${track.isActive ? 'bg-white/15' : ''
+              className={`playlist-item-virtual flex items-center gap-3 p-3 rounded-xl cursor-pointer group relative overflow-hidden ${track.isActive ? 'bg-white/15' : ''
                 } ${isShuffling ? 'shuffle-item' : 'transition-all duration-200 hover:bg-white/10'}`}
               onClick={() => onSelectTrack(index)}
             >
-              <div className="text-sm text-white/60 w-6 flex-shrink-0">
+              <div className="text-sm text-white/60 w-6 shrink-0">
                 {track.isActive ? (
                   <AnimatedMusicBars className="w-4 h-4" isPlaying={isPlaying} />
                 ) : (
                   <span>{index + 1}</span>
                 )}
               </div>
-              <div className="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+              <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0">
                 {track.albumArt ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img

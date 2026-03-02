@@ -23,7 +23,6 @@ import { VisualizerPopup } from './VisualizerPopup';
 import { BackButton } from './BackButton';
 import { LottieAnimation } from './LottieAnimation';
 import { LyricsDisplay } from './LyricsDisplay';
-import { PlayerStyles } from './PlayerStyles';
 import { MilkDropVisualizer } from './MilkDropVisualizer';
 import { useVisualizerPersistence } from '@/hooks/useVisualizerPersistence';
 import { getFileInputAcceptAttribute, revokeAllObjectURLs, revokeObjectURL } from '@/utils/audioUtils';
@@ -458,7 +457,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
           {/* Drag and Drop Overlay - Only show when tracks are loaded */}
           {playlist.length > 0 && isDragOver && (
             <div
-              className="fixed inset-0 z-[60] flex items-center justify-center p-4 pointer-events-none transition-all duration-300"
+              className="fixed inset-0 z-60 flex items-center justify-center p-4 pointer-events-none transition-all duration-300"
               style={{
                 background: showVisualization ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.8)',
                 backdropFilter: showVisualization ? 'none' : 'blur(20px) saturate(120%)',
@@ -507,7 +506,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                   </svg>
                   <span>Visualizer Preset</span>
                 </div>
-                <span className="text-white/80 group-hover:text-white text-sm max-w-[200px] truncate transition-colors drop-shadow-md">
+                <span className="text-white/80 group-hover:text-white text-sm max-w-50 truncate transition-colors drop-shadow-md">
                   {visualizerSettings.activePreset || availablePresets[0] || 'Loading...'}
                 </span>
               </button>
@@ -550,7 +549,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                     className="rounded-[20px] lg:rounded-3xl flex-1 overflow-hidden min-h-0"
                     style={{
                       background: 'rgba(255, 255, 255, 0.05)',
-                      backdropFilter: 'blur(20px)',
+                      backdropFilter: 'var(--blur-panel)',
                       border: '1px solid rgba(255, 255, 255, 0.1)',
                       boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
                     }}
@@ -606,7 +605,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                       className="rounded-[20px] lg:rounded-3xl flex-1 overflow-hidden min-h-0"
                       style={{
                         background: 'rgba(255, 255, 255, 0.05)',
-                        backdropFilter: 'blur(20px)',
+                        backdropFilter: 'var(--blur-panel)',
                         border: '1px solid rgba(255, 255, 255, 0.1)',
                         boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
                       }}
@@ -638,7 +637,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                     className="w-full rounded-2xl p-3 sm:p-4"
                     style={{
                       background: 'rgba(255, 255, 255, 0.05)',
-                      backdropFilter: 'blur(20px)',
+                      backdropFilter: 'var(--blur-panel)',
                       border: '1px solid rgba(255, 255, 255, 0.1)',
                       boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
                       WebkitMaskImage: '-webkit-radial-gradient(white, black)',
@@ -656,7 +655,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                     className="w-full rounded-2xl p-4 sm:p-5"
                     style={{
                       background: 'rgba(255, 255, 255, 0.05)',
-                      backdropFilter: 'blur(20px)',
+                      backdropFilter: 'var(--blur-panel)',
                       border: '1px solid rgba(255, 255, 255, 0.1)',
                       boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
                       WebkitMaskImage: '-webkit-radial-gradient(white, black)',
@@ -677,7 +676,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                     className="w-full rounded-2xl p-3 sm:p-4"
                     style={{
                       background: 'rgba(255, 255, 255, 0.05)',
-                      backdropFilter: 'blur(20px)',
+                      backdropFilter: 'var(--blur-panel)',
                       border: '1px solid rgba(255, 255, 255, 0.1)',
                       boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
                       WebkitMaskImage: '-webkit-radial-gradient(white, black)',
@@ -708,7 +707,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                     className="w-full rounded-2xl p-4 sm:p-5 overflow-hidden flex flex-col relative"
                     style={{
                       background: 'rgba(255, 255, 255, 0.05)',
-                      backdropFilter: 'blur(20px)',
+                      backdropFilter: 'var(--blur-panel)',
                       border: '1px solid rgba(255, 255, 255, 0.1)',
                       boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)',
                       WebkitMaskImage: '-webkit-radial-gradient(white, black)',
@@ -731,7 +730,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                         <svg className="w-4 h-4 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                         </svg>
-                        <span className="text-white/80 text-sm font-medium truncate max-w-[200px]">
+                        <span className="text-white/80 text-sm font-medium truncate max-w-50">
                           {visualizerSettings.activePreset ? `Preset: ${visualizerSettings.activePreset}` : 'Visualizer Settings'}
                         </span>
                       </button>
@@ -741,10 +740,6 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
               </div>
             )}
           </main >
-
-          {/* Popups relocated outside to share Visualizer popup z-index priority */}
-
-          < PlayerStyles />
         </div >
       )}
 

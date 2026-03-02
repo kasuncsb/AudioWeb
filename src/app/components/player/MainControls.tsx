@@ -1,3 +1,5 @@
+import React from 'react';
+
 interface MainControlsProps {
   isPlaying: boolean;
   onPlayPause: () => void;
@@ -7,7 +9,7 @@ interface MainControlsProps {
   canGoNext: boolean;
 }
 
-export const MainControls: React.FC<MainControlsProps> = ({
+export const MainControls: React.FC<MainControlsProps> = React.memo(({
   isPlaying,
   onPlayPause,
   onPrevious,
@@ -58,4 +60,6 @@ export const MainControls: React.FC<MainControlsProps> = ({
       </button>
     </div>
   );
-};
+});
+
+MainControls.displayName = 'MainControls';

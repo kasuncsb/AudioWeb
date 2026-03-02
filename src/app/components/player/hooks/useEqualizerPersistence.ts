@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { EqualizerSettings } from '../types';
 import { STORAGE_KEYS } from '@/config/constants';
 import { createLogger } from '@/utils/logger';
@@ -61,16 +61,25 @@ export const useEqualizerPersistence = (shouldInit: boolean = false) => {
     }
   }, [shouldInit, isLoaded, settings]);
 
-  // Save settings to localStorage whenever they change — but only after init
+  // Save settings to localStorage whenever they change — debounced to reduce
+  // blocking during rapid slider drags
+  const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
   useEffect(() => {
-    if (!isLoaded) return; // Don't save before initialization
+    if (!isLoaded) return;
 
-    try {
-      localStorage.setItem(STORAGE_KEYS.EQUALIZER_SETTINGS, JSON.stringify(settings));
-      logger.debug('Equalizer settings saved to localStorage');
-    } catch (error) {
-      logger.error('Failed to save equalizer settings:', error);
-    }
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      try {
+        localStorage.setItem(STORAGE_KEYS.EQUALIZER_SETTINGS, JSON.stringify(settings));
+        logger.debug('Equalizer settings saved to localStorage');
+      } catch (error) {
+        logger.error('Failed to save equalizer settings:', error);
+      }
+    }, 500);
+
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
   }, [settings, isLoaded]);
 
   const updateSettings = (newSettings: EqualizerSettings) => {

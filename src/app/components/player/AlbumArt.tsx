@@ -1,3 +1,4 @@
+import React from 'react';
 import { AudioTrack } from './types';
 import { ScrollingText } from './ScrollingText';
 
@@ -7,7 +8,7 @@ interface AlbumArtProps {
   isPlaying?: boolean;
 }
 
-export const AlbumArt: React.FC<AlbumArtProps> = ({
+export const AlbumArt: React.FC<AlbumArtProps> = React.memo(({
   currentTrack,
   direction = 'next',
   isPlaying = true
@@ -78,4 +79,6 @@ export const AlbumArt: React.FC<AlbumArtProps> = ({
       </div>
     </div>
   );
-};
+});
+
+AlbumArt.displayName = 'AlbumArt';

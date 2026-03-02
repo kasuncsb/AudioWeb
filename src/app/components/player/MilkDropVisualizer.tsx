@@ -115,11 +115,9 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
       const rect = container.getBoundingClientRect();
       const width = Math.floor(rect.width);
       const height = Math.floor(rect.height);
-      const pixelRatio = window.devicePixelRatio || 1;
+      const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
 
-
-
-      // Set canvas dimensions
+      // Set canvas dimensions (capped at 2x to limit GPU load on high-DPI screens)
       const physicalWidth = Math.floor(width * pixelRatio);
       const physicalHeight = Math.floor(height * pixelRatio);
 
@@ -169,7 +167,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
           return;
         }
 
-        const pixelRatio = window.devicePixelRatio || 1;
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
         const physicalWidth = Math.floor(width * pixelRatio);
         const physicalHeight = Math.floor(height * pixelRatio);
 
@@ -264,18 +262,9 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
 
     resizeObserver.observe(container);
 
-    // Also listen to window resize and visualViewport changes
-    window.addEventListener('resize', handleResize);
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', handleResize);
-    }
-
+    // ResizeObserver alone covers window resize and visual viewport changes
     return () => {
       resizeObserver.disconnect();
-      window.removeEventListener('resize', handleResize);
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', handleResize);
-      }
     };
   }, [isInitialized, handleResize]);
 

@@ -6,19 +6,9 @@ import { useState } from 'react';
 import { AboutPopup } from './about';
 import { SupportPopup } from './contact';
 import { NowPlayingBar } from './NowPlayingBar';
+import { AudioTrack } from './player/types';
 
-// Import Inter font from Google Fonts (add this to your _app.tsx or layout if not already)
-import { Inter } from 'next/font/google';
-const inter = Inter({ subsets: ['latin'] });
-
-interface AudioTrack {
-  id: string;
-  title: string;
-  artist: string;
-  album?: string;
-  albumArt?: string;
-  duration: number;
-}
+// Inter font is loaded globally in layout.tsx
 
 interface NavbarProps {
   isPlaying?: boolean;
@@ -55,13 +45,13 @@ const Navbar: React.FC<NavbarProps> = ({
   return (
     <>
       <header
-        className={`fixed top-0 left-0 w-full flex items-center justify-between px-4 md:px-16 z-50 ${inter.className}`}
+        className={`fixed top-0 left-0 w-full flex items-center justify-between px-4 md:px-16 z-50 `}
         style={{
           height: '4.5rem', // Slightly taller for modern look
           // iOS 18-like glassy background with subtle texture - more transparent when visualization active
           background: showVisualization ? 'rgba(15, 15, 20, 0.35)' : 'rgba(30, 30, 40, 0.65)',
-          backdropFilter: 'blur(16px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+          backdropFilter: 'var(--blur-heavy)',
+          WebkitBackdropFilter: 'var(--blur-heavy)',
           borderBottom: showVisualization ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.08)',
           boxShadow: '0 2px 24px 0 rgba(0,0,0,0.10)',
           backgroundImage: showVisualization ? 'none' : `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='40' height='40' fill='white' fill-opacity='0'/%3E%3Ccircle cx='20' cy='20' r='1' fill='white' fill-opacity='0.04'/%3E%3C/svg%3E")`,
@@ -163,12 +153,12 @@ const Navbar: React.FC<NavbarProps> = ({
 
       {/* Mobile menu (sliding down) */}
       <div
-        className={`fixed top-[4.5rem] left-0 w-full z-[60] transition-all duration-300 md:hidden ${open ? 'opacity-100 pointer-events-auto translate-y-0' : 'opacity-0 pointer-events-none -translate-y-2'
+        className={`fixed top-18 left-0 w-full z-60 transition-all duration-300 md:hidden ${open ? 'opacity-100 pointer-events-auto translate-y-0' : 'opacity-0 pointer-events-none -translate-y-2'
           }`}
         style={{
           background: showVisualization ? 'rgba(15, 15, 20, 0.35)' : 'rgba(30, 30, 40, 0.95)',
-          backdropFilter: 'blur(24px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+          backdropFilter: 'var(--blur-popup)',
+          WebkitBackdropFilter: 'var(--blur-popup)',
           borderBottom: showVisualization ? '1px solid rgba(255,255,255,0.12)' : '1px solid rgba(255,255,255,0.08)',
           backgroundImage: showVisualization ? 'none' : `url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Crect width='40' height='40' fill='white' fill-opacity='0'/%3E%3Ccircle cx='20' cy='20' r='1' fill='white' fill-opacity='0.04'/%3E%3C/svg%3E")`,
           backgroundBlendMode: 'overlay',

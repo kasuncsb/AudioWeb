@@ -344,3 +344,502 @@ pre {
 .playlist-popup .cursor-nw-resize:hover {
   background: transparent !important;
 }
+
+/* ============================
+ * Migrated from PlayerStyles.tsx and scrollstyles.tsx
+ * Static CSS avoids per-render style re-injection
+ * ============================ */
+
+/* Blur intensity variables — reduced on mobile for GPU performance */
+:root {
+  --blur-heavy: blur(16px) saturate(180%);
+  --blur-panel: blur(20px);
+  --blur-medium: blur(8px);
+  --blur-light: blur(4px);
+  --blur-popup: blur(24px) saturate(180%);
+  --blur-overlay: blur(20px) saturate(120%);
+}
+
+@media (max-width: 768px) {
+  :root {
+    --blur-heavy: blur(8px) saturate(150%);
+    --blur-panel: blur(10px);
+    --blur-medium: blur(4px);
+    --blur-light: blur(2px);
+    --blur-popup: blur(12px) saturate(150%);
+    --blur-overlay: blur(10px) saturate(110%);
+  }
+}
+
+/* Universal scrollbar hiding */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}
+
+/* Scroll behavior */
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+body {
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
+/* Custom scrollbar utility classes */
+.custom-scrollbar,
+.custom-scrollbar-enhanced,
+.custom-scrollbar-thin,
+.custom-scrollbar-invisible,
+.custom-scrollbar-auto {
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.custom-scrollbar::-webkit-scrollbar,
+.custom-scrollbar-enhanced::-webkit-scrollbar,
+.custom-scrollbar-thin::-webkit-scrollbar,
+.custom-scrollbar-invisible::-webkit-scrollbar,
+.custom-scrollbar-auto::-webkit-scrollbar {
+  display: none;
+}
+
+/* Themed scrollbar (visible, used by playlist) */
+.custom-scrollbar-themed {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.custom-scrollbar-themed::-webkit-scrollbar {
+  width: 6px;
+  display: block;
+}
+
+.custom-scrollbar-themed::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar-themed::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+}
+
+.custom-scrollbar-themed::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.4);
+}
+
+.custom-scrollbar-themed::-webkit-scrollbar-thumb:active {
+  background: rgba(255, 255, 255, 0.6);
+}
+
+/* Scroll containers */
+.scroll-container {
+  overflow-y: auto;
+  min-height: 0;
+  flex: 1;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.scroll-container::-webkit-scrollbar {
+  display: none;
+}
+
+.popup-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.popup-content > .scroll-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.popup-content > .scroll-content::-webkit-scrollbar {
+  display: none;
+}
+
+.page-scroll {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+/* Slider styles */
+.slider {
+  transition: background 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slider::-webkit-slider-thumb {
+  appearance: none;
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+}
+
+.slider::-webkit-slider-thumb:active {
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.slider::-moz-range-thumb {
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slider::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+}
+
+.slider::-moz-range-thumb:active {
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+/* Custom slider for tone controls */
+.slider-custom {
+  transition: background 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slider-custom::-webkit-slider-thumb {
+  appearance: none;
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slider-custom::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+}
+
+.slider-custom::-webkit-slider-thumb:active {
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.slider-custom::-moz-range-thumb {
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.slider-custom::-moz-range-thumb:hover {
+  transform: scale(1.15);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+}
+
+.slider-custom::-moz-range-thumb:active {
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+/* Lyrics styles */
+.lyrics-line {
+  transition: opacity 0.6s cubic-bezier(0.25, 0.8, 0.25, 1),
+              color 0.5s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transform-origin: center;
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -moz-hyphens: auto;
+  -ms-hyphens: auto;
+  line-break: auto;
+  word-break: break-word;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.lyrics-active {
+  transition: opacity 0.4s cubic-bezier(0.25, 0.8, 0.25, 1),
+              color 0.4s cubic-bezier(0.25, 0.8, 0.25, 1),
+              text-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  transition-delay: 0.02s;
+}
+
+.lyrics-container {
+  transition: transform 1.8s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.lyrics-line span {
+  display: inline-block;
+  max-width: 100%;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  -moz-hyphens: auto;
+  -ms-hyphens: auto;
+  transition: inherit;
+}
+
+.lyrics-line:hover {
+  overflow: visible;
+  z-index: 10;
+  position: relative;
+}
+
+.lyrics-line:not(.lyrics-active) {
+  transition: opacity 0.8s cubic-bezier(0.25, 0.8, 0.25, 1),
+              color 0.6s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* Album art container — will-change only during interaction */
+.album-art-container {
+  transform: scale(var(--base-scale, 1));
+  transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@media (hover: hover) {
+  .album-art-container:hover {
+    transform: scale(calc(var(--base-scale, 1) * var(--hover-scale, 1.04)));
+  }
+}
+
+.album-art-container:active {
+  transform: scale(calc(var(--base-scale, 1) * var(--active-scale, 0.94)));
+  transition: transform 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Animated Music Bars */
+.music-bar-1 {
+  width: 2px;
+  background: white;
+  border-radius: 9999px;
+  animation: musicBar1 1.4s ease-in-out infinite;
+}
+
+.music-bar-2 {
+  width: 2px;
+  background: white;
+  border-radius: 9999px;
+  animation: musicBar2 1.1s ease-in-out infinite;
+}
+
+.music-bar-3 {
+  width: 2px;
+  background: white;
+  border-radius: 9999px;
+  animation: musicBar3 1.6s ease-in-out infinite;
+}
+
+.music-bar-4 {
+  width: 2px;
+  background: white;
+  border-radius: 9999px;
+  animation: musicBar4 1.3s ease-in-out infinite;
+}
+
+.music-bar-paused {
+  width: 2px;
+  height: 3px;
+  background: white;
+  border-radius: 9999px;
+  opacity: 0.6;
+}
+
+@keyframes musicBar1 {
+  0%, 100% { height: 20%; }
+  50% { height: 80%; }
+}
+
+@keyframes musicBar2 {
+  0%, 100% { height: 40%; }
+  25% { height: 90%; }
+  75% { height: 30%; }
+}
+
+@keyframes musicBar3 {
+  0%, 100% { height: 60%; }
+  33% { height: 20%; }
+  66% { height: 100%; }
+}
+
+@keyframes musicBar4 {
+  0%, 100% { height: 30%; }
+  40% { height: 70%; }
+  80% { height: 50%; }
+}
+
+/* Shuffle animation */
+.shuffle-item {
+  animation: shuffle-fade 0.5s ease-out;
+}
+
+@keyframes shuffle-fade {
+  0% { opacity: 0.3; }
+  100% { opacity: 1; }
+}
+
+/* Vertical Slider (EQ faders) */
+.vertical-slider {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  padding: 0;
+  margin: 0;
+  border-radius: 4px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.vertical-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: var(--thumb-size, 20px);
+  width: var(--thumb-size, 20px);
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.vertical-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+}
+
+.vertical-slider::-webkit-slider-thumb:active {
+  transform: scale(1.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+.vertical-slider::-moz-range-thumb {
+  height: var(--thumb-size, 20px);
+  width: var(--thumb-size, 20px);
+  border-radius: 50%;
+  background: #ffffff;
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.vertical-slider::-moz-range-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.4);
+}
+
+.vertical-slider::-moz-range-thumb:active {
+  transform: scale(1.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+}
+
+/* Mobile-specific optimizations */
+@media (max-width: 768px) {
+  button, input[type="range"], .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  button, .mobile-touch-feedback {
+    -webkit-tap-highlight-color: rgba(255, 255, 255, 0.1);
+  }
+
+  button:active, .mobile-touch-feedback:active {
+    transform: scale(0.98);
+  }
+
+  .mobile-no-select, button, input[type="range"] {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  .mobile-spacing {
+    padding: 12px 16px;
+  }
+
+  * {
+    -webkit-touch-callout: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .lyrics-line {
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+  }
+}
+
+/* Safe area support for notched devices */
+@supports (padding: max(0px)) {
+  .pb-safe { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+  .pt-safe { padding-top: max(16px, env(safe-area-inset-top)); }
+  .pl-safe { padding-left: max(16px, env(safe-area-inset-left)); }
+  .pr-safe { padding-right: max(16px, env(safe-area-inset-right)); }
+}
+
+/* CSS-based scrolling text animation (replaces per-instance rAF loops) */
+@keyframes scrollTextBounce {
+  0%, 8% { transform: translateX(0); }
+  42%, 58% { transform: translateX(var(--scroll-distance)); }
+  92%, 100% { transform: translateX(0); }
+}
+
+.scrolling-text-animated {
+  animation: scrollTextBounce var(--scroll-duration, 10s) linear infinite;
+}
+
+/* Playlist item render optimization */
+.playlist-item-virtual {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 56px;
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

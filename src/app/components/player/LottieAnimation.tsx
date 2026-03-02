@@ -1,4 +1,6 @@
-import Lottie from 'lottie-react';
+import dynamic from 'next/dynamic';
+
+const Lottie = dynamic(() => import('lottie-react'), { ssr: false });
 import animationData from '../../../../public/lottie/anim-ul.json';
 
 interface LottieAnimationProps {
@@ -10,7 +12,7 @@ export const LottieAnimation: React.FC<LottieAnimationProps> = ({ show }) => {
 
   return (
     <div className="fixed top-12 md:top-16 left-1/2 transform -translate-x-1/2 pointer-events-none z-0">
-      <div className="w-[20vw] h-[20vw] min-w-[200px] min-h-[200px] max-w-[280px] max-h-[280px]">
+      <div className="w-[20vw] h-[20vw] min-w-50 min-h-50 max-w-70 max-h-70">
         <Lottie
           animationData={animationData}
           loop={true}

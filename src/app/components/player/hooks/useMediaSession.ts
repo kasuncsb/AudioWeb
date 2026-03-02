@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { AudioTrack } from '../types';
 import { createLogger } from '@/utils/logger';
 
@@ -77,9 +77,14 @@ export const useMediaSession = ({
     }
   }, [isPlaying]);
 
-  // Update position state
+  // Throttled position state update - only update every 5 seconds to avoid excessive calls
+  const lastPositionUpdateRef = useRef(0);
   const updatePositionState = useCallback(() => {
     if (!('mediaSession' in navigator) || !duration || duration === 0) return;
+
+    const now = Date.now();
+    if (now - lastPositionUpdateRef.current < 5000) return;
+    lastPositionUpdateRef.current = now;
 
     try {
       navigator.mediaSession.setPositionState({

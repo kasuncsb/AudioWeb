@@ -2,8 +2,8 @@
 
 import React from 'react';
 import Image from 'next/image';
-// Import project version from package.json
-import pkg from '../../../package.json';
+
+const appVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? '0.0.0';
 
 interface AboutPopupProps {
   show: boolean;
@@ -147,7 +147,7 @@ const TechStackItem: React.FC<{
   description: string;
 }> = ({ icon, name, description }) => (
   <div className="flex items-center gap-4 p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-200">
-    <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
+    <div className="w-8 h-8 flex items-center justify-center shrink-0">
       {icon}
     </div>
     <div className="flex-1 text-left">
@@ -170,11 +170,11 @@ export const AboutPopup: React.FC<AboutPopupProps> = ({ show, onClose, isPlaying
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4 transition-all duration-500"
+      className="fixed inset-0 z-60 flex items-center justify-center p-4 transition-all duration-500"
       style={{
         background: showVisualization ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.8)',
-        backdropFilter: showVisualization ? 'none' : 'blur(20px) saturate(120%)',
-        WebkitBackdropFilter: showVisualization ? 'none' : 'blur(20px) saturate(120%)',
+        backdropFilter: showVisualization ? 'none' : 'var(--blur-overlay)',
+        WebkitBackdropFilter: showVisualization ? 'none' : 'var(--blur-overlay)',
       }}
       onClick={handleBackdropClick}
     >
@@ -182,8 +182,8 @@ export const AboutPopup: React.FC<AboutPopupProps> = ({ show, onClose, isPlaying
         className="relative w-full max-w-md max-h-[90vh] overflow-y-auto custom-scrollbar rounded-3xl p-6 transition-all duration-500"
         style={{
           background: showVisualization ? 'rgba(15, 15, 20, 0.35)' : 'rgba(20, 20, 28, 0.95)',
-          backdropFilter: 'blur(24px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+          backdropFilter: 'var(--blur-popup)',
+          WebkitBackdropFilter: 'var(--blur-popup)',
           border: showVisualization ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(255, 255, 255, 0.1)',
           boxShadow: showVisualization ? '0 8px 32px rgba(0, 0, 0, 0.2)' : '0 20px 60px rgba(0, 0, 0, 0.5)',
         }}
@@ -207,7 +207,7 @@ export const AboutPopup: React.FC<AboutPopupProps> = ({ show, onClose, isPlaying
           <div className="space-y-1">
             <h2 className="text-2xl font-semibold text-white">AudioWeb Music Player</h2>
             <div>
-              <span className="block text-[11px] text-white/60">version {pkg.version}</span>
+              <span className="block text-[11px] text-white/60">version {appVersion}</span>
             </div>
           </div>
 

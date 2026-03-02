@@ -25,14 +25,14 @@ const SupportOption: React.FC<{
       {...props}
       className="flex items-start gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-all duration-200 hover:scale-[1.02] text-left w-full"
     >
-      <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
+      <div className="w-10 h-10 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
         {icon}
       </div>
       <div className="flex-1">
         <h3 className="text-white font-medium text-sm mb-1">{title}</h3>
         <p className="text-white/70 text-xs leading-relaxed">{description}</p>
       </div>
-      <svg className="w-4 h-4 text-white/40 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg className="w-4 h-4 text-white/40 shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
       </svg>
     </Component>
@@ -54,7 +54,7 @@ export const SupportPopup: React.FC<SupportPopupProps> = ({ show, onClose, showV
 
   return (
     <div
-      className="fixed inset-0 z-[60] flex items-center justify-center p-4 transition-all duration-500"
+      className="fixed inset-0 z-60 flex items-center justify-center p-4 transition-all duration-500"
       style={{
         background: showVisualization ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.8)',
         backdropFilter: showVisualization ? 'none' : 'blur(20px) saturate(120%)',

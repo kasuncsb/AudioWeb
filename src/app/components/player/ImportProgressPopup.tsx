@@ -60,7 +60,7 @@ const ImportProgressPopup: React.FC<Props> = ({ active, total, processed, curren
           <div className="mt-3">
             <div className="w-full h-2 rounded bg-white/10 overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-500 ease-out"
+                className="h-full bg-linear-to-r from-emerald-400 to-emerald-600 transition-all duration-500 ease-out"
                 style={{ width: `${percent}%` }}
               />
             </div>

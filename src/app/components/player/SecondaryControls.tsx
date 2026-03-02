@@ -1,3 +1,5 @@
+import React from 'react';
+
 interface SecondaryControlsProps {
   onShuffleClick: () => void;
   repeatMode: number;
@@ -10,7 +12,7 @@ interface SecondaryControlsProps {
   showVisualization: boolean;
 }
 
-export const SecondaryControls: React.FC<SecondaryControlsProps> = ({
+export const SecondaryControls: React.FC<SecondaryControlsProps> = React.memo(({
   onShuffleClick,
   repeatMode,
   onRepeatToggle,
@@ -107,4 +109,6 @@ export const SecondaryControls: React.FC<SecondaryControlsProps> = ({
       </button>
     </div>
   );
-};
+});
+
+SecondaryControls.displayName = 'SecondaryControls';

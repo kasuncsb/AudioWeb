@@ -2,15 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { ScrollingText } from './player/ScrollingText';
-
-interface AudioTrack {
-  id: string;
-  title: string;
-  artist: string;
-  album?: string;
-  albumArt?: string;
-  duration: number;
-}
+import { AudioTrack } from './player/types';
 
 interface NowPlayingBarProps {
   currentTrack: AudioTrack;
@@ -272,7 +264,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
       {/* Album Art - Clickable to open player, changes with text (fade transition) */}
       <button
         onClick={onOpenPlayer}
-        className="w-8 h-8 md:w-9 md:h-9 rounded-full overflow-hidden flex-shrink-0 shadow-lg hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer relative"
+        className="w-8 h-8 md:w-9 md:h-9 rounded-full overflow-hidden shrink-0 shadow-lg hover:scale-105 active:scale-95 transition-all duration-300 cursor-pointer relative"
         title="Open Player"
       >
         {/* Current Track Album Art */}
@@ -289,7 +281,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center">
+            <div className="w-full h-full bg-linear-to-br from-purple-500/20 to-blue-500/20 flex items-center justify-center">
               <svg className="w-4 h-4 md:w-4 md:h-4 text-white/60" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
               </svg>
@@ -312,7 +304,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="w-full h-full bg-gradient-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center">
+              <div className="w-full h-full bg-linear-to-br from-blue-500/20 to-cyan-500/20 flex items-center justify-center">
                 <svg className="w-4 h-4 md:w-4 md:h-4 text-white/60" fill="currentColor" viewBox="0 0 20 20">
                   <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" />
                 </svg>
@@ -328,7 +320,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
               showSleepTimer ? 'opacity-100' : 'opacity-0'
             }`}
           >
-            <div className="w-full h-full bg-gradient-to-br from-orange-500/30 to-red-500/30 backdrop-blur-sm flex items-center justify-center">
+            <div className="w-full h-full bg-linear-to-br from-orange-500/30 to-red-500/30 backdrop-blur-sm flex items-center justify-center">
               <SleepIcon className="w-5 h-5 md:w-6 md:h-6 text-orange-400" />
             </div>
           </div>
@@ -341,7 +333,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
               showGoodNight ? 'opacity-100' : 'opacity-0'
             }`}
           >
-            <div className="w-full h-full bg-gradient-to-br from-purple-500/30 to-indigo-500/30 backdrop-blur-sm flex items-center justify-center">
+            <div className="w-full h-full bg-linear-to-br from-purple-500/30 to-indigo-500/30 backdrop-blur-sm flex items-center justify-center">
               <GoodNightIcon className="w-5 h-5 md:w-6 md:h-6 text-purple-400" />
             </div>
           </div>
@@ -363,7 +355,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
             }}
           >
             <div className="flex items-center gap-1">
-              <span className={`w-1 h-1 rounded-full flex-shrink-0 ${isPlaying ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`}></span>
+              <span className={`w-1 h-1 rounded-full shrink-0 ${isPlaying ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`}></span>
               <span className="text-[10px] text-white/60 font-medium">{isPlaying ? 'Now Playing' : 'Paused'}</span>
             </div>
             <ScrollingText
@@ -392,7 +384,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
               }}
             >
               <div className="flex items-center gap-1">
-                <span className="w-1 h-1 rounded-full flex-shrink-0 bg-blue-500"></span>
+                <span className="w-1 h-1 rounded-full shrink-0 bg-blue-500"></span>
                 <span className="text-[10px] text-white/60 font-medium">Up Next</span>
               </div>
               <ScrollingText
@@ -422,7 +414,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
               }}
             >
               <div className="flex items-center gap-1">
-                <span className={`w-1 h-1 rounded-full flex-shrink-0 ${
+                <span className={`w-1 h-1 rounded-full shrink-0 ${
                   sleepTimer <= 60 ? 'bg-red-500 animate-pulse' : 'bg-orange-500'
                 }`}></span>
                 <span className={`text-[10px] font-medium ${
@@ -451,7 +443,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
               }}
             >
               <div className="flex items-center gap-1">
-                <span className="w-1 h-1 rounded-full flex-shrink-0 bg-purple-500 animate-pulse"></span>
+                <span className="w-1 h-1 rounded-full shrink-0 bg-purple-500 animate-pulse"></span>
                 <span className="text-[10px] font-medium text-purple-400">
                   Sleep Timer
                 </span>
@@ -475,8 +467,8 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
               opacity: (showUpNext && nextTrack && isPlaying) || showSleepTimer || showGoodNight ? 0 : 1,
             }}
           >
-            <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mr-2 ${isPlaying ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`}></span>
-            <span className="text-xs text-white/60 font-medium mr-2 flex-shrink-0">{isPlaying ? 'Now Playing:' : 'Paused:'}</span>
+            <span className={`w-1.5 h-1.5 rounded-full shrink-0 mr-2 ${isPlaying ? 'bg-green-500 animate-pulse' : 'bg-yellow-500'}`}></span>
+            <span className="text-xs text-white/60 font-medium mr-2 shrink-0">{isPlaying ? 'Now Playing:' : 'Paused:'}</span>
             <ScrollingText
               text={`${currentTrack.title} by ${currentTrack.artist}`}
               className="text-sm font-semibold text-white flex-1"
@@ -496,8 +488,8 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                 opacity: showUpNext && isPlaying && !showSleepTimer && !showGoodNight ? 1 : 0,
               }}
             >
-              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 mr-2 bg-blue-500"></span>
-              <span className="text-xs text-white/60 font-medium mr-2 flex-shrink-0">Up Next:</span>
+              <span className="w-1.5 h-1.5 rounded-full shrink-0 mr-2 bg-blue-500"></span>
+              <span className="text-xs text-white/60 font-medium mr-2 shrink-0">Up Next:</span>
               <ScrollingText
                 text={`${nextTrack.title} by ${nextTrack.artist}`}
                 className="text-sm font-semibold text-white flex-1"
@@ -518,10 +510,10 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                 opacity: showSleepTimer ? 1 : 0,
               }}
             >
-              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mr-2 ${
+              <span className={`w-1.5 h-1.5 rounded-full shrink-0 mr-2 ${
                 sleepTimer <= 60 ? 'bg-red-500 animate-pulse' : 'bg-orange-500'
               }`}></span>
-              <span className={`text-xs font-medium mr-2 flex-shrink-0 ${
+              <span className={`text-xs font-medium mr-2 shrink-0 ${
                 sleepTimer <= 60 ? 'text-red-400' : 'text-white/60'
               }`}>
                 Sleep Timer:
@@ -545,8 +537,8 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
                 opacity: showGoodNight ? 1 : 0,
               }}
             >
-              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0 mr-2 bg-purple-500 animate-pulse"></span>
-              <span className="text-xs font-medium mr-2 flex-shrink-0 text-purple-400">
+              <span className="w-1.5 h-1.5 rounded-full shrink-0 mr-2 bg-purple-500 animate-pulse"></span>
+              <span className="text-xs font-medium mr-2 shrink-0 text-purple-400">
                 Sleep Timer:
               </span>
               <span className="text-sm font-semibold text-purple-400">
@@ -558,7 +550,7 @@ export const NowPlayingBar: React.FC<NowPlayingBarProps> = ({
       </div>
 
       {/* Playback Controls - Always visible */}
-      <div className="flex items-center gap-0.5 md:gap-1 flex-shrink-0">
+      <div className="flex items-center gap-0.5 md:gap-1 shrink-0">
         <button
           onClick={onPrevious}
           className="w-7 h-7 md:w-8 md:h-8 flex items-center justify-center rounded-md md:rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 transition-all duration-200 group"

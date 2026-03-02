@@ -1,6 +1,5 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Inter } from "next/font/google";
-import { ScrollStyles } from "./components/scrollstyles";
 import DomainMigrationBanner from "./components/DomainMigrationBanner";
 import "./globals.css";
 
@@ -94,7 +93,6 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} ${inter.className} antialiased`}
       >
         <DomainMigrationBanner />
-        <ScrollStyles />
         {children}
       </body>
     </html>

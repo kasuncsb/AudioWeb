@@ -1,7 +1,14 @@
 import { useState, useCallback } from 'react';
 import React from 'react';
 import { AudioTrack, LyricLine } from '../types';
-import * as musicMetadata from 'music-metadata-browser';
+// Dynamically imported on first use to reduce initial bundle size
+let musicMetadataModule: typeof import('music-metadata-browser') | null = null;
+const getMusicMetadata = async () => {
+  if (!musicMetadataModule) {
+    musicMetadataModule = await import('music-metadata-browser');
+  }
+  return musicMetadataModule;
+};
 import { createLogger } from '@/utils/logger';
 import { 
   isAudioFile, 
@@ -165,6 +172,7 @@ export const useFileHandler = (
     try {
       logger.start(`Extracting metadata from: ${file.name}`);
       
+      const musicMetadata = await getMusicMetadata();
       const metadata = await musicMetadata.parseBlob(file);
       const { common, format } = metadata;
       

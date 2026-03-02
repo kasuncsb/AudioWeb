@@ -47,16 +47,12 @@ export const ResizablePopup: React.FC<ResizablePopupProps> = ({
   const popupRef = useRef<HTMLDivElement>(null);
   const scrollContentRef = useRef<HTMLDivElement>(null);
 
-  // Check for mobile screen size
   useEffect(() => {
-    const checkMobile = () => {
-      setIsMobile(window.innerWidth < 1024);
-    };
-
-    checkMobile();
-    window.addEventListener('resize', checkMobile);
-
-    return () => window.removeEventListener('resize', checkMobile);
+    const mql = window.matchMedia('(max-width: 1023px)');
+    const onChange = (e: MediaQueryListEvent | MediaQueryList) => setIsMobile(e.matches);
+    onChange(mql);
+    mql.addEventListener('change', onChange as (e: MediaQueryListEvent) => void);
+    return () => mql.removeEventListener('change', onChange as (e: MediaQueryListEvent) => void);
   }, []);
 
   const handleResizeStart = useCallback((direction: string, e: React.MouseEvent) => {
@@ -143,15 +139,15 @@ export const ResizablePopup: React.FC<ResizablePopupProps> = ({
         className="h-full rounded-[20px] overflow-hidden relative transition-all duration-500"
         style={{
           background: showVisualization ? 'rgba(15, 15, 20, 0.35)' : 'rgba(20, 20, 28, 0.95)',
-          backdropFilter: 'blur(24px) saturate(180%)',
-          WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+          backdropFilter: 'var(--blur-popup)',
+          WebkitBackdropFilter: 'var(--blur-popup)',
           border: showVisualization ? '1px solid rgba(255, 255, 255, 0.12)' : '1px solid rgba(255, 255, 255, 0.1)',
           boxShadow: showVisualization ? '0 8px 32px rgba(0, 0, 0, 0.2)' : '0 16px 64px rgba(0, 0, 0, 0.5)'
         }}
       >
         <div className="p-6 h-full popup-content">
           <div
-            className="flex items-center justify-between mb-6 cursor-move select-none flex-shrink-0 pb-4 border-b border-white/10"
+            className="flex items-center justify-between mb-6 cursor-move select-none shrink-0 pb-4 border-b border-white/10"
             onMouseDown={onMouseDown}
           >
             <h2 className="text-xl font-semibold text-white">{title}</h2>

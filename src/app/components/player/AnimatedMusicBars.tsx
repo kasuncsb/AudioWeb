@@ -7,7 +7,7 @@ interface AnimatedMusicBarsProps {
   isPlaying?: boolean;
 }
 
-export const AnimatedMusicBars: React.FC<AnimatedMusicBarsProps> = ({ 
+export const AnimatedMusicBars: React.FC<AnimatedMusicBarsProps> = React.memo(({ 
   className = "w-4 h-4", 
   isPlaying = true 
 }) => {
@@ -19,4 +19,6 @@ export const AnimatedMusicBars: React.FC<AnimatedMusicBarsProps> = ({
       <div className={isPlaying ? "music-bar-4" : "music-bar-paused"}></div>
     </div>
   );
-};
+});
+
+AnimatedMusicBars.displayName = 'AnimatedMusicBars';

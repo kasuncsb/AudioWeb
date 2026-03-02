@@ -22,17 +22,12 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
   const manualScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
 
-  // Handle window resize for responsive behavior
   useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth < 640);
-    };
-
-    // Set initial value
-    handleResize();
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    const mql = window.matchMedia('(max-width: 639px)');
+    const onChange = (e: MediaQueryListEvent | MediaQueryList) => setIsMobile(e.matches);
+    onChange(mql);
+    mql.addEventListener('change', onChange as (e: MediaQueryListEvent) => void);
+    return () => mql.removeEventListener('change', onChange as (e: MediaQueryListEvent) => void);
   }, []);
 
   // Get the current active lyric line index based on real-time
@@ -289,7 +284,7 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
   if (currentTrack.lrcLyrics && currentTrack.lrcLyrics.length > 0) {
     return (
       <div className="h-full flex flex-col px-3 sm:px-6 py-4 sm:py-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 flex-shrink-0 gap-2 sm:gap-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-3 sm:mb-4 shrink-0 gap-2 sm:gap-0">
           <h3 className="text-lg sm:text-xl font-semibold text-white">Lyrics</h3>
           <ScrollingText
             text={`${currentTrack.title} - ${currentTrack.artist}`}

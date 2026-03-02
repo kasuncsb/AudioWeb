@@ -3,6 +3,11 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Docker optimization - standalone output
   output: 'standalone',
+
+  // Expose app version at build time so components don't import package.json at runtime
+  env: {
+    NEXT_PUBLIC_APP_VERSION: require('./package.json').version,
+  },
   
   webpack: (config) => {
     config.resolve.alias = {

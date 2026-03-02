@@ -5,15 +5,8 @@ import Navbar from '@/app/components/navbar';
 import Player from '@/app/components/player/Player';
 import { useState } from 'react';
 import { useWakeLock } from '@/hooks/useWakeLock';
-
-interface AudioTrack {
-  id: string;
-  title: string;
-  artist: string;
-  album?: string;
-  albumArt?: string;
-  duration: number;
-}
+import { AudioTrack } from '@/app/components/player/types';
+import { ErrorBoundary } from '@/app/components/ErrorBoundary';
 
 const Header = ({ onPlayClick }: { onPlayClick: () => void }) => (
   <section
@@ -198,15 +191,17 @@ export default function Home() {
           <Header onPlayClick={handlePlayClick} />
         </main>
       )}
-      <Player
-        isVisible={isPlayerVisible}
-        onClose={handleClosePlayer}
-        onPlayingChange={handlePlayingChange}
-        onTrackChange={handleTrackChange}
-        onSleepTimerChange={handleSleepTimerChange}
-        onVisualizationChange={handleVisualizationChange}
-        showVisualization={showVisualization}
-      />
+      <ErrorBoundary>
+        <Player
+          isVisible={isPlayerVisible}
+          onClose={handleClosePlayer}
+          onPlayingChange={handlePlayingChange}
+          onTrackChange={handleTrackChange}
+          onSleepTimerChange={handleSleepTimerChange}
+          onVisualizationChange={handleVisualizationChange}
+          showVisualization={showVisualization}
+        />
+      </ErrorBoundary>
     </div>
   );
 }

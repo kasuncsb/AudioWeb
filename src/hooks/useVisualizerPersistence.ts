@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { STORAGE_KEYS } from '@/config/constants';
 import { VisualizerSettings } from '../app/components/player/types';
 
@@ -25,15 +25,23 @@ export function useVisualizerPersistence() {
         }
     }, []);
 
-    // Save settings when changed
+    // Save settings when changed (debounced to reduce main-thread blocking)
+    const saveTimerRef = useRef<NodeJS.Timeout | null>(null);
     useEffect(() => {
         if (isLoaded) {
-            try {
-                localStorage.setItem(STORAGE_KEYS.VISUALIZER_SETTINGS, JSON.stringify(settings));
-            } catch (error) {
-                console.error('Failed to save visualizer settings:', error);
-            }
+            if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+            saveTimerRef.current = setTimeout(() => {
+                try {
+                    localStorage.setItem(STORAGE_KEYS.VISUALIZER_SETTINGS, JSON.stringify(settings));
+                } catch (error) {
+                    console.error('Failed to save visualizer settings:', error);
+                }
+            }, 500);
         }
+
+        return () => {
+            if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        };
     }, [settings, isLoaded]);
 
     const updateSettings = (newSettings: Partial<VisualizerSettings>) => {

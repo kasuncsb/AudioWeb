@@ -27,7 +27,7 @@ export default function DomainMigrationBanner() {
 
   return (
     <div 
-      className={`fixed top-0 left-0 right-0 z-[100] bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg transition-all duration-300 ease-out ${
+      className={`fixed top-0 left-0 right-0 z-100 bg-linear-to-r from-blue-600 to-indigo-600 text-white shadow-lg transition-all duration-300 ease-out ${
         isVisible ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0'
       }`}
     >
@@ -52,7 +52,7 @@ export default function DomainMigrationBanner() {
               </a>
             </p>
           </div>
-          <div className="flex-shrink-0 mt-2 sm:mt-0 sm:ml-3">
+          <div className="shrink-0 mt-2 sm:mt-0 sm:ml-3">
             <button
               onClick={handleDismiss}
               className="flex items-center justify-center px-4 py-2 rounded-md text-sm font-medium text-blue-600 bg-white hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-white cursor-pointer"
