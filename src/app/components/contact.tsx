@@ -92,10 +92,9 @@ export const SupportPopup: React.FC<SupportPopupProps> = ({ show, onClose, showV
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3m0 4h.01" />
               </svg>
             </div>
-            <h2 className="text-xl font-semibold text-white">Need help?</h2>
+            <h2 className="text-xl font-semibold text-white">Need Help?</h2>
             <p className="text-white/70 text-sm leading-relaxed">
-              Found a bug, have a feature request, or need assistance with the audio player?
-              Choose the best way to get in touch below.
+              Having issues or want to share feedback? Reach out below.
             </p>
           </div>
 
@@ -108,7 +107,7 @@ export const SupportPopup: React.FC<SupportPopupProps> = ({ show, onClose, showV
                 </svg>
               }
               title="Email Support"
-              description="Send a direct email for personal assistance with any questions or issues."
+              description="Report bugs, request features, or ask questions."
               onClick={handleEmailClick}
             />
 
@@ -116,13 +115,35 @@ export const SupportPopup: React.FC<SupportPopupProps> = ({ show, onClose, showV
 
           {/* Additional Info */}
           <div className="pt-4 border-t border-white/10 space-y-4">
-            <div className="text-center">
-              <h3 className="text-white font-medium text-sm mb-2">Quick Tips</h3>
-              <div className="space-y-2 text-xs text-white/60">
-                <p>• Try refreshing the page if audio playback stops working</p>
-                <p>• Make sure your browser allows audio autoplay</p>
-                <p>• Lyrics are automatically detected from embedded tags or .lrc files</p>
-              </div>
+            <div className="text-left bg-white/5 rounded-xl p-4 border border-white/5">
+              <h3 className="text-amber-400 font-medium text-sm mb-3 flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Quick Tips
+              </h3>
+              <ul className="space-y-3 text-xs text-white/70">
+                <li className="flex gap-2">
+                  <span className="shrink-0 text-white/40">•</span>
+                  <span>Files never leave your device—everything runs locally in your browser.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="shrink-0 text-white/40">•</span>
+                  <span>Supports MP3, WAV, FLAC, OGG, M4A, and other common formats.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="shrink-0 text-white/40">•</span>
+                  <span>Add .lrc files with same name as songs for synchronized lyrics.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="shrink-0 text-white/40">•</span>
+                  <span>Refresh the page if playback stops or becomes unresponsive.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="shrink-0 text-white/40">•</span>
+                  <span>Best experienced on Chrome, Edge, or Safari with quality headphones.</span>
+                </li>
+              </ul>
             </div>
           </div>
         </div>
