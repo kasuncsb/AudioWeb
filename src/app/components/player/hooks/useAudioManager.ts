@@ -829,18 +829,23 @@ export const useAudioManager = (
       if (currentTrack.cacheKey && savedKey === currentTrack.cacheKey && savedPos) {
         const seekTime = parseFloat(savedPos);
         if (!isNaN(seekTime) && seekTime > 0) {
-          // Attach one-time listener to seek after metadata loads
-          const onLoadedMetadata = () => {
-            if (seekTime < audio.duration) {
+          // Wait for 'canplay' instead of 'loadedmetadata' to ensure the audio
+          // is buffered enough to handle the seek without stuttering. Seeking
+          // at 'loadedmetadata' (before any data is buffered) forces the browser
+          // to dump the buffer and re-fetch from the seek position, which causes
+          // audio glitches especially with blob URLs and slow Cache API access.
+          const onCanPlay = () => {
+            // Verify duration is available and position is valid
+            if (audio.duration && seekTime < audio.duration) {
               audio.currentTime = seekTime;
               setCurrentTime(seekTime);
               logger.info(`Restored playback position to ${seekTime.toFixed(1)}s`);
             }
             // Clear to prevent re-seeking on next track change
             localStorage.removeItem(STORAGE_KEYS.LAST_POSITION);
-            audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+            audio.removeEventListener('canplay', onCanPlay);
           };
-          audio.addEventListener('loadedmetadata', onLoadedMetadata);
+          audio.addEventListener('canplay', onCanPlay, { once: true });
         }
       }
 

@@ -484,6 +484,19 @@ export function initCache(): Promise<void> {
       // Clean up old cache names from previous versions
       await cleanupOldCaches();
       
+      // Request persistent storage to prevent mobile browsers from clearing
+      // cached tracks and playback position. Without this, mobile Chrome
+      // aggressively evicts storage when the device is low on space or the
+      // app hasn't been used recently.
+      if (navigator.storage && navigator.storage.persist) {
+        const isPersisted = await navigator.storage.persist();
+        if (isPersisted) {
+          logger.info('Persistent storage granted — cache will survive across sessions');
+        } else {
+          logger.warn('Persistent storage denied — cache may be cleared by browser');
+        }
+      }
+      
       logger.info('Cache system initialized');
 
       // Log storage stats (debug only)
