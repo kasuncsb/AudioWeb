@@ -205,7 +205,10 @@ export const AboutPopup: React.FC<AboutPopupProps> = ({ show, onClose, isPlaying
 
           {/* Main Title + Version (slightly increased gap) */}
           <div className="space-y-1">
-            <h2 className="text-2xl font-semibold text-white">AudioWeb Music Player</h2>
+            <h2 className="text-2xl font-semibold text-white relative inline-block">
+              <span className="absolute -top-3 -right-9.5 text-[8px] font-semibold text-amber-400/90 tracking-wide uppercase select-none">preview</span>
+              AudioWeb Music Player
+            </h2>
             <div>
               <span className="block text-[11px] text-white/60">version {appVersion}</span>
             </div>

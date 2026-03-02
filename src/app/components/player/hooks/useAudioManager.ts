@@ -1,8 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AudioTrack, EqualizerSettings } from '../types';
 import { createLogger } from '@/utils/logger';
+import { STORAGE_KEYS } from '@/config/constants';
 import { getAudioErrorMessage } from '@/utils/audioUtils';
 import { EQUALIZER_BANDS, FREQUENCY_CACHE_MAX_SIZE } from '@/config/constants';
+import {
+  getCachedFrequency,
+  cacheFrequencyAnalysis,
+  buildCacheKey,
+} from '@/utils/cacheManager';
 
 const logger = createLogger('AudioManager');
 
@@ -97,7 +103,7 @@ function analyzeBufferAtPosition(
  * Simple FFT magnitude computation (Cooley-Tukey radix-2)
  * Returns magnitude spectrum in dB
  */
-function computeFFTMagnitude(samples: Float32Array, sampleRate: number): Float32Array {
+function computeFFTMagnitude(samples: Float32Array, _sampleRate: number): Float32Array {
   const n = samples.length;
   
   // Bit-reversal permutation
@@ -189,11 +195,33 @@ function findCentroidInRange(
  * Decodes entire audio file and samples at multiple positions for accurate detection
  */
 async function analyzeFullTrack(trackUrl: string, file?: File): Promise<DetectedFrequencies> {
-  // Check cache first
+  // Check in-memory cache first
   const cached = frequencyCache.get(trackUrl);
   if (cached) {
     logger.debug(`Using cached frequencies: bass=${cached.bassPeak}Hz, sub=${cached.subPeak}Hz, treble=${cached.treblePeak}Hz`);
     return cached;
+  }
+
+  // Check persistent IndexedDB cache (survives page reload)
+  if (file) {
+    try {
+      const cacheKey = buildCacheKey(file);
+      const persisted = await getCachedFrequency(cacheKey);
+      if (persisted) {
+        const detected: DetectedFrequencies = {
+          bassPeak: persisted.bassPeak,
+          subPeak: persisted.subPeak,
+          treblePeak: persisted.treblePeak,
+          confidence: persisted.confidence,
+        };
+        // Promote to in-memory cache
+        cacheFrequencies(trackUrl, detected);
+        logger.debug(`Using persisted frequencies: bass=${detected.bassPeak}Hz, sub=${detected.subPeak}Hz, treble=${detected.treblePeak}Hz`);
+        return detected;
+      }
+    } catch {
+      // Ignore IndexedDB errors — fall through to analysis
+    }
   }
 
   // Check if analysis is already in progress
@@ -223,11 +251,18 @@ async function analyzeFullTrack(trackUrl: string, file?: File): Promise<Detected
       let arrayBuffer: ArrayBuffer;
       const fetchPromise = (async () => {
         if (file) {
-          return await file.arrayBuffer();
-        } else {
-          const response = await fetch(trackUrl);
-          return await response.arrayBuffer();
+          // Cache-restored tracks have a 0-byte placeholder File with an
+          // overridden .size property.  Detect this by reading the real
+          // Blob size via the prototype, and fall back to fetching from
+          // the blob URL (which the cache restore hook has materialised).
+          const realBlobSize = Blob.prototype.slice.call(file, 0).size;
+          if (realBlobSize > 0) {
+            return await file.arrayBuffer();
+          }
+          // Placeholder file — fall through to fetch from trackUrl
         }
+        const response = await fetch(trackUrl);
+        return await response.arrayBuffer();
       })();
 
       const timeoutPromise = new Promise<never>((_, reject) => 
@@ -305,8 +340,14 @@ async function analyzeFullTrack(trackUrl: string, file?: File): Promise<Detected
       const trebleDisplay = treblePeak >= 1000 ? `${(treblePeak / 1000).toFixed(1)}k` : `${treblePeak}`;
       logger.info(`EQ tuned: ${bassPeak}Hz / ${subPeak}Hz / ${trebleDisplay}Hz (${(elapsed / 1000).toFixed(1)}s)`);
 
-      // Cache result
+      // Cache result (in-memory)
       cacheFrequencies(trackUrl, detected);
+
+      // Persist to IndexedDB so analysis survives page reload
+      if (file) {
+        const cacheKey = buildCacheKey(file);
+        cacheFrequencyAnalysis(cacheKey, detected).catch(() => {});
+      }
       
       return detected;
     } catch (error) {
@@ -681,7 +722,6 @@ export const useAudioManager = (
       audio.removeEventListener('play', initAudioChain);
       if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Apply equalizer settings - clean and simple
@@ -777,10 +817,36 @@ export const useAudioManager = (
     const currentTrack = playlist[currentTrackIndex];
     if (!audio || !currentTrack) return;
 
+    // Skip if URL is empty (waiting for blob URL to load from cache)
+    if (!currentTrack.url || currentTrack.url === '') return;
+
     if (audio.src !== currentTrack.url) {
       logger.debug('Loading track:', currentTrack.title);
       audio.src = currentTrack.url;
       audio.load();
+
+      // Check for saved position to restore (runs once on initial load)
+      const savedKey = localStorage.getItem(STORAGE_KEYS.LAST_TRACK_KEY);
+      const savedPos = localStorage.getItem(STORAGE_KEYS.LAST_POSITION);
+      const trackKey = currentTrack.cacheKey || `${currentTrack.file?.name}|${currentTrack.file?.size}|${currentTrack.file?.lastModified}`;
+
+      if (savedKey === trackKey && savedPos) {
+        const seekTime = parseFloat(savedPos);
+        if (!isNaN(seekTime) && seekTime > 0) {
+          // Attach one-time listener to seek after metadata loads
+          const onLoadedMetadata = () => {
+            if (seekTime < audio.duration) {
+              audio.currentTime = seekTime;
+              setCurrentTime(seekTime);
+              logger.info(`Restored playback position to ${seekTime.toFixed(1)}s`);
+            }
+            // Clear to prevent re-seeking on next track change
+            localStorage.removeItem(STORAGE_KEYS.LAST_POSITION);
+            audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+          };
+          audio.addEventListener('loadedmetadata', onLoadedMetadata);
+        }
+      }
 
       if (isPlaying) {
         const playNewTrack = async () => {
@@ -802,7 +868,7 @@ export const useAudioManager = (
         playNewTrack();
       }
     }
-  }, [playlist, currentTrackIndex, isPlaying, setIsPlaying, fadeIn]);
+  }, [playlist, currentTrackIndex, isPlaying, setIsPlaying, setCurrentTime, fadeIn]);
 
   // ===== ADAPTIVE FREQUENCY ANALYSIS =====
   // Analyze track's frequency content when track changes (full offline scan)

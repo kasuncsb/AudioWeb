@@ -46,17 +46,6 @@ const Header = ({ onPlayClick }: { onPlayClick: () => void }) => (
               <span>Play</span>
             </button>
             <button
-              onClick={() => {
-                const alertEl = document.getElementById('wip-alert');
-                if (alertEl) {
-                  alertEl.style.opacity = '1';
-                  alertEl.style.transform = 'translateY(0)';
-                  setTimeout(() => {
-                    alertEl.style.opacity = '0';
-                    alertEl.style.transform = 'translateY(-10px)';
-                  }, 3000);
-                }
-              }}
               className="flex flex-row items-center gap-2 px-4 md:px-6 py-2.5 md:py-3 rounded-xl border border-white/30 bg-white/10 text-white shadow transition-all duration-200 hover:bg-white/20 hover:scale-105 active:scale-95 focus:outline-none focus:ring-2 focus:ring-white/30 shrink-0"
               style={{ backdropFilter: 'blur(4px)' }}
             >
@@ -65,19 +54,6 @@ const Header = ({ onPlayClick }: { onPlayClick: () => void }) => (
               </svg>
               <span>Stream</span>
             </button>
-          </div>
-          {/* Fading Alert Message */}
-          <div
-            id="wip-alert"
-            className="text-white/80 text-[13px] md:text-sm px-4 py-2 mt-2 rounded-xl border border-white/20 bg-white/5 shadow-sm transition-all duration-300 ease-in-out"
-            style={{
-              opacity: 0,
-              transform: 'translateY(-10px)',
-              pointerEvents: 'none',
-              backdropFilter: 'blur(8px)'
-            }}
-          >
-            🚧 You just discovered a feature that's work in progress!
           </div>
         </div>
       </div>

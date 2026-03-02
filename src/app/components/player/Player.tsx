@@ -9,6 +9,7 @@ import ImportProgressPopup from './ImportProgressPopup';
 import { useSleepTimer } from './hooks/useSleepTimer';
 import { useMediaSession } from './hooks/useMediaSession';
 import { useEqualizerPersistence } from './hooks/useEqualizerPersistence';
+import { useCacheRestore } from './hooks/useCacheRestore';
 // Components
 import { AlbumArt } from './AlbumArt';
 import { FileUploadCard } from './FileUploadCard';
@@ -193,6 +194,15 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
     setIsPlaying(true);
   }, [currentTrackIndex]);
 
+  // Restore cached tracks on page load & manage cache blob URLs
+  const { removeFromCache } = useCacheRestore(
+    playlist,
+    setPlaylist,
+    setCurrentTrackIndex,
+    currentTrackIndex,
+    currentTime,
+  );
+
   const removeTrack = useCallback((indexToRemove: number) => {
     setPlaylist(prev => {
       const removed = prev[indexToRemove];
@@ -204,6 +214,11 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
           revokeObjectURL(removed.url);
         }
       } catch { }
+
+      // Remove from persistent cache
+      if (removed) {
+        removeFromCache(removed);
+      }
 
       // Determine new current index after removal
       let newIndex = currentTrackIndex;
@@ -233,7 +248,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
     // Preserve playback state: if playlist had a playing track and user removed it, keep isPlaying true so
     // the audio manager effect will load/play the new index. If playlist becomes empty, other effects will
     // handle stopping and clearing audio.
-  }, [currentTrackIndex]);
+  }, [currentTrackIndex, removeFromCache]);
 
   const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = Number(e.target.value);
@@ -291,6 +306,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
       const nextIndex = Math.floor(Math.random() * availablePresets.length);
       updateVisualizerSettings({ activePreset: availablePresets[nextIndex] });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentTrackIndex, isVisualizerLoaded, visualizerSettings.mode, availablePresets.length]);
 
   // Custom hooks

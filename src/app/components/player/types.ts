@@ -86,7 +86,7 @@ export interface AudioTrack {
   /** Track duration in seconds */
   duration: number;
 
-  /** Original file object */
+  /** Original file object (may be absent for cache-restored tracks until blob is loaded) */
   file: File;
 
   /** Object URL for playback */
@@ -118,6 +118,12 @@ export interface AudioTrack {
 
   /** Loading state */
   isLoading?: boolean;
+
+  /** Cache key for persistent storage (name|size|lastModified) */
+  cacheKey?: string;
+
+  /** Whether this track was restored from cache */
+  isCached?: boolean;
 }
 
 export interface PlayerProps {

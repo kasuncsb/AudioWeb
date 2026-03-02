@@ -86,7 +86,8 @@ const Navbar: React.FC<NavbarProps> = ({
               onContextMenu={e => e.preventDefault()}
             />
           </span>
-          <span className={showNowPlaying && currentTrack ? 'hidden md:block' : ''}>
+          <span className={`relative ${showNowPlaying && currentTrack ? 'hidden md:block' : ''}`}>
+            <span className="absolute -top-2.5 -right-9.5 text-[8px] font-semibold text-amber-400/90 tracking-wide uppercase select-none">preview</span>
             <h1 className="text-base md:text-xl font-medium text-white tracking-tight select-none m-0">
               AudioWeb
             </h1>

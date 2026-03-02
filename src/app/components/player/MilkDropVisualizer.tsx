@@ -25,7 +25,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
   isActive,
   audioContext,
   analyserNode,
-  trackTitle,
+  trackTitle: _trackTitle,
   activePreset,
   onPresetsLoaded,
 }) => {
@@ -33,7 +33,6 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const visualizerRef = useRef<ButterchurnVisualizerInstance | null>(null);
   const animationRef = useRef<number | null>(null);
-  const presetIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const connectedAnalyserRef = useRef<AnalyserNode | null>(null);
   const presetsRef = useRef<Record<string, object> | null>(null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -243,6 +242,7 @@ export const MilkDropVisualizer: React.FC<MilkDropVisualizerProps> = ({
       resizeObserver.disconnect();
       clearTimeout(fallbackTimeout);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive, isLibraryLoaded, allPresetKeys, audioContext]);
 
   // Handle resize after initialization

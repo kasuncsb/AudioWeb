@@ -403,13 +403,15 @@ export const KEYBOARD_SHORTCUTS = {
  * Local storage keys
  */
 export const STORAGE_KEYS = {
-  VOLUME: 'audioweb_volume',
-  REPEAT_MODE: 'audioweb_repeat_mode',
-  SHUFFLE_MODE: 'audioweb_shuffle_mode',
-  EQUALIZER_SETTINGS: 'audioweb_equalizer',
-  THEME: 'audioweb_theme',
-  PLAYLIST: 'audioweb_playlist', // Note: May not persist File objects
-  VISUALIZER_SETTINGS: 'audioweb_visualizer',
+  VOLUME: 'aw_volume',
+  REPEAT_MODE: 'aw_repeat_mode',
+  SHUFFLE_MODE: 'aw_shuffle_mode',
+  EQUALIZER_SETTINGS: 'aw_equalizer',
+  THEME: 'aw_theme',
+  PLAYLIST: 'aw_playlist', // Note: May not persist File objects
+  VISUALIZER_SETTINGS: 'aw_visualizer',
+  LAST_TRACK_KEY: 'aw_last_track',
+  LAST_POSITION: 'aw_last_pos',
 } as const;
 
 /**
