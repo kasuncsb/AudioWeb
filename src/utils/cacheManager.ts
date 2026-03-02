@@ -8,7 +8,7 @@
  * Design principles:
  *  - Two-phase load: metadata first (instant), blobs on-demand (lazy)
  *  - Only current + next track blob URLs alive at any time (memory-safe for mobile)
- *  - Cache keys use SHA-256 hash for fast lookups
+ *  - Cache keys use composite string (name|size|lastModified) for identification
  *  - Trust browser's built-in quota management
  */
 
@@ -19,7 +19,7 @@ const logger = createLogger('CacheManager');
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const DB_NAME = 'aw-cache';
-const DB_VERSION = 2; // Incremented for schema changes
+const DB_VERSION = 3; // Incremented for cache key format change (hash -> composite)
 
 /** IndexedDB store names */
 const STORES = {
@@ -28,16 +28,16 @@ const STORES = {
 } as const;
 
 /** Cache API cache name for audio blobs */
-const AUDIO_CACHE_NAME = 'aw-media';
+const AUDIO_CACHE_NAME = 'aw-media-v2';
 
 /** Old cache names to clean up on init (migration) */
-const OLD_CACHE_NAMES = ['aw-audio-v1'];
+const OLD_CACHE_NAMES = ['aw-audio-v1', 'aw-media'];
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 /** Metadata stored in IndexedDB for each cached track */
 export interface CachedTrackMeta {
-  /** SHA-256 hash used as unique key: hash(name|size|lastModified) */
+  /** Unique key: name|size|lastModified */
   cacheKey: string;
   title: string;
   artist: string;
@@ -65,24 +65,9 @@ export interface CachedTrackMeta {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Build a SHA-256 hash cache key from file properties */
-export async function buildCacheKey(file: File): Promise<string> {
-  const composite = `${file.name}|${file.size}|${file.lastModified}`;
-  return sha256Text(composite);
-}
-
-/** SHA-256 hash of text string, returned as hex string */
-async function sha256Text(text: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(text);
-  return sha256(data);
-}
-
-/** SHA-256 hash of a BufferSource, returned as hex string */
-async function sha256(buffer: BufferSource): Promise<string> {
-  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+/** Build a cache key from file properties (name|size|lastModified) */
+export function buildCacheKey(file: File): string {
+  return `${file.name}|${file.size}|${file.lastModified}`;
 }
 
 // ─── IndexedDB ───────────────────────────────────────────────────────────────
@@ -108,14 +93,17 @@ function openDB(): Promise<IDBDatabase> {
         if (db.objectStoreNames.contains('frequency')) {
           db.deleteObjectStore('frequency');
         }
-        
-        // Delete old tracks store to rebuild with new schema
+      }
+
+      // Migrate from v2 to v3: cache key format changed from hash to composite string
+      // Must delete old tracks since the keyPath values are incompatible
+      if (oldVersion < 3 && oldVersion >= 1) {
         if (db.objectStoreNames.contains(STORES.TRACKS)) {
           db.deleteObjectStore(STORES.TRACKS);
         }
       }
 
-      // Create tracks store with simplified schema
+      // Create tracks store
       if (!db.objectStoreNames.contains(STORES.TRACKS)) {
         const trackStore = db.createObjectStore(STORES.TRACKS, { keyPath: 'cacheKey' });
         trackStore.createIndex('playlistOrder', 'playlistOrder', { unique: false });
@@ -200,17 +188,23 @@ async function idbCount(storeName: string): Promise<number> {
 
 // ─── Cache API (audio blobs) ─────────────────────────────────────────────────
 
+/** Convert cache key to a proper URL for Cache API (URL-encodes special chars) */
+function cacheKeyToUrl(cacheKey: string): string {
+  return `https://audioweb.local/_cache/${encodeURIComponent(cacheKey)}`;
+}
+
 /** Store an audio file blob in Cache API */
 async function cacheAudioBlob(cacheKey: string, file: File): Promise<void> {
   try {
     const cache = await caches.open(AUDIO_CACHE_NAME);
+    const url = cacheKeyToUrl(cacheKey);
     const response = new Response(file, {
       headers: {
         'Content-Type': file.type || 'audio/mpeg',
         'Content-Length': String(file.size),
       },
     });
-    await cache.put(cacheKey, response);
+    await cache.put(url, response);
     logger.debug(`Cached audio blob: ${file.name} (${(file.size / 1024 / 1024).toFixed(1)}MB)`);
   } catch (error) {
     logger.error('Failed to cache audio blob:', error);
@@ -221,7 +215,8 @@ async function cacheAudioBlob(cacheKey: string, file: File): Promise<void> {
 async function getAudioBlob(cacheKey: string): Promise<Blob | null> {
   try {
     const cache = await caches.open(AUDIO_CACHE_NAME);
-    const response = await cache.match(cacheKey);
+    const url = cacheKeyToUrl(cacheKey);
+    const response = await cache.match(url);
     if (!response) return null;
     return await response.blob();
   } catch (error) {
@@ -234,7 +229,8 @@ async function getAudioBlob(cacheKey: string): Promise<Blob | null> {
 async function deleteAudioBlob(cacheKey: string): Promise<void> {
   try {
     const cache = await caches.open(AUDIO_CACHE_NAME);
-    await cache.delete(cacheKey);
+    const url = cacheKeyToUrl(cacheKey);
+    await cache.delete(url);
   } catch (error) {
     logger.error('Failed to delete audio blob:', error);
   }
@@ -248,8 +244,8 @@ export async function cacheTrack(
   meta: Omit<CachedTrackMeta, 'cacheKey' | 'fileName' | 'fileSize' | 'fileLastModified' | 'fileMimeType'>,
   precomputedCacheKey?: string
 ): Promise<string> {
-  // Use pre-computed key if provided (avoids redundant hash computation)
-  const cacheKey = precomputedCacheKey || await buildCacheKey(file);
+  // Use pre-computed key if provided (avoids redundant computation)
+  const cacheKey = precomputedCacheKey || buildCacheKey(file);
 
   // Store metadata in IndexedDB
   const record: CachedTrackMeta = {
@@ -507,7 +503,7 @@ export function initCache(): Promise<void> {
  * Check if a track is cached (has metadata in IndexedDB)
  */
 export async function isTrackCached(file: File): Promise<boolean> {
-  const cacheKey = await buildCacheKey(file);
+  const cacheKey = buildCacheKey(file);
   const meta = await idbGet<CachedTrackMeta>(STORES.TRACKS, cacheKey);
   return !!meta;
 }

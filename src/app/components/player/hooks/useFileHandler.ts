@@ -384,7 +384,7 @@ export const useFileHandler = (
             albumArt: metadata.albumArt,
             lyrics: finalLyrics,
             lrcLyrics: finalLrcLyrics,
-            cacheKey: await buildCacheKey(file),
+            cacheKey: buildCacheKey(file),
             isCached: true, // Track will be persisted to cache
             metadata: {
               albumArtist: metadata.albumArtist,
