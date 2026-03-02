@@ -272,10 +272,20 @@ async function analyzeFullTrack(trackUrl: string, file?: File, cacheKey?: string
 
       const results: Array<{ bass: { freq: number; energy: number }; sub: { freq: number; energy: number }; treble: { freq: number; energy: number } }> = [];
 
+      // Process in batches with yielding to avoid blocking the main thread.
+      // Each 8192-pt FFT is ~100K operations; batching 10 at a time keeps
+      // individual blocking windows under ~20ms (within a single frame budget).
+      const BATCH_SIZE = 10;
       for (let i = 0; i < samplePoints; i++) {
         const position = startPos + (interval * i);
         const analysis = analyzeBufferAtPosition(audioBuffer, position, fftSize);
         results.push(analysis);
+
+        // Yield to the event loop every BATCH_SIZE iterations so the browser
+        // can service audio callbacks, rAF, and other high-priority work.
+        if ((i + 1) % BATCH_SIZE === 0 && i + 1 < samplePoints) {
+          await new Promise<void>(r => setTimeout(r, 0));
+        }
       }
 
       // Weight results by energy (louder sections are more representative)
