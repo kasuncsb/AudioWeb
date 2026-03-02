@@ -425,7 +425,7 @@ export const useFileHandler = (
             lyrics: finalLyrics || undefined,
             lrcLyricsJson: finalLrcLyrics ? JSON.stringify(finalLrcLyrics) : undefined,
             playlistOrder: playlist.length + globalIndex,
-          }).catch(err => logger.error('Failed to cache track:', err));
+          }, track.cacheKey).catch(err => logger.error('Failed to cache track:', err));
 
           return track;
         } catch (error) {

@@ -30,6 +30,9 @@ const STORES = {
 /** Cache API cache name for audio blobs */
 const AUDIO_CACHE_NAME = 'aw-media';
 
+/** Old cache names to clean up on init (migration) */
+const OLD_CACHE_NAMES = ['aw-audio-v1'];
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 /** Metadata stored in IndexedDB for each cached track */
@@ -242,9 +245,11 @@ async function deleteAudioBlob(cacheKey: string): Promise<void> {
 /** Cache a track's metadata and audio blob */
 export async function cacheTrack(
   file: File,
-  meta: Omit<CachedTrackMeta, 'cacheKey' | 'fileName' | 'fileSize' | 'fileLastModified' | 'fileMimeType'>
+  meta: Omit<CachedTrackMeta, 'cacheKey' | 'fileName' | 'fileSize' | 'fileLastModified' | 'fileMimeType'>,
+  precomputedCacheKey?: string
 ): Promise<string> {
-  const cacheKey = await buildCacheKey(file);
+  // Use pre-computed key if provided (avoids redundant hash computation)
+  const cacheKey = precomputedCacheKey || await buildCacheKey(file);
 
   // Store metadata in IndexedDB
   const record: CachedTrackMeta = {
@@ -446,6 +451,23 @@ export async function getStorageEstimate(): Promise<{ usage: number; quota: numb
 let initPromise: Promise<void> | null = null;
 
 /**
+ * Clean up old cache names from previous versions (migration).
+ * Runs once during initialization.
+ */
+async function cleanupOldCaches(): Promise<void> {
+  for (const oldName of OLD_CACHE_NAMES) {
+    try {
+      const deleted = await caches.delete(oldName);
+      if (deleted) {
+        logger.info(`Cleaned up old cache: ${oldName}`);
+      }
+    } catch {
+      // Ignore errors - old cache might not exist
+    }
+  }
+}
+
+/**
  * Initialize the cache system.
  * Safe to call multiple times — will only run once.
  */
@@ -455,6 +477,10 @@ export function initCache(): Promise<void> {
   initPromise = (async () => {
     try {
       await openDB();
+      
+      // Clean up old cache names from previous versions
+      await cleanupOldCaches();
+      
       logger.info('Cache system initialized');
 
       // Log storage stats (debug only)
