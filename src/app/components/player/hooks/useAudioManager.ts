@@ -537,7 +537,7 @@ export const useAudioManager = (
     if (eagerAudioContextRef.current) return;
     try {
       const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      eagerAudioContextRef.current = new AudioContextClass();
+      eagerAudioContextRef.current = new AudioContextClass({ latencyHint: 'interactive' });
       logger.debug('Eager AudioContext created');
     } catch (e) {
       logger.error('Failed to create eager AudioContext:', e);
@@ -567,7 +567,7 @@ export const useAudioManager = (
         // creating a second one here would cause an InvalidAccessError when
         // butterchurn tries to connect an AnalyserNode from the wrong context.
         const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        const audioContext = eagerAudioContextRef.current ?? new AudioContextClass();
+        const audioContext = eagerAudioContextRef.current ?? new AudioContextClass({ latencyHint: 'interactive' });
         if (!eagerAudioContextRef.current) {
           eagerAudioContextRef.current = audioContext;
         }

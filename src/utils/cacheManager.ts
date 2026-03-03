@@ -126,18 +126,6 @@ function openDB(): Promise<IDBDatabase> {
   return dbPromise;
 }
 
-/** Generic IndexedDB get */
-async function idbGet<T>(storeName: string, key: string): Promise<T | undefined> {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readonly');
-    const store = tx.objectStore(storeName);
-    const req = store.get(key);
-    req.onsuccess = () => resolve(req.result as T | undefined);
-    req.onerror = () => reject(req.error);
-  });
-}
-
 /** Generic IndexedDB put */
 async function idbPut<T>(storeName: string, value: T): Promise<void> {
   const db = await openDB();
@@ -175,18 +163,18 @@ async function idbGetAllByIndex<T>(storeName: string, indexName: string): Promis
   });
 }
 
-/** Count records in a store */
-async function idbCount(storeName: string): Promise<number> {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readonly');
-    const req = tx.objectStore(storeName).count();
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
 // ─── Cache API (audio blobs) ─────────────────────────────────────────────────
+
+/** Memoized Cache API handle (avoids repeated caches.open() calls) */
+let cachePromise: Promise<Cache> | null = null;
+
+function openAudioCache(): Promise<Cache> {
+  if (cachePromise) return cachePromise;
+  cachePromise = caches.open(AUDIO_CACHE_NAME);
+  // Reset on failure so next call retries
+  cachePromise.catch(() => { cachePromise = null; });
+  return cachePromise;
+}
 
 /** Convert cache key to a proper URL for Cache API (URL-encodes special chars) */
 function cacheKeyToUrl(cacheKey: string): string {
@@ -196,7 +184,7 @@ function cacheKeyToUrl(cacheKey: string): string {
 /** Store an audio file blob in Cache API */
 async function cacheAudioBlob(cacheKey: string, file: File): Promise<void> {
   try {
-    const cache = await caches.open(AUDIO_CACHE_NAME);
+    const cache = await openAudioCache();
     const url = cacheKeyToUrl(cacheKey);
     const response = new Response(file, {
       headers: {
@@ -214,7 +202,7 @@ async function cacheAudioBlob(cacheKey: string, file: File): Promise<void> {
 /** Retrieve an audio file blob from Cache API */
 export async function getAudioBlob(cacheKey: string): Promise<Blob | null> {
   try {
-    const cache = await caches.open(AUDIO_CACHE_NAME);
+    const cache = await openAudioCache();
     const url = cacheKeyToUrl(cacheKey);
     const response = await cache.match(url);
     if (!response) return null;
@@ -228,7 +216,7 @@ export async function getAudioBlob(cacheKey: string): Promise<Blob | null> {
 /** Delete an audio blob from Cache API */
 async function deleteAudioBlob(cacheKey: string): Promise<void> {
   try {
-    const cache = await caches.open(AUDIO_CACHE_NAME);
+    const cache = await openAudioCache();
     const url = cacheKeyToUrl(cacheKey);
     await cache.delete(url);
   } catch (error) {
@@ -275,15 +263,6 @@ export async function getAllCachedTracks(): Promise<CachedTrackMeta[]> {
   } catch (error) {
     logger.error('Failed to load cached tracks:', error);
     return [];
-  }
-}
-
-/** Update a track's playlist order */
-export async function updateTrackOrder(cacheKey: string, playlistOrder: number): Promise<void> {
-  const meta = await idbGet<CachedTrackMeta>(STORES.TRACKS, cacheKey);
-  if (meta) {
-    meta.playlistOrder = playlistOrder;
-    await idbPut(STORES.TRACKS, meta);
   }
 }
 
@@ -339,33 +318,13 @@ export async function clearAllCachedTracks(): Promise<void> {
       req.onerror = () => reject(req.error);
     });
 
-    // Clear audio cache
+    // Clear audio cache (also reset memoized handle)
+    cachePromise = null;
     await caches.delete(AUDIO_CACHE_NAME);
 
     logger.info('Cleared all cached tracks and data');
   } catch (error) {
     logger.error('Failed to clear all caches:', error);
-  }
-}
-
-// ─── Configuration Cache ─────────────────────────────────────────────────────
-
-/** Save a configuration value */
-export async function saveConfig(key: string, value: unknown): Promise<void> {
-  try {
-    await idbPut(STORES.CONFIG, { key, value });
-  } catch (error) {
-    logger.error(`Failed to save config "${key}":`, error);
-  }
-}
-
-/** Load a configuration value */
-export async function loadConfig<T>(key: string): Promise<T | null> {
-  try {
-    const entry = await idbGet<{ key: string; value: T }>(STORES.CONFIG, key);
-    return entry?.value ?? null;
-  } catch {
-    return null;
   }
 }
 
@@ -523,18 +482,4 @@ export function initCache(): Promise<void> {
   return initPromise;
 }
 
-/**
- * Check if a track is cached (has metadata in IndexedDB)
- */
-export async function isTrackCached(file: File): Promise<boolean> {
-  const cacheKey = buildCacheKey(file);
-  const meta = await idbGet<CachedTrackMeta>(STORES.TRACKS, cacheKey);
-  return !!meta;
-}
 
-/**
- * Get the total number of cached tracks
- */
-export async function getCachedTrackCount(): Promise<number> {
-  return idbCount(STORES.TRACKS);
-}

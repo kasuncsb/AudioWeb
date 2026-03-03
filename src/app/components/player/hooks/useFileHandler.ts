@@ -168,6 +168,8 @@ export const useFileHandler = (
     codec?: string;
     lossless?: boolean;
     albumArt?: string;
+    /** Raw album art blob for direct cache storage (avoids URL→fetch→blob round-trip) */
+    albumArtBlob?: Blob;
     lyrics?: string;
     lrcLyrics?: LyricLine[];
   }> => {
@@ -182,6 +184,7 @@ export const useFileHandler = (
       
       // Extract album art
       let albumArt = '';
+      let albumArtBlob: Blob | undefined;
       if (common.picture && common.picture.length > 0) {
         const picture = common.picture[0];
         
@@ -190,8 +193,8 @@ export const useFileHandler = (
         if (artSize > PERFORMANCE.MAX_ALBUM_ART_SIZE) {
           logger.warn(`Album art too large (${(artSize / 1024 / 1024).toFixed(2)}MB), skipping`);
         } else {
-          const blob = new Blob([new Uint8Array(picture.data)], { type: picture.format });
-          albumArt = createObjectURL(blob);
+          albumArtBlob = new Blob([new Uint8Array(picture.data)], { type: picture.format });
+          albumArt = createObjectURL(albumArtBlob);
           logger.debug(`Extracted album art: ${picture.format}, ${(artSize / 1024).toFixed(2)}KB`);
         }
       }
@@ -267,6 +270,7 @@ export const useFileHandler = (
         codec: format.codec,
         lossless,
         albumArt,
+        albumArtBlob,
         lyrics,
         lrcLyrics,
       };
@@ -403,17 +407,7 @@ export const useFileHandler = (
           };
 
           // ── Persist to cache (non-blocking) ──
-          // Convert album art blob URL back to Blob for inline storage
-          let albumArtBlob: Blob | undefined;
-          if (metadata.albumArt) {
-            try {
-              const artResp = await fetch(metadata.albumArt);
-              albumArtBlob = await artResp.blob();
-            } catch (e) {
-              logger.warn('Failed to fetch album art blob:', e);
-            }
-          }
-
+          // Use the raw album art blob directly (avoids blob URL → fetch → blob round-trip)
           cacheTrack(file, {
             title: track.title,
             artist: track.artist,
@@ -421,7 +415,7 @@ export const useFileHandler = (
             year: track.year,
             genre: track.genre,
             duration: track.duration,
-            albumArt: albumArtBlob,
+            albumArt: metadata.albumArtBlob,
             lyrics: finalLyrics || undefined,
             lrcLyricsJson: finalLrcLyrics ? JSON.stringify(finalLrcLyrics) : undefined,
             playlistOrder: playlist.length + globalIndex,

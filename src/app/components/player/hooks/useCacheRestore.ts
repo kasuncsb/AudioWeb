@@ -98,21 +98,25 @@ export function useCacheRestore(
   }, []); // Only run on mount
 
   // ── Phase 2: Lazy blob URL loading on track change ──
+
+  /** Check if a cached track needs its blob URL (re)loaded */
+  const trackNeedsBlobLoad = (track: AudioTrack): boolean => {
+    if (!track.cacheKey || !track.isCached) return false;
+    return track.url === '' ||
+      track.url.startsWith('pending:') ||
+      (track.url.startsWith('blob:') && !isBlobURLActive(track.cacheKey));
+  };
+
   useEffect(() => {
     if (playlist.length === 0) return;
 
     const currentTrack = playlist[currentTrackIndex];
     if (!currentTrack?.cacheKey || !currentTrack.isCached) return;
 
-    // Load current track's blob URL if not already set or if previously revoked
     (async () => {
       try {
-        // Check if current track needs a (re)loaded blob URL
-        const needsBlobLoad = currentTrack.url === '' ||
-          currentTrack.url.startsWith('pending:') ||
-          (currentTrack.url.startsWith('blob:') && !isBlobURLActive(currentTrack.cacheKey!));
-
-        if (needsBlobLoad) {
+        // Load current track's blob URL if not already set or if previously revoked
+        if (trackNeedsBlobLoad(currentTrack)) {
           const blobUrl = await getTrackBlobURL(currentTrack.cacheKey!);
           if (blobUrl) {
             setPlaylist(prev => prev.map((t, i) =>
@@ -128,28 +132,29 @@ export function useCacheRestore(
           }
         }
 
-        // Prefetch next track
-        const nextIndex = currentTrackIndex + 1;
-        if (nextIndex < playlist.length) {
-          const nextTrack = playlist[nextIndex];
-          if (nextTrack?.cacheKey && nextTrack.isCached &&
-            (nextTrack.url === '' || nextTrack.url.startsWith('pending:') ||
-             (nextTrack.url.startsWith('blob:') && !isBlobURLActive(nextTrack.cacheKey)))) {
-            const nextBlobUrl = await getTrackBlobURL(nextTrack.cacheKey);
-            if (nextBlobUrl) {
+        // Prefetch adjacent tracks (previous + next) for seamless navigation
+        const adjacentIndices = [currentTrackIndex - 1, currentTrackIndex + 1];
+        for (const adjIndex of adjacentIndices) {
+          if (adjIndex < 0 || adjIndex >= playlist.length) continue;
+          const adjTrack = playlist[adjIndex];
+          if (trackNeedsBlobLoad(adjTrack)) {
+            const adjBlobUrl = await getTrackBlobURL(adjTrack.cacheKey!);
+            if (adjBlobUrl) {
               setPlaylist(prev => prev.map((t, i) =>
-                i === nextIndex ? { ...t, url: nextBlobUrl } : t
+                i === adjIndex ? { ...t, url: adjBlobUrl } : t
               ));
-              logger.debug(`Prefetched blob URL for next: ${nextTrack.title}`);
+              logger.debug(`Prefetched blob URL for ${adjIndex < currentTrackIndex ? 'prev' : 'next'}: ${adjTrack.title}`);
             }
           }
         }
 
-        // Retain only current + next blob URLs, revoke all others
+        // Retain only current + prev + next blob URLs, revoke all others
         const keysToKeep: string[] = [];
         if (currentTrack.cacheKey) keysToKeep.push(currentTrack.cacheKey);
-        if (nextIndex < playlist.length && playlist[nextIndex]?.cacheKey) {
-          keysToKeep.push(playlist[nextIndex].cacheKey!);
+        for (const adjIndex of adjacentIndices) {
+          if (adjIndex >= 0 && adjIndex < playlist.length && playlist[adjIndex]?.cacheKey) {
+            keysToKeep.push(playlist[adjIndex].cacheKey!);
+          }
         }
         retainOnlyBlobURLs(keysToKeep);
 
