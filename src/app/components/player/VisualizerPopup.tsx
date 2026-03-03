@@ -65,6 +65,8 @@ export const VisualizerPopup: React.FC<VisualizerPopupProps> = ({
                 <div className="p-3 border-b border-white/10 shrink-0">
                     <div className="relative">
                         <input
+                            id="visualizer-preset-search"
+                            name="visualizer-preset-search"
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
