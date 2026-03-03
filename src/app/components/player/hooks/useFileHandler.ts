@@ -25,7 +25,8 @@ import {
 import { ERROR_MESSAGES, SUCCESS_MESSAGES, PERFORMANCE } from '@/config/constants';
 import {
   buildCacheKey,
-  cacheTrack,
+  cacheTracksBatch,
+  CacheTrackInput,
 } from '@/utils/cacheManager';
 
 const logger = createLogger('FileHandler');
@@ -333,6 +334,7 @@ export const useFileHandler = (
     });
 
     const newTracks: AudioTrack[] = [];
+    const cacheInputs: CacheTrackInput[] = []; // Collect for batch caching
     
     // Process audio files in batches for better performance
     const batchSize = PERFORMANCE.PARALLEL_METADATA_EXTRACTION;
@@ -374,6 +376,7 @@ export const useFileHandler = (
             logger.info(`Using ${finalLyrics.length} chars of simple lyrics for ${audioBaseName}`);
           }
 
+          const cacheKey = buildCacheKey(file);
           const track: AudioTrack = {
             id: `${Date.now()}-${globalIndex}-${Math.random().toString(36).substr(2, 9)}`,
             title: metadata.title || sanitizeFilename(file.name),
@@ -388,8 +391,9 @@ export const useFileHandler = (
             albumArt: metadata.albumArt,
             lyrics: finalLyrics,
             lrcLyrics: finalLrcLyrics,
-            cacheKey: buildCacheKey(file),
+            cacheKey,
             isCached: true, // Track will be persisted to cache
+            hasAlbumArt: !!metadata.albumArtBlob,
             metadata: {
               albumArtist: metadata.albumArtist,
               composer: metadata.composer,
@@ -406,20 +410,23 @@ export const useFileHandler = (
             },
           };
 
-          // ── Persist to cache (non-blocking) ──
-          // Use the raw album art blob directly (avoids blob URL → fetch → blob round-trip)
-          cacheTrack(file, {
-            title: track.title,
-            artist: track.artist,
-            album: track.album || 'Unknown Album',
-            year: track.year,
-            genre: track.genre,
-            duration: track.duration,
-            albumArt: metadata.albumArtBlob,
-            lyrics: finalLyrics || undefined,
-            lrcLyricsJson: finalLrcLyrics ? JSON.stringify(finalLrcLyrics) : undefined,
-            playlistOrder: playlist.length + globalIndex,
-          }, track.cacheKey).catch(err => logger.error('Failed to cache track:', err));
+          // Collect cache input for batch write later
+          cacheInputs.push({
+            file,
+            meta: {
+              title: track.title,
+              artist: track.artist,
+              album: track.album || 'Unknown Album',
+              year: track.year,
+              genre: track.genre,
+              duration: track.duration,
+              albumArt: metadata.albumArtBlob,
+              lyrics: finalLyrics || undefined,
+              lrcLyricsJson: finalLrcLyrics ? JSON.stringify(finalLrcLyrics) : undefined,
+              playlistOrder: playlist.length + globalIndex,
+            },
+            precomputedCacheKey: cacheKey,
+          });
 
           return track;
         } catch (error) {
@@ -455,6 +462,13 @@ export const useFileHandler = (
         items: [...prev.items, ...batchResults.map(r => ({ name: r.file?.name || r.title, status: (r.error ? 'error' : 'done') as 'error' | 'done', error: r.error }))]
       }));
       newTracks.push(...batchResults);
+    }
+
+    // Batch write all tracks to IndexedDB in a single transaction (much faster)
+    if (cacheInputs.length > 0) {
+      cacheTracksBatch(cacheInputs).catch(err =>
+        logger.error('Failed to batch cache tracks:', err)
+      );
     }
 
     setPlaylist(prev => {

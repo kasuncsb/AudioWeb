@@ -4,17 +4,23 @@ import { createLogger } from '@/utils/logger';
 import { STORAGE_KEYS } from '@/config/constants';
 import {
   initCache,
-  getAllCachedTracks,
+  prewarmCache,
+  getAllCachedTracksLight,
   getTrackBlobURL,
+  getAlbumArt,
+  getTrackMeta,
   isBlobURLActive,
   retainOnlyBlobURLs,
   revokeTrackBlobURL,
   removeCachedTrack,
   updatePlaylistOrder,
-  CachedTrackMeta,
+  CachedTrackMetaLight,
 } from '@/utils/cacheManager';
 
 const logger = createLogger('CacheRestore');
+
+// Pre-warm IndexedDB connection during idle time
+prewarmCache();
 
 /**
  * Hook to restore cached tracks on page load and manage cache blob URLs
@@ -50,7 +56,7 @@ export function useCacheRestore(
     (async () => {
       try {
         await initCache();
-        const cached = await getAllCachedTracks();
+        const cached = await getAllCachedTracksLight();
 
         if (cached.length === 0) {
           logger.debug('No cached tracks to restore');
@@ -63,7 +69,7 @@ export function useCacheRestore(
         const startTime = performance.now();
 
         const tracks = await Promise.all(
-          cached.map(async (meta, index) => reconstructTrack(meta, index))
+          cached.map(async (meta, index) => reconstructTrackLight(meta, index))
         );
 
         // Filter out any that failed to reconstruct
@@ -129,6 +135,37 @@ export function useCacheRestore(
             await removeCachedTrack(currentTrack.cacheKey!);
             setPlaylist(prev => prev.filter((_, i) => i !== currentTrackIndex));
             return;
+          }
+        }
+
+        // Load album art lazily for current track if not yet loaded
+        if (currentTrack.hasAlbumArt && !currentTrack.albumArt) {
+          const artBlob = await getAlbumArt(currentTrack.cacheKey!);
+          if (artBlob) {
+            const artUrl = URL.createObjectURL(artBlob);
+            setPlaylist(prev => prev.map((t, i) =>
+              i === currentTrackIndex ? { ...t, albumArt: artUrl } : t
+            ));
+            logger.debug(`Loaded album art for: ${currentTrack.title}`);
+          }
+        }
+
+        // Load lyrics lazily for current track if not yet loaded
+        if (currentTrack.lyrics === undefined && currentTrack.lrcLyrics === undefined) {
+          const fullMeta = await getTrackMeta(currentTrack.cacheKey!);
+          if (fullMeta) {
+            let lrcLyrics: LyricLine[] | undefined;
+            if (fullMeta.lrcLyricsJson) {
+              try {
+                lrcLyrics = JSON.parse(fullMeta.lrcLyricsJson) as LyricLine[];
+              } catch { /* ignore */ }
+            }
+            if (fullMeta.lyrics || lrcLyrics) {
+              setPlaylist(prev => prev.map((t, i) =>
+                i === currentTrackIndex ? { ...t, lyrics: fullMeta.lyrics, lrcLyrics } : t
+              ));
+              logger.debug(`Loaded lyrics for: ${currentTrack.title}`);
+            }
           }
         }
 
@@ -258,29 +295,14 @@ export function useCacheRestore(
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 /**
- * Reconstruct an AudioTrack from cached metadata.
- * The audio blob URL is set to '' (placeholder) — it will be loaded lazily
- * when the track is selected for playback.
+ * Reconstruct an AudioTrack from lightweight cached metadata.
+ * Album art and lyrics are loaded lazily to speed up initial restore.
  */
-async function reconstructTrack(
-  meta: CachedTrackMeta,
+async function reconstructTrackLight(
+  meta: CachedTrackMetaLight,
   index: number
 ): Promise<AudioTrack | null> {
   try {
-    // Reconstruct album art URL from inline blob
-    let albumArt: string | undefined;
-    if (meta.albumArt) {
-      albumArt = URL.createObjectURL(meta.albumArt);
-    }
-
-    // Parse serialized LRC lyrics
-    let lrcLyrics: LyricLine[] | undefined;
-    if (meta.lrcLyricsJson) {
-      try {
-        lrcLyrics = JSON.parse(meta.lrcLyricsJson) as LyricLine[];
-      } catch { /* ignore parse error */ }
-    }
-
     // Create a minimal placeholder File so existing code that accesses
     // track.file.name / .size / .type doesn't break.  The actual audio
     // data will be streamed from the Cache API blob URL when needed.
@@ -296,6 +318,18 @@ async function reconstructTrack(
       writable: false,
     });
 
+    // Load album art lazily from Cache API (don't block)
+    let albumArt: string | undefined;
+    if (meta.hasAlbumArt) {
+      getAlbumArt(meta.cacheKey).then(blob => {
+        if (blob) {
+          // Note: This is a fire-and-forget update; the track object
+          // already has albumArt=undefined, but React won't see this change.
+          // We'll handle this by loading album art when the track becomes active.
+        }
+      }).catch(() => { /* ignore */ });
+    }
+
     const track: AudioTrack = {
       id: `cached-${index}-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       title: meta.title,
@@ -307,11 +341,11 @@ async function reconstructTrack(
       file: placeholderFile,
       url: '', // Will be lazily loaded from Cache API
       isActive: false,
-      albumArt,
-      lyrics: meta.lyrics,
-      lrcLyrics,
+      albumArt, // Will be loaded when track becomes active
+      // lyrics and lrcLyrics loaded on-demand via getTrackMeta
       cacheKey: meta.cacheKey,
       isCached: true,
+      hasAlbumArt: meta.hasAlbumArt, // Track whether we need to load album art
     };
 
     return track;

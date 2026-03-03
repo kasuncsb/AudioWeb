@@ -19,12 +19,11 @@ const logger = createLogger('CacheManager');
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const DB_NAME = 'aw-cache';
-const DB_VERSION = 3; // Incremented for cache key format change (hash -> composite)
+const DB_VERSION = 4; // v4: Remove CONFIG store, album art moved to Cache API
 
 /** IndexedDB store names */
 const STORES = {
   TRACKS: 'tracks',
-  CONFIG: 'config',
 } as const;
 
 /** Cache API cache name for audio blobs */
@@ -45,7 +44,7 @@ export interface CachedTrackMeta {
   year?: number;
   genre?: string;
   duration: number;
-  /** Album art blob stored inline */
+  /** @deprecated Album art now stored in Cache API, this field kept for migration */
   albumArt?: Blob;
   /** Plain text lyrics */
   lyrics?: string;
@@ -61,6 +60,25 @@ export interface CachedTrackMeta {
   fileSize: number;
   /** Original file lastModified timestamp */
   fileLastModified: number;
+  /** Whether album art exists in Cache API */
+  hasAlbumArt?: boolean;
+}
+
+/** Lightweight metadata for initial playlist load (excludes large blobs) */
+export interface CachedTrackMetaLight {
+  cacheKey: string;
+  title: string;
+  artist: string;
+  album: string;
+  year?: number;
+  genre?: string;
+  duration: number;
+  playlistOrder: number;
+  fileMimeType: string;
+  fileName: string;
+  fileSize: number;
+  fileLastModified: number;
+  hasAlbumArt?: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -103,15 +121,17 @@ function openDB(): Promise<IDBDatabase> {
         }
       }
 
+      // Migrate from v3 to v4: remove CONFIG store (unused), album art moved to Cache API
+      if (oldVersion < 4 && oldVersion >= 1) {
+        if (db.objectStoreNames.contains('config')) {
+          db.deleteObjectStore('config');
+        }
+      }
+
       // Create tracks store
       if (!db.objectStoreNames.contains(STORES.TRACKS)) {
         const trackStore = db.createObjectStore(STORES.TRACKS, { keyPath: 'cacheKey' });
         trackStore.createIndex('playlistOrder', 'playlistOrder', { unique: false });
-      }
-
-      // Config store (EQ, visualizer, etc.)
-      if (!db.objectStoreNames.contains(STORES.CONFIG)) {
-        db.createObjectStore(STORES.CONFIG, { keyPath: 'key' });
       }
     };
 
@@ -130,7 +150,7 @@ function openDB(): Promise<IDBDatabase> {
 async function idbPut<T>(storeName: string, value: T): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readwrite');
+    const tx = db.transaction(storeName, 'readwrite', { durability: 'relaxed' });
     const store = tx.objectStore(storeName);
     const req = store.put(value);
     req.onsuccess = () => resolve();
@@ -142,7 +162,7 @@ async function idbPut<T>(storeName: string, value: T): Promise<void> {
 async function idbDelete(storeName: string, key: string): Promise<void> {
   const db = await openDB();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readwrite');
+    const tx = db.transaction(storeName, 'readwrite', { durability: 'relaxed' });
     const store = tx.objectStore(storeName);
     const req = store.delete(key);
     req.onsuccess = () => resolve();
@@ -179,6 +199,11 @@ function openAudioCache(): Promise<Cache> {
 /** Convert cache key to a proper URL for Cache API (URL-encodes special chars) */
 function cacheKeyToUrl(cacheKey: string): string {
   return `https://audioweb.local/_cache/${encodeURIComponent(cacheKey)}`;
+}
+
+/** Convert cache key to album art URL in Cache API */
+function albumArtKeyToUrl(cacheKey: string): string {
+  return `https://audioweb.local/_albumart/${encodeURIComponent(cacheKey)}`;
 }
 
 /** Store an audio file blob in Cache API */
@@ -224,34 +249,213 @@ async function deleteAudioBlob(cacheKey: string): Promise<void> {
   }
 }
 
+/** Store album art blob in Cache API (separate from audio for lazy loading) */
+async function cacheAlbumArt(cacheKey: string, blob: Blob): Promise<void> {
+  try {
+    const cache = await openAudioCache();
+    const url = albumArtKeyToUrl(cacheKey);
+    const response = new Response(blob, {
+      headers: { 'Content-Type': blob.type || 'image/jpeg' },
+    });
+    await cache.put(url, response);
+  } catch (error) {
+    logger.error('Failed to cache album art:', error);
+  }
+}
+
+/** Retrieve album art blob from Cache API */
+export async function getAlbumArt(cacheKey: string): Promise<Blob | null> {
+  try {
+    const cache = await openAudioCache();
+    const url = albumArtKeyToUrl(cacheKey);
+    const response = await cache.match(url);
+    if (!response) return null;
+    return await response.blob();
+  } catch (error) {
+    logger.error('Failed to retrieve album art:', error);
+    return null;
+  }
+}
+
+/** Delete album art from Cache API */
+async function deleteAlbumArt(cacheKey: string): Promise<void> {
+  try {
+    const cache = await openAudioCache();
+    const url = albumArtKeyToUrl(cacheKey);
+    await cache.delete(url);
+  } catch {
+    // Ignore - may not exist
+  }
+}
+
 // ─── Track Metadata ──────────────────────────────────────────────────────────
+
+/** Input for caching a track */
+export interface CacheTrackInput {
+  file: File;
+  meta: Omit<CachedTrackMeta, 'cacheKey' | 'fileName' | 'fileSize' | 'fileLastModified' | 'fileMimeType' | 'hasAlbumArt'>;
+  precomputedCacheKey?: string;
+}
 
 /** Cache a track's metadata and audio blob */
 export async function cacheTrack(
   file: File,
-  meta: Omit<CachedTrackMeta, 'cacheKey' | 'fileName' | 'fileSize' | 'fileLastModified' | 'fileMimeType'>,
+  meta: Omit<CachedTrackMeta, 'cacheKey' | 'fileName' | 'fileSize' | 'fileLastModified' | 'fileMimeType' | 'hasAlbumArt'>,
   precomputedCacheKey?: string
 ): Promise<string> {
-  // Use pre-computed key if provided (avoids redundant computation)
   const cacheKey = precomputedCacheKey || buildCacheKey(file);
+  const hasAlbumArt = !!meta.albumArt;
 
-  // Store metadata in IndexedDB
+  // Store metadata in IndexedDB (without album art blob - it goes to Cache API)
   const record: CachedTrackMeta = {
-    ...meta,
     cacheKey,
+    title: meta.title,
+    artist: meta.artist,
+    album: meta.album,
+    year: meta.year,
+    genre: meta.genre,
+    duration: meta.duration,
+    lyrics: meta.lyrics,
+    lrcLyricsJson: meta.lrcLyricsJson,
+    playlistOrder: meta.playlistOrder,
     fileName: file.name,
     fileSize: file.size,
     fileLastModified: file.lastModified,
     fileMimeType: file.type || 'audio/mpeg',
+    hasAlbumArt,
   };
   await idbPut(STORES.TRACKS, record);
 
-  // Store audio blob in Cache API (async, don't block)
+  // Store audio blob and album art in Cache API (async, don't block)
   cacheAudioBlob(cacheKey, file).catch(err =>
     logger.error('Background audio blob caching failed:', err)
   );
+  if (meta.albumArt) {
+    cacheAlbumArt(cacheKey, meta.albumArt).catch(err =>
+      logger.error('Background album art caching failed:', err)
+    );
+  }
 
   return cacheKey;
+}
+
+/**
+ * Batch cache multiple tracks in a single IndexedDB transaction.
+ * Much faster than calling cacheTrack() in a loop.
+ */
+export async function cacheTracksBatch(inputs: CacheTrackInput[]): Promise<string[]> {
+  if (inputs.length === 0) return [];
+  
+  const db = await openDB();
+  const cacheKeys: string[] = [];
+  
+  // Prepare records and start background blob caching
+  const records: CachedTrackMeta[] = inputs.map(({ file, meta, precomputedCacheKey }) => {
+    const cacheKey = precomputedCacheKey || buildCacheKey(file);
+    cacheKeys.push(cacheKey);
+    
+    // Start blob caching in background (non-blocking)
+    cacheAudioBlob(cacheKey, file).catch(err =>
+      logger.error('Background audio blob caching failed:', err)
+    );
+    if (meta.albumArt) {
+      cacheAlbumArt(cacheKey, meta.albumArt).catch(err =>
+        logger.error('Background album art caching failed:', err)
+      );
+    }
+    
+    return {
+      cacheKey,
+      title: meta.title,
+      artist: meta.artist,
+      album: meta.album,
+      year: meta.year,
+      genre: meta.genre,
+      duration: meta.duration,
+      lyrics: meta.lyrics,
+      lrcLyricsJson: meta.lrcLyricsJson,
+      playlistOrder: meta.playlistOrder,
+      fileName: file.name,
+      fileSize: file.size,
+      fileLastModified: file.lastModified,
+      fileMimeType: file.type || 'audio/mpeg',
+      hasAlbumArt: !!meta.albumArt,
+    };
+  });
+  
+  // Write all records in a single transaction with relaxed durability
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORES.TRACKS, 'readwrite', { durability: 'relaxed' });
+    const store = tx.objectStore(STORES.TRACKS);
+    
+    for (const record of records) {
+      store.put(record);
+    }
+    
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  
+  logger.debug(`Batch cached ${inputs.length} track(s)`);
+  return cacheKeys;
+}
+
+/**
+ * Get lightweight metadata for all cached tracks (excludes large blobs).
+ * Use this for initial playlist restoration - much faster than getAllCachedTracks.
+ */
+export async function getAllCachedTracksLight(): Promise<CachedTrackMetaLight[]> {
+  const db = await openDB();
+  
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORES.TRACKS, 'readonly');
+    const store = tx.objectStore(STORES.TRACKS);
+    const index = store.index('playlistOrder');
+    const results: CachedTrackMetaLight[] = [];
+    
+    const cursorReq = index.openCursor();
+    cursorReq.onsuccess = () => {
+      const cursor = cursorReq.result;
+      if (cursor) {
+        const full = cursor.value as CachedTrackMeta;
+        // Project only lightweight fields (exclude albumArt, lyrics, lrcLyricsJson)
+        results.push({
+          cacheKey: full.cacheKey,
+          title: full.title,
+          artist: full.artist,
+          album: full.album,
+          year: full.year,
+          genre: full.genre,
+          duration: full.duration,
+          playlistOrder: full.playlistOrder,
+          fileMimeType: full.fileMimeType,
+          fileName: full.fileName,
+          fileSize: full.fileSize,
+          fileLastModified: full.fileLastModified,
+          hasAlbumArt: full.hasAlbumArt ?? !!full.albumArt, // Migration: check inline blob
+        });
+        cursor.continue();
+      }
+    };
+    
+    tx.oncomplete = () => {
+      logger.info(`Loaded ${results.length} cached track(s) (lightweight)`);
+      resolve(results);
+    };
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+/** Get full track metadata including lyrics (for single track) */
+export async function getTrackMeta(cacheKey: string): Promise<CachedTrackMeta | null> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORES.TRACKS, 'readonly');
+    const store = tx.objectStore(STORES.TRACKS);
+    const req = store.get(cacheKey);
+    req.onsuccess = () => resolve(req.result as CachedTrackMeta | null);
+    req.onerror = () => reject(req.error);
+  });
 }
 
 /** Get all cached track metadata, ordered by playlist order */
@@ -272,7 +476,7 @@ export async function updatePlaylistOrder(orderedCacheKeys: string[]): Promise<v
   const orderMap = new Map(orderedCacheKeys.map((key, index) => [key, index]));
   
   return new Promise((resolve, reject) => {
-    const tx = db.transaction(STORES.TRACKS, 'readwrite');
+    const tx = db.transaction(STORES.TRACKS, 'readwrite', { durability: 'relaxed' });
     const store = tx.objectStore(STORES.TRACKS);
     const cursorReq = store.openCursor();
 
@@ -294,11 +498,12 @@ export async function updatePlaylistOrder(orderedCacheKeys: string[]): Promise<v
   });
 }
 
-/** Remove a track from cache (metadata + audio blob) */
+/** Remove a track from cache (metadata + audio blob + album art) */
 export async function removeCachedTrack(cacheKey: string): Promise<void> {
   try {
     await idbDelete(STORES.TRACKS, cacheKey);
     await deleteAudioBlob(cacheKey);
+    await deleteAlbumArt(cacheKey);
     logger.debug(`Removed cached track: ${cacheKey}`);
   } catch (error) {
     logger.error('Failed to remove cached track:', error);
@@ -310,15 +515,15 @@ export async function clearAllCachedTracks(): Promise<void> {
   try {
     const db = await openDB();
 
-    // Clear tracks store
+    // Clear tracks store with relaxed durability
     await new Promise<void>((resolve, reject) => {
-      const tx = db.transaction(STORES.TRACKS, 'readwrite');
+      const tx = db.transaction(STORES.TRACKS, 'readwrite', { durability: 'relaxed' });
       const req = tx.objectStore(STORES.TRACKS).clear();
       req.onsuccess = () => resolve();
       req.onerror = () => reject(req.error);
     });
 
-    // Clear audio cache (also reset memoized handle)
+    // Clear audio cache (includes album art; also reset memoized handle)
     cachePromise = null;
     await caches.delete(AUDIO_CACHE_NAME);
 
@@ -482,4 +687,23 @@ export function initCache(): Promise<void> {
   return initPromise;
 }
 
-
+/**
+ * Pre-warm IndexedDB by opening the connection during idle time.
+ * Call this early (e.g., in requestIdleCallback) to reduce latency
+ * when the cache is first accessed.
+ */
+export function prewarmCache(): void {
+  if (typeof window === 'undefined') return;
+  
+  // Use requestIdleCallback if available, otherwise setTimeout
+  const scheduleIdle = window.requestIdleCallback || ((cb: () => void) => setTimeout(cb, 1));
+  
+  scheduleIdle(() => {
+    openDB().catch(() => {
+      // Ignore errors - this is just an optimization
+    });
+    openAudioCache().catch(() => {
+      // Ignore errors
+    });
+  });
+}

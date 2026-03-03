@@ -124,6 +124,9 @@ export interface AudioTrack {
 
   /** Whether this track was restored from cache */
   isCached?: boolean;
+
+  /** Whether album art exists in cache (for lazy loading) */
+  hasAlbumArt?: boolean;
 }
 
 export interface PlayerProps {
