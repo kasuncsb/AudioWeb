@@ -257,10 +257,11 @@ async function analyzeFullTrack(trackUrl: string, file?: File, cacheKey?: string
         return DEFAULT_FREQUENCIES;
       }
 
-      // Decode audio using a temporary context that matches the playback
-      // latencyHint.  Mixing 'interactive' (default) and 'playback' contexts
-      // can force the browser to renegotiate audio buffer sizes, which causes
-      // brief glitches/dropouts on the main playback context.
+      // Decode audio using a temporary context with 'playback' latency hint.
+      // This context is only used for offline decoding (no real-time output),
+      // so larger buffers are fine and reduce CPU overhead during analysis.
+      // The main playback context uses the default 'interactive' hint for
+      // tighter, more responsive EQ and filter processing.
       const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const audioContext = new AudioContextClass({ latencyHint: 'playback' });
       const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
@@ -536,7 +537,7 @@ export const useAudioManager = (
     if (eagerAudioContextRef.current) return;
     try {
       const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      eagerAudioContextRef.current = new AudioContextClass({ latencyHint: 'playback' });
+      eagerAudioContextRef.current = new AudioContextClass();
       logger.debug('Eager AudioContext created');
     } catch (e) {
       logger.error('Failed to create eager AudioContext:', e);
@@ -566,7 +567,7 @@ export const useAudioManager = (
         // creating a second one here would cause an InvalidAccessError when
         // butterchurn tries to connect an AnalyserNode from the wrong context.
         const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-        const audioContext = eagerAudioContextRef.current ?? new AudioContextClass({ latencyHint: 'playback' });
+        const audioContext = eagerAudioContextRef.current ?? new AudioContextClass();
         if (!eagerAudioContextRef.current) {
           eagerAudioContextRef.current = audioContext;
         }
