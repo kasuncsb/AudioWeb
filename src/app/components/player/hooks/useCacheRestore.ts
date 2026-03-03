@@ -179,19 +179,32 @@ export function useCacheRestore(
 
         // ── Prefetch adjacent tracks (previous + next) for seamless navigation ──
         const adjacentIndices = [currentTrackIndex - 1, currentTrackIndex + 1];
-        const adjUpdates: Array<{ index: number; url: string }> = [];
+        const adjUpdates: Array<{ index: number; updates: Partial<AudioTrack> }> = [];
 
         await Promise.all(
           adjacentIndices
             .filter(i => i >= 0 && i < pl.length)
             .map(async (adjIndex) => {
               const adjTrack = pl[adjIndex];
-              if (trackNeedsBlobLoad(adjTrack)) {
-                const adjBlobUrl = await getTrackBlobURL(adjTrack.cacheKey!);
-                if (adjBlobUrl && !cancelled) {
-                  adjUpdates.push({ index: adjIndex, url: adjBlobUrl });
-                  logger.debug(`Prefetched blob URL for ${adjIndex < currentTrackIndex ? 'prev' : 'next'}: ${adjTrack.title}`);
-                }
+              const adjNeedsBlob = trackNeedsBlobLoad(adjTrack);
+              const adjNeedsArt = !!adjTrack.hasAlbumArt && !adjTrack.albumArt && !!adjTrack.cacheKey;
+
+              if (!adjNeedsBlob && !adjNeedsArt) return;
+
+              const [adjBlobUrl, adjArtBlob] = await Promise.all([
+                adjNeedsBlob ? getTrackBlobURL(adjTrack.cacheKey!) : Promise.resolve(null),
+                adjNeedsArt ? getAlbumArt(adjTrack.cacheKey!) : Promise.resolve(null),
+              ]);
+
+              if (cancelled) return;
+
+              const partialUpdate: Partial<AudioTrack> = {};
+              if (adjBlobUrl) partialUpdate.url = adjBlobUrl;
+              if (adjArtBlob) partialUpdate.albumArt = URL.createObjectURL(adjArtBlob);
+
+              if (Object.keys(partialUpdate).length > 0) {
+                adjUpdates.push({ index: adjIndex, updates: partialUpdate });
+                logger.debug(`Prefetched ${Object.keys(partialUpdate).join('+')} for ${adjIndex < currentTrackIndex ? 'prev' : 'next'}: ${adjTrack.title}`);
               }
             })
         );
@@ -200,9 +213,9 @@ export function useCacheRestore(
 
         // Apply all adjacent updates in one setPlaylist call
         if (adjUpdates.length > 0) {
-          const adjMap = new Map(adjUpdates.map(u => [u.index, u.url]));
+          const adjMap = new Map(adjUpdates.map(u => [u.index, u.updates]));
           setPlaylist(prev => prev.map((t, i) =>
-            adjMap.has(i) ? { ...t, url: adjMap.get(i)! } : t
+            adjMap.has(i) ? { ...t, ...adjMap.get(i)! } : t
           ));
         }
 
@@ -224,6 +237,56 @@ export function useCacheRestore(
     return () => { cancelled = true; };
   // Re-run when track index changes or playlist grows/shrinks (not on property updates)
   }, [currentTrackIndex, playlist.length, setPlaylist, trackNeedsBlobLoad]);
+
+  // ── Phase 3: Background-load album art for all playlist tracks ──
+  const hasLoadedAllArtRef = useRef(false);
+
+  useEffect(() => {
+    // Wait until Phase 1 restore is done and playlist is populated
+    if (!hasRestoredRef.current || playlist.length === 0) return;
+    // Only run once
+    if (hasLoadedAllArtRef.current) return;
+    hasLoadedAllArtRef.current = true;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const pl = playlistRef.current;
+        const artUpdates = new Map<number, string>();
+
+        // Load album art for all tracks that need it, in small batches
+        const BATCH_SIZE = 5;
+        for (let i = 0; i < pl.length; i += BATCH_SIZE) {
+          if (cancelled) return;
+
+          const batch = pl.slice(i, i + BATCH_SIZE);
+          await Promise.all(
+            batch.map(async (track, batchIdx) => {
+              const idx = i + batchIdx;
+              if (!track.hasAlbumArt || track.albumArt || !track.cacheKey) return;
+              const artBlob = await getAlbumArt(track.cacheKey);
+              if (artBlob && !cancelled) {
+                artUpdates.set(idx, URL.createObjectURL(artBlob));
+              }
+            })
+          );
+        }
+
+        if (cancelled || artUpdates.size === 0) return;
+
+        setPlaylist(prev => prev.map((t, i) =>
+          artUpdates.has(i) ? { ...t, albumArt: artUpdates.get(i)! } : t
+        ));
+        logger.info(`Background-loaded album art for ${artUpdates.size} track(s)`);
+      } catch (error) {
+        logger.error('Failed to background-load album art:', error);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playlist.length, setPlaylist]); // Trigger when playlist first populates
 
   // ── Sync playlist order to cache on changes ──
   const syncPlaylistOrder = useCallback((tracks: AudioTrack[]) => {
