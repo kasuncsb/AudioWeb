@@ -10,11 +10,19 @@
  *  - Only current + next track blob URLs alive at any time (memory-safe for mobile)
  *  - Cache keys use composite string (name|size|lastModified) for identification
  *  - Trust browser's built-in quota management
+ *  - Global cache version triggers complete site data flush on mismatch
  */
 
 import { createLogger } from './logger';
 
 const logger = createLogger('CacheManager');
+
+// ─── Global Cache Version ────────────────────────────────────────────────────
+// Increment this when making ANY breaking changes to cache format.
+// This triggers a complete flush of all site data (IndexedDB, Cache API, localStorage, sessionStorage).
+
+const CACHE_VERSION = 1;
+const CACHE_VERSION_KEY = 'aw_cache_v';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -26,11 +34,8 @@ const STORES = {
   TRACKS: 'tracks',
 } as const;
 
-/** Cache API cache name for audio blobs */
-const AUDIO_CACHE_NAME = 'aw-media-v2';
-
-/** Old cache names to clean up on init (migration) */
-const OLD_CACHE_NAMES = ['aw-audio-v1', 'aw-media'];
+/** Cache API cache name for audio blobs and album art */
+const AUDIO_CACHE_NAME = 'aw-media';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -618,19 +623,88 @@ export async function getStorageEstimate(): Promise<{ usage: number; quota: numb
 let initPromise: Promise<void> | null = null;
 
 /**
- * Clean up old cache names from previous versions (migration).
- * Runs once during initialization.
+ * Check if cache version matches, flush all site data if outdated.
+ * This performs a complete flush similar to DevTools "Clear site data".
  */
-async function cleanupOldCaches(): Promise<void> {
-  for (const oldName of OLD_CACHE_NAMES) {
-    try {
-      const deleted = await caches.delete(oldName);
-      if (deleted) {
-        logger.info(`Cleaned up old cache: ${oldName}`);
+async function checkAndFlushIfNeeded(): Promise<void> {
+  if (typeof window === 'undefined') return;
+
+  const storedVersion = localStorage.getItem(CACHE_VERSION_KEY);
+  const currentVersion = CACHE_VERSION;
+
+  // If version matches, nothing to do
+  if (storedVersion === String(currentVersion)) {
+    return;
+  }
+
+  logger.info(
+    storedVersion
+      ? `Cache version mismatch (stored: ${storedVersion}, current: ${currentVersion}) — flushing all site data`
+      : `No cache version found — flushing all site data for clean start`
+  );
+
+  // 1. Delete IndexedDB database
+  try {
+    // Close existing connection first
+    if (dbPromise) {
+      try {
+        const existingDb = await dbPromise;
+        existingDb.close();
+      } catch {
+        // Ignore - db might not have been opened successfully
       }
-    } catch {
-      // Ignore errors - old cache might not exist
+      dbPromise = null;
     }
+    await new Promise<void>((resolve, reject) => {
+      const req = indexedDB.deleteDatabase(DB_NAME);
+      req.onsuccess = () => resolve();
+      req.onerror = () => reject(req.error);
+      req.onblocked = () => {
+        logger.warn('IndexedDB deletion blocked — retrying');
+        resolve(); // Continue anyway
+      };
+    });
+    logger.info('IndexedDB database deleted');
+  } catch (error) {
+    logger.error('Failed to delete IndexedDB:', error);
+  }
+
+  // 2. Delete all Cache API caches
+  try {
+    const cacheNames = await caches.keys();
+    await Promise.all(cacheNames.map((name) => caches.delete(name)));
+    // Reset memoized cache handle
+    cachePromise = null;
+    logger.info(`Deleted ${cacheNames.length} Cache API cache(s)`);
+  } catch (error) {
+    logger.error('Failed to clear Cache API:', error);
+  }
+
+  // 3. Clear localStorage (except preserve nothing — full flush)
+  try {
+    localStorage.clear();
+    logger.info('localStorage cleared');
+  } catch (error) {
+    logger.error('Failed to clear localStorage:', error);
+  }
+
+  // 4. Clear sessionStorage
+  try {
+    sessionStorage.clear();
+    logger.info('sessionStorage cleared');
+  } catch (error) {
+    logger.error('Failed to clear sessionStorage:', error);
+  }
+
+  // 5. Revoke any active blob URLs
+  revokeAllCachedBlobURLs();
+
+  // 6. Set current version so we don't flush again
+  try {
+    localStorage.setItem(CACHE_VERSION_KEY, String(currentVersion));
+    logger.info(`Cache version set to ${currentVersion}`);
+  } catch (error) {
+    logger.error('Failed to set cache version:', error);
   }
 }
 
@@ -643,10 +717,10 @@ export function initCache(): Promise<void> {
 
   initPromise = (async () => {
     try {
-      await openDB();
+      // Check cache version and flush all site data if outdated
+      await checkAndFlushIfNeeded();
       
-      // Clean up old cache names from previous versions
-      await cleanupOldCaches();
+      await openDB();
       
       logger.info('Cache system initialized');
       
