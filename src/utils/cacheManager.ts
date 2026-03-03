@@ -2,12 +2,12 @@
  * AudioWeb Cache Manager
  *
  * Provides persistent browser caching for audio tracks and metadata using:
- *  - Cache API  → audio file blobs (optimized for large binary streaming)
- *  - IndexedDB  → track metadata (including inline album art) and config
+ *  - Cache API  → audio blobs + album art (optimized for large binary streaming)
+ *  - IndexedDB  → track metadata (title, artist, duration, lyrics, etc.)
  *
  * Design principles:
  *  - Two-phase load: metadata first (instant), blobs on-demand (lazy)
- *  - Only current + next track blob URLs alive at any time (memory-safe for mobile)
+ *  - Only current + adjacent track blob URLs alive at any time (memory-safe for mobile)
  *  - Cache keys use composite string (name|size|lastModified) for identification
  *  - Trust browser's built-in quota management
  *  - Global cache version triggers complete site data flush on mismatch
@@ -21,7 +21,7 @@ const logger = createLogger('CacheManager');
 // Increment this when making ANY breaking changes to cache format.
 // This triggers a complete flush of all site data (IndexedDB, Cache API, localStorage, sessionStorage).
 
-const CACHE_VERSION = 3;
+const CACHE_VERSION = 4;
 const CACHE_VERSION_KEY = 'aw_cache_v';
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -453,6 +453,9 @@ export async function clearAllCachedTracks(): Promise<void> {
     cachePromise = null;
     await caches.delete(AUDIO_CACHE_NAME);
 
+    // Revoke any active blob URLs to prevent memory leaks
+    revokeAllCachedBlobURLs();
+
     logger.info('Cleared all cached tracks and data');
   } catch (error) {
     logger.error('Failed to clear all caches:', error);
@@ -683,9 +686,9 @@ export function initCache(): Promise<void> {
 }
 
 /**
- * Pre-warm IndexedDB by opening the connection during idle time.
- * Call this early (e.g., in requestIdleCallback) to reduce latency
- * when the cache is first accessed.
+ * Pre-warm the cache system during idle time.
+ * Delegates to initCache() to ensure the version check runs before any
+ * DB access — calling openDB() directly could race with checkAndFlushIfNeeded().
  */
 export function prewarmCache(): void {
   if (typeof window === 'undefined') return;
@@ -694,11 +697,8 @@ export function prewarmCache(): void {
   const scheduleIdle = window.requestIdleCallback || ((cb: () => void) => setTimeout(cb, 1));
   
   scheduleIdle(() => {
-    openDB().catch(() => {
+    initCache().catch(() => {
       // Ignore errors - this is just an optimization
-    });
-    openAudioCache().catch(() => {
-      // Ignore errors
     });
   });
 }

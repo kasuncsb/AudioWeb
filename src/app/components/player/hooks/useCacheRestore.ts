@@ -41,6 +41,8 @@ export function useCacheRestore(
 ) {
   const hasRestoredRef = useRef(false);
   const isRestoringRef = useRef(false);
+  const playlistRef = useRef(playlist);
+  playlistRef.current = playlist;
 
   // ── Phase 1: Restore metadata on mount ──
   useEffect(() => {
@@ -106,91 +108,110 @@ export function useCacheRestore(
   // ── Phase 2: Lazy blob URL loading on track change ──
 
   /** Check if a cached track needs its blob URL (re)loaded */
-  const trackNeedsBlobLoad = (track: AudioTrack): boolean => {
+  const trackNeedsBlobLoad = useCallback((track: AudioTrack): boolean => {
     if (!track.cacheKey || !track.isCached) return false;
     return track.url === '' ||
       track.url.startsWith('pending:') ||
       (track.url.startsWith('blob:') && !isBlobURLActive(track.cacheKey));
-  };
+  }, []);
+
+  // Use a ref to read latest playlist without adding it as a dep
+  // (playlistRef is declared at the top of the hook)
 
   useEffect(() => {
-    if (playlist.length === 0) return;
+    const pl = playlistRef.current;
+    if (pl.length === 0) return;
 
-    const currentTrack = playlist[currentTrackIndex];
+    const currentTrack = pl[currentTrackIndex];
     if (!currentTrack?.cacheKey || !currentTrack.isCached) return;
+
+    // Capture values for the async closure
+    const cacheKey = currentTrack.cacheKey;
+    const trackIndex = currentTrackIndex;
+    let cancelled = false;
 
     (async () => {
       try {
-        // Load current track's blob URL if not already set or if previously revoked
-        if (trackNeedsBlobLoad(currentTrack)) {
-          const blobUrl = await getTrackBlobURL(currentTrack.cacheKey!);
-          if (blobUrl) {
-            setPlaylist(prev => prev.map((t, i) =>
-              i === currentTrackIndex ? { ...t, url: blobUrl } : t
-            ));
-            logger.debug(`Loaded blob URL for: ${currentTrack.title}`);
-          } else {
-            // Blob evicted or corrupted — remove from cache & playlist
+        // ── Load current track (blob + art + lyrics in parallel) ──
+        const needsBlob = trackNeedsBlobLoad(currentTrack);
+        const needsArt = !!currentTrack.hasAlbumArt && !currentTrack.albumArt;
+        const needsLyrics = currentTrack.lyrics === undefined && currentTrack.lrcLyrics === undefined;
+
+        if (needsBlob || needsArt || needsLyrics) {
+          const [blobUrl, artBlob, fullMeta] = await Promise.all([
+            needsBlob ? getTrackBlobURL(cacheKey) : Promise.resolve(null),
+            needsArt ? getAlbumArt(cacheKey) : Promise.resolve(null),
+            needsLyrics ? getTrackMeta(cacheKey) : Promise.resolve(null),
+          ]);
+
+          if (cancelled) return;
+
+          // If blob is missing, track is corrupted — remove it
+          if (needsBlob && !blobUrl) {
             logger.warn(`Audio blob missing for cached track: ${currentTrack.title}`);
-            await removeCachedTrack(currentTrack.cacheKey!);
-            setPlaylist(prev => prev.filter((_, i) => i !== currentTrackIndex));
+            await removeCachedTrack(cacheKey);
+            setPlaylist(prev => prev.filter((_, i) => i !== trackIndex));
             return;
           }
-        }
 
-        // Load album art lazily for current track if not yet loaded
-        if (currentTrack.hasAlbumArt && !currentTrack.albumArt) {
-          const artBlob = await getAlbumArt(currentTrack.cacheKey!);
-          if (artBlob) {
-            const artUrl = URL.createObjectURL(artBlob);
-            setPlaylist(prev => prev.map((t, i) =>
-              i === currentTrackIndex ? { ...t, albumArt: artUrl } : t
-            ));
-            logger.debug(`Loaded album art for: ${currentTrack.title}`);
-          }
-        }
-
-        // Load lyrics lazily for current track if not yet loaded
-        if (currentTrack.lyrics === undefined && currentTrack.lrcLyrics === undefined) {
-          const fullMeta = await getTrackMeta(currentTrack.cacheKey!);
+          // Build update object for a single setPlaylist call
+          const updates: Partial<AudioTrack> = {};
+          if (blobUrl) updates.url = blobUrl;
+          if (artBlob) updates.albumArt = URL.createObjectURL(artBlob);
           if (fullMeta) {
-            let lrcLyrics: LyricLine[] | undefined;
+            updates.lyrics = fullMeta.lyrics;
             if (fullMeta.lrcLyricsJson) {
               try {
-                lrcLyrics = JSON.parse(fullMeta.lrcLyricsJson) as LyricLine[];
-              } catch { /* ignore */ }
+                updates.lrcLyrics = JSON.parse(fullMeta.lrcLyricsJson) as LyricLine[];
+              } catch { /* ignore malformed JSON */ }
             }
-            if (fullMeta.lyrics || lrcLyrics) {
-              setPlaylist(prev => prev.map((t, i) =>
-                i === currentTrackIndex ? { ...t, lyrics: fullMeta.lyrics, lrcLyrics } : t
-              ));
-              logger.debug(`Loaded lyrics for: ${currentTrack.title}`);
-            }
+          }
+
+          if (Object.keys(updates).length > 0) {
+            setPlaylist(prev => prev.map((t, i) =>
+              i === trackIndex ? { ...t, ...updates } : t
+            ));
+            logger.debug(`Loaded cache data for: ${currentTrack.title} (${Object.keys(updates).join(', ')})`);
           }
         }
 
-        // Prefetch adjacent tracks (previous + next) for seamless navigation
+        if (cancelled) return;
+
+        // ── Prefetch adjacent tracks (previous + next) for seamless navigation ──
         const adjacentIndices = [currentTrackIndex - 1, currentTrackIndex + 1];
-        for (const adjIndex of adjacentIndices) {
-          if (adjIndex < 0 || adjIndex >= playlist.length) continue;
-          const adjTrack = playlist[adjIndex];
-          if (trackNeedsBlobLoad(adjTrack)) {
-            const adjBlobUrl = await getTrackBlobURL(adjTrack.cacheKey!);
-            if (adjBlobUrl) {
-              setPlaylist(prev => prev.map((t, i) =>
-                i === adjIndex ? { ...t, url: adjBlobUrl } : t
-              ));
-              logger.debug(`Prefetched blob URL for ${adjIndex < currentTrackIndex ? 'prev' : 'next'}: ${adjTrack.title}`);
-            }
-          }
+        const adjUpdates: Array<{ index: number; url: string }> = [];
+
+        await Promise.all(
+          adjacentIndices
+            .filter(i => i >= 0 && i < pl.length)
+            .map(async (adjIndex) => {
+              const adjTrack = pl[adjIndex];
+              if (trackNeedsBlobLoad(adjTrack)) {
+                const adjBlobUrl = await getTrackBlobURL(adjTrack.cacheKey!);
+                if (adjBlobUrl && !cancelled) {
+                  adjUpdates.push({ index: adjIndex, url: adjBlobUrl });
+                  logger.debug(`Prefetched blob URL for ${adjIndex < currentTrackIndex ? 'prev' : 'next'}: ${adjTrack.title}`);
+                }
+              }
+            })
+        );
+
+        if (cancelled) return;
+
+        // Apply all adjacent updates in one setPlaylist call
+        if (adjUpdates.length > 0) {
+          const adjMap = new Map(adjUpdates.map(u => [u.index, u.url]));
+          setPlaylist(prev => prev.map((t, i) =>
+            adjMap.has(i) ? { ...t, url: adjMap.get(i)! } : t
+          ));
         }
 
         // Retain only current + prev + next blob URLs, revoke all others
         const keysToKeep: string[] = [];
-        if (currentTrack.cacheKey) keysToKeep.push(currentTrack.cacheKey);
+        if (cacheKey) keysToKeep.push(cacheKey);
         for (const adjIndex of adjacentIndices) {
-          if (adjIndex >= 0 && adjIndex < playlist.length && playlist[adjIndex]?.cacheKey) {
-            keysToKeep.push(playlist[adjIndex].cacheKey!);
+          if (adjIndex >= 0 && adjIndex < pl.length && pl[adjIndex]?.cacheKey) {
+            keysToKeep.push(pl[adjIndex].cacheKey!);
           }
         }
         retainOnlyBlobURLs(keysToKeep);
@@ -199,7 +220,10 @@ export function useCacheRestore(
         logger.error('Failed to load blob URL for track:', error);
       }
     })();
-  }, [currentTrackIndex, playlist, setPlaylist]);
+
+    return () => { cancelled = true; };
+  // Re-run when track index changes or playlist grows/shrinks (not on property updates)
+  }, [currentTrackIndex, playlist.length, setPlaylist, trackNeedsBlobLoad]);
 
   // ── Sync playlist order to cache on changes ──
   const syncPlaylistOrder = useCallback((tracks: AudioTrack[]) => {
@@ -239,10 +263,8 @@ export function useCacheRestore(
   // ── Persist playback state to localStorage every 1s ──
   const currentTrackIndexRef = useRef(currentTrackIndex);
   const currentTimeRef = useRef(currentTime);
-  const playlistRef = useRef(playlist);
   currentTrackIndexRef.current = currentTrackIndex;
   currentTimeRef.current = currentTime;
-  playlistRef.current = playlist;
 
   useEffect(() => {
     // Don't gate on hasRestoredRef - the interval callback handles empty playlist.
