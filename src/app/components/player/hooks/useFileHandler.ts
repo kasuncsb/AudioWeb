@@ -464,11 +464,14 @@ export const useFileHandler = (
       newTracks.push(...batchResults);
     }
 
-    // Batch write all tracks to IndexedDB in a single transaction (much faster)
+    // Batch write all tracks to IndexedDB + Cache API (awaited for durability)
     if (cacheInputs.length > 0) {
-      cacheTracksBatch(cacheInputs).catch(err =>
-        logger.error('Failed to batch cache tracks:', err)
-      );
+      try {
+        await cacheTracksBatch(cacheInputs);
+        logger.debug(`Persisted ${cacheInputs.length} track(s) to cache`);
+      } catch (err) {
+        logger.error('Failed to batch cache tracks:', err);
+      }
     }
 
     setPlaylist(prev => {

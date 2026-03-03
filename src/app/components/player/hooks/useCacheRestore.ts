@@ -318,18 +318,6 @@ async function reconstructTrackLight(
       writable: false,
     });
 
-    // Load album art lazily from Cache API (don't block)
-    let albumArt: string | undefined;
-    if (meta.hasAlbumArt) {
-      getAlbumArt(meta.cacheKey).then(blob => {
-        if (blob) {
-          // Note: This is a fire-and-forget update; the track object
-          // already has albumArt=undefined, but React won't see this change.
-          // We'll handle this by loading album art when the track becomes active.
-        }
-      }).catch(() => { /* ignore */ });
-    }
-
     const track: AudioTrack = {
       id: `cached-${index}-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       title: meta.title,
@@ -341,7 +329,7 @@ async function reconstructTrackLight(
       file: placeholderFile,
       url: '', // Will be lazily loaded from Cache API
       isActive: false,
-      albumArt, // Will be loaded when track becomes active
+      // albumArt loaded lazily when track becomes active (Phase 2)
       // lyrics and lrcLyrics loaded on-demand via getTrackMeta
       cacheKey: meta.cacheKey,
       isCached: true,

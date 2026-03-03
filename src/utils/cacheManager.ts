@@ -151,18 +151,6 @@ function openDB(): Promise<IDBDatabase> {
   return dbPromise;
 }
 
-/** Generic IndexedDB put */
-async function idbPut<T>(storeName: string, value: T): Promise<void> {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readwrite', { durability: 'relaxed' });
-    const store = tx.objectStore(storeName);
-    const req = store.put(value);
-    req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
-}
-
 /** Generic IndexedDB delete */
 async function idbDelete(storeName: string, key: string): Promise<void> {
   const db = await openDB();
@@ -171,19 +159,6 @@ async function idbDelete(storeName: string, key: string): Promise<void> {
     const store = tx.objectStore(storeName);
     const req = store.delete(key);
     req.onsuccess = () => resolve();
-    req.onerror = () => reject(req.error);
-  });
-}
-
-/** Get all records from a store, ordered by an index */
-async function idbGetAllByIndex<T>(storeName: string, indexName: string): Promise<T[]> {
-  const db = await openDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction(storeName, 'readonly');
-    const store = tx.objectStore(storeName);
-    const index = store.index(indexName);
-    const req = index.getAll();
-    req.onsuccess = () => resolve(req.result as T[]);
     req.onerror = () => reject(req.error);
   });
 }
@@ -302,71 +277,27 @@ export interface CacheTrackInput {
   precomputedCacheKey?: string;
 }
 
-/** Cache a track's metadata and audio blob */
-export async function cacheTrack(
-  file: File,
-  meta: Omit<CachedTrackMeta, 'cacheKey' | 'fileName' | 'fileSize' | 'fileLastModified' | 'fileMimeType' | 'hasAlbumArt'>,
-  precomputedCacheKey?: string
-): Promise<string> {
-  const cacheKey = precomputedCacheKey || buildCacheKey(file);
-  const hasAlbumArt = !!meta.albumArt;
-
-  // Store metadata in IndexedDB (without album art blob - it goes to Cache API)
-  const record: CachedTrackMeta = {
-    cacheKey,
-    title: meta.title,
-    artist: meta.artist,
-    album: meta.album,
-    year: meta.year,
-    genre: meta.genre,
-    duration: meta.duration,
-    lyrics: meta.lyrics,
-    lrcLyricsJson: meta.lrcLyricsJson,
-    playlistOrder: meta.playlistOrder,
-    fileName: file.name,
-    fileSize: file.size,
-    fileLastModified: file.lastModified,
-    fileMimeType: file.type || 'audio/mpeg',
-    hasAlbumArt,
-  };
-  await idbPut(STORES.TRACKS, record);
-
-  // Store audio blob and album art in Cache API (async, don't block)
-  cacheAudioBlob(cacheKey, file).catch(err =>
-    logger.error('Background audio blob caching failed:', err)
-  );
-  if (meta.albumArt) {
-    cacheAlbumArt(cacheKey, meta.albumArt).catch(err =>
-      logger.error('Background album art caching failed:', err)
-    );
-  }
-
-  return cacheKey;
-}
-
 /**
  * Batch cache multiple tracks in a single IndexedDB transaction.
- * Much faster than calling cacheTrack() in a loop.
+ * Audio blobs and album art are written to Cache API in parallel and
+ * awaited so data is durable before the function resolves.
  */
 export async function cacheTracksBatch(inputs: CacheTrackInput[]): Promise<string[]> {
   if (inputs.length === 0) return [];
   
   const db = await openDB();
   const cacheKeys: string[] = [];
+  const blobPromises: Promise<void>[] = [];
   
-  // Prepare records and start background blob caching
+  // Prepare records and collect blob write promises
   const records: CachedTrackMeta[] = inputs.map(({ file, meta, precomputedCacheKey }) => {
     const cacheKey = precomputedCacheKey || buildCacheKey(file);
     cacheKeys.push(cacheKey);
     
-    // Start blob caching in background (non-blocking)
-    cacheAudioBlob(cacheKey, file).catch(err =>
-      logger.error('Background audio blob caching failed:', err)
-    );
+    // Queue blob writes (awaited below)
+    blobPromises.push(cacheAudioBlob(cacheKey, file));
     if (meta.albumArt) {
-      cacheAlbumArt(cacheKey, meta.albumArt).catch(err =>
-        logger.error('Background album art caching failed:', err)
-      );
+      blobPromises.push(cacheAlbumArt(cacheKey, meta.albumArt));
     }
     
     return {
@@ -388,18 +319,20 @@ export async function cacheTracksBatch(inputs: CacheTrackInput[]): Promise<strin
     };
   });
   
-  // Write all records in a single transaction with relaxed durability
-  await new Promise<void>((resolve, reject) => {
-    const tx = db.transaction(STORES.TRACKS, 'readwrite', { durability: 'relaxed' });
-    const store = tx.objectStore(STORES.TRACKS);
-    
-    for (const record of records) {
-      store.put(record);
-    }
-    
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
+  // Write all metadata in a single IndexedDB transaction with relaxed durability
+  // AND write all blobs to Cache API in parallel
+  await Promise.all([
+    new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORES.TRACKS, 'readwrite', { durability: 'relaxed' });
+      const store = tx.objectStore(STORES.TRACKS);
+      for (const record of records) {
+        store.put(record);
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    }),
+    ...blobPromises,
+  ]);
   
   logger.debug(`Batch cached ${inputs.length} track(s)`);
   return cacheKeys;
@@ -461,18 +394,6 @@ export async function getTrackMeta(cacheKey: string): Promise<CachedTrackMeta | 
     req.onsuccess = () => resolve(req.result as CachedTrackMeta | null);
     req.onerror = () => reject(req.error);
   });
-}
-
-/** Get all cached track metadata, ordered by playlist order */
-export async function getAllCachedTracks(): Promise<CachedTrackMeta[]> {
-  try {
-    const tracks = await idbGetAllByIndex<CachedTrackMeta>(STORES.TRACKS, 'playlistOrder');
-    logger.info(`Loaded ${tracks.length} cached track(s) from IndexedDB`);
-    return tracks;
-  } catch (error) {
-    logger.error('Failed to load cached tracks:', error);
-    return [];
-  }
 }
 
 /** Batch update playlist order for all tracks */
