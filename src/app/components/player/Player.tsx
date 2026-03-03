@@ -51,11 +51,13 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
   const [availablePresets, setAvailablePresets] = useState<string[]>([]);
 
   // Use equalizer persistence hook
+  // Load EQ settings as soon as tracks are available (not gated on isVisible)
+  // so that playback from the navbar applies the user's saved EQ immediately.
   const {
     settings: equalizerSettings,
     updateSettings: setEqualizerSettings,
     isLoaded: isEqualizerLoaded,
-  } = useEqualizerPersistence(isVisible && playlist.length > 0);
+  } = useEqualizerPersistence(playlist.length > 0);
 
   // Use visualizer persistence hook - don't manage enabled state here (page.tsx owns that)
   const {
