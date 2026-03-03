@@ -285,7 +285,6 @@ export function useCacheRestore(
     })();
 
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playlist.length, setPlaylist]); // Trigger when playlist first populates
 
   // ── Sync playlist order to cache on changes ──
