@@ -21,7 +21,7 @@ const logger = createLogger('CacheManager');
 // Increment this when making ANY breaking changes to cache format.
 // This triggers a complete flush of all site data (IndexedDB, Cache API, localStorage, sessionStorage).
 
-const CACHE_VERSION = 1;
+const CACHE_VERSION = 2;
 const CACHE_VERSION_KEY = 'aw_cache_v';
 
 // ─── Constants ───────────────────────────────────────────────────────────────

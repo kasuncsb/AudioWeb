@@ -62,7 +62,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
     visualizerSettings,
     updateVisualizerSettings,
     isLoaded: isVisualizerLoaded,
-  } = useVisualizerPersistence({ manageEnabled: false });
+  } = useVisualizerPersistence(isVisible && playlist.length > 0, { manageEnabled: false });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentTrack = playlist[currentTrackIndex];

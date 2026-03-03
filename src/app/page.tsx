@@ -94,7 +94,8 @@ export default function Home() {
   const [sleepTimer, setSleepTimer] = useState(0);
   
   // Use visualizer persistence hook to manage visualizer enabled state
-  const { isVisualizerEnabled, setVisualizerEnabled } = useVisualizerPersistence();
+  // Only init when player is visible (same pattern as equalizer)
+  const { isVisualizerEnabled, setVisualizerEnabled } = useVisualizerPersistence(isPlayerVisible);
 
   // Keep the screen awake while the visualizer is active
   useWakeLock(isVisualizerEnabled);
