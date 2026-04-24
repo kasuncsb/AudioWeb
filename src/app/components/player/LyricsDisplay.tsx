@@ -24,6 +24,8 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
   const manualScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
   const rawLyricsContainerRef = useRef<HTMLDivElement>(null);
+  const rawLyricsTargetScrollRef = useRef(0);
+  const rawLyricsSmoothRafRef = useRef<number | null>(null);
 
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 639px)');
@@ -163,6 +165,9 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
       if (manualScrollTimeoutRef.current) {
         clearTimeout(manualScrollTimeoutRef.current);
       }
+      if (rawLyricsSmoothRafRef.current !== null) {
+        cancelAnimationFrame(rawLyricsSmoothRafRef.current);
+      }
     };
   }, []);
 
@@ -232,6 +237,10 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
         clearTimeout(manualScrollTimeoutRef.current);
         manualScrollTimeoutRef.current = null;
       }
+      if (rawLyricsSmoothRafRef.current !== null) {
+        cancelAnimationFrame(rawLyricsSmoothRafRef.current);
+        rawLyricsSmoothRafRef.current = null;
+      }
     }
   }, [currentTrack, lastTrackId]);
 
@@ -272,18 +281,39 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
   useEffect(() => {
     if (isMobile || !isRawLyricsDragging) return;
 
+    const animateToTarget = () => {
+      const container = rawLyricsContainerRef.current;
+      if (!container) {
+        rawLyricsSmoothRafRef.current = null;
+        return;
+      }
+
+      const delta = rawLyricsTargetScrollRef.current - container.scrollTop;
+      // Smooth while dragging, but no momentum after release.
+      container.scrollTop += delta * 0.25;
+      rawLyricsSmoothRafRef.current = requestAnimationFrame(animateToTarget);
+    };
+
+    if (rawLyricsSmoothRafRef.current === null) {
+      rawLyricsSmoothRafRef.current = requestAnimationFrame(animateToTarget);
+    }
+
     const handleRawLyricsMouseMove = (e: MouseEvent) => {
       const container = rawLyricsContainerRef.current;
       if (!container) return;
 
       e.preventDefault();
-      const dragSensitivity = 0.75;
+      const dragSensitivity = 0.9;
       const deltaY = (e.clientY - rawLyricsDragStart.y) * dragSensitivity;
-      container.scrollTop = rawLyricsDragStart.scrollTop - deltaY;
+      rawLyricsTargetScrollRef.current = rawLyricsDragStart.scrollTop - deltaY;
     };
 
     const handleRawLyricsMouseUp = () => {
       setIsRawLyricsDragging(false);
+      if (rawLyricsSmoothRafRef.current !== null) {
+        cancelAnimationFrame(rawLyricsSmoothRafRef.current);
+        rawLyricsSmoothRafRef.current = null;
+      }
     };
 
     document.addEventListener('mousemove', handleRawLyricsMouseMove);
@@ -417,6 +447,7 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
             if (!rawLyricsContainerRef.current) return;
             e.preventDefault();
             setIsRawLyricsDragging(true);
+            rawLyricsTargetScrollRef.current = rawLyricsContainerRef.current.scrollTop;
             setRawLyricsDragStart({
               y: e.clientY,
               scrollTop: rawLyricsContainerRef.current.scrollTop
