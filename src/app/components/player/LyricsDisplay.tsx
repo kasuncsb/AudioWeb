@@ -314,8 +314,11 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
       rawLyricsLastYRef.current = e.clientY;
       rawLyricsLastTimeRef.current = now;
 
-      const dragSensitivity = 0.9;
-      const deltaY = (e.clientY - rawLyricsDragStart.y) * dragSensitivity;
+      // Reuse synced-lyrics drag values, converted to pixel movement for raw scrollTop.
+      const dragSpeed = isMobile ? 0.015 : 0.02;
+      const rootFontSize = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const syncedLineSpacingPx = (isMobile ? 3.5 : 4) * rootFontSize;
+      const deltaY = (e.clientY - rawLyricsDragStart.y) * dragSpeed * syncedLineSpacingPx;
       rawLyricsTargetScrollRef.current = rawLyricsDragStart.scrollTop - deltaY;
     };
 
