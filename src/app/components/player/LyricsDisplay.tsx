@@ -17,10 +17,13 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
   const [isManualScrolling, setIsManualScrolling] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [lastTrackId, setLastTrackId] = useState<string | null>(null);
+  const [isRawLyricsDragging, setIsRawLyricsDragging] = useState(false);
+  const [rawLyricsDragStart, setRawLyricsDragStart] = useState({ y: 0, scrollTop: 0 });
 
   const containerRef = useRef<HTMLDivElement>(null);
   const manualScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
+  const rawLyricsContainerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 639px)');
@@ -264,6 +267,32 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
     };
   }, [isDragging, dragStart, displayLines.length, isMobile]);
 
+  // Raw lyrics drag-to-scroll (desktop only)
+  useEffect(() => {
+    if (isMobile || !isRawLyricsDragging) return;
+
+    const handleRawLyricsMouseMove = (e: MouseEvent) => {
+      const container = rawLyricsContainerRef.current;
+      if (!container) return;
+
+      e.preventDefault();
+      const deltaY = e.clientY - rawLyricsDragStart.y;
+      container.scrollTop = rawLyricsDragStart.scrollTop - deltaY;
+    };
+
+    const handleRawLyricsMouseUp = () => {
+      setIsRawLyricsDragging(false);
+    };
+
+    document.addEventListener('mousemove', handleRawLyricsMouseMove);
+    document.addEventListener('mouseup', handleRawLyricsMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleRawLyricsMouseMove);
+      document.removeEventListener('mouseup', handleRawLyricsMouseUp);
+    };
+  }, [isMobile, isRawLyricsDragging, rawLyricsDragStart]);
+
   if (!currentTrack) {
     return (
       <div className="h-full flex items-center justify-center px-4 py-4">
@@ -378,7 +407,20 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
             pauseDuration={1000}
           />
         </div>
-        <div className="flex-1 overflow-y-auto custom-scrollbar-auto max-w-4xl mx-auto w-full px-1 sm:px-2">
+        <div
+          ref={rawLyricsContainerRef}
+          className="flex-1 overflow-y-auto custom-scrollbar-auto max-w-4xl mx-auto w-full px-1 sm:px-2 select-none"
+          style={{ cursor: isMobile ? 'default' : (isRawLyricsDragging ? 'grabbing' : 'grab') }}
+          onMouseDown={!isMobile ? (e) => {
+            if (!rawLyricsContainerRef.current) return;
+            e.preventDefault();
+            setIsRawLyricsDragging(true);
+            setRawLyricsDragStart({
+              y: e.clientY,
+              scrollTop: rawLyricsContainerRef.current.scrollTop
+            });
+          } : undefined}
+        >
           <div className="text-white/80 leading-relaxed whitespace-pre-line text-base sm:text-lg text-center px-2 sm:px-3 pb-4"
             style={{
               wordBreak: 'break-word',
