@@ -327,14 +327,16 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
       }
 
       const initialVelocity = rawLyricsVelocityRef.current;
-      if (Math.abs(initialVelocity) < 0.02) {
+      // Ignore tiny/quick releases to avoid accidental fast flicks.
+      if (Math.abs(initialVelocity) < 0.06) {
         rawLyricsVelocityRef.current = 0;
         return;
       }
 
-      let velocity = initialVelocity;
+      // Clamp starting velocity so fast flicks stay controlled.
+      let velocity = Math.max(Math.min(initialVelocity, 0.75), -0.75);
       let previousTime = performance.now();
-      const friction = 0.94;
+      const friction = 0.88;
 
       const animateInertia = (currentTime: number) => {
         const scrollContainer = rawLyricsContainerRef.current;
@@ -346,14 +348,14 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
         const dt = Math.max(1, currentTime - previousTime);
         previousTime = currentTime;
 
-        scrollContainer.scrollTop -= velocity * dt * 16;
+        scrollContainer.scrollTop -= velocity * dt * 10;
         velocity *= friction;
 
         const atTop = scrollContainer.scrollTop <= 0;
         const atBottom = scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight;
         const hitBoundary = (velocity > 0 && atTop) || (velocity < 0 && atBottom);
 
-        if (Math.abs(velocity) < 0.01 || hitBoundary) {
+        if (Math.abs(velocity) < 0.015 || hitBoundary) {
           rawLyricsSmoothRafRef.current = null;
           rawLyricsVelocityRef.current = 0;
           return;
