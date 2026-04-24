@@ -31,20 +31,28 @@ jobs:
         with:
           node-version: 20
 
-      - name: Determine bump type from commit message
+      - name: Determine bump strategy from commit message
         if: github.event_name == 'push'
         id: bump
         run: |
           msg="${{ github.event.head_commit.message }}"
           bump="patch"
-          if echo "$msg" | grep -Eiq 'BREAKING CHANGE|!:'; then
+          increment=1
+          if echo "$msg" | grep -Eiq 'release-major(\+[0-9]+)?|major:'; then
             bump="major"
-          elif echo "$msg" | grep -Eiq '^feat(\(.+\))?:'; then
+          elif echo "$msg" | grep -Eiq 'release-minor(\+[0-9]+)?|minor:|^feat(\(.+\))?:'; then
             bump="minor"
-          elif echo "$msg" | grep -Eiq '^fix(\(.+\))?:'; then
+          elif echo "$msg" | grep -Eiq 'release-patch(\+[0-9]+)?|patch:|^fix(\(.+\))?:'; then
             bump="patch"
           fi
+
+          explicit_increment="$(echo "$msg" | sed -nE 's/.*release-(major|minor|patch)\+([0-9]+).*/\2/p' | head -n1)"
+          if [ -n "$explicit_increment" ]; then
+            increment="$explicit_increment"
+          fi
+
           echo "bump_type=$bump" >> $GITHUB_OUTPUT
+          echo "increment=$increment" >> $GITHUB_OUTPUT
 
       - name: Bump package.json version only
         if: github.event_name == 'push'
@@ -56,10 +64,11 @@ jobs:
           const pkg = JSON.parse(fs.readFileSync(path, 'utf8'));
           const [major, minor, patch] = (pkg.version || '0.0.0').split('.').map(Number);
           const bump = '${{ steps.bump.outputs.bump_type }}';
+          const increment = Number('${{ steps.bump.outputs.increment }}') || 1;
           let next = [major || 0, minor || 0, patch || 0];
-          if (bump === 'major') next = [next[0] + 1, 0, 0];
-          else if (bump === 'minor') next = [next[0], next[1] + 1, 0];
-          else next = [next[0], next[1], next[2] + 1];
+          if (bump === 'major') next = [next[0] + increment, 0, 0];
+          else if (bump === 'minor') next = [next[0], next[1] + increment, 0];
+          else next = [next[0], next[1], next[2] + increment];
           pkg.version = next.join('.');
           fs.writeFileSync(path, JSON.stringify(pkg, null, 2) + '\n');
           "
@@ -71,7 +80,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add package.json
-          git commit -m "chore: bump package version to ${{ steps.version.outputs.version }} (${{ steps.bump.outputs.bump_type }}) [skip ci]"
+          git commit -m "chore: bump package version to ${{ steps.version.outputs.version }} (${{ steps.bump.outputs.bump_type }}+${{ steps.bump.outputs.increment }}) [skip ci]"
           git push origin main
 
       - name: Copy source files to server
