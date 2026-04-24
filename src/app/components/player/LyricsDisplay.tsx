@@ -24,8 +24,10 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
   const manualScrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const lyricsContainerRef = useRef<HTMLDivElement>(null);
   const rawLyricsContainerRef = useRef<HTMLDivElement>(null);
-  const rawLyricsTargetScrollTopRef = useRef(0);
-  const rawLyricsAnimationFrameRef = useRef<number | null>(null);
+  const rawLyricsLastYRef = useRef(0);
+  const rawLyricsLastTimeRef = useRef(0);
+  const rawLyricsVelocityRef = useRef(0);
+  const rawLyricsMomentumRafRef = useRef<number | null>(null);
 
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 639px)');
@@ -165,8 +167,9 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
       if (manualScrollTimeoutRef.current) {
         clearTimeout(manualScrollTimeoutRef.current);
       }
-      if (rawLyricsAnimationFrameRef.current !== null) {
-        cancelAnimationFrame(rawLyricsAnimationFrameRef.current);
+
+      if (rawLyricsMomentumRafRef.current !== null) {
+        cancelAnimationFrame(rawLyricsMomentumRafRef.current);
       }
     };
   }, []);
@@ -229,6 +232,7 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
       setScrollOffset(0);
       setIsDragging(false);
       setIsManualScrolling(false);
+      setIsRawLyricsDragging(false);
       setLastTrackId(currentTrack.id);
 
       // Clear any pending timeouts
@@ -236,6 +240,13 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
         clearTimeout(manualScrollTimeoutRef.current);
         manualScrollTimeoutRef.current = null;
       }
+
+      if (rawLyricsMomentumRafRef.current !== null) {
+        cancelAnimationFrame(rawLyricsMomentumRafRef.current);
+        rawLyricsMomentumRafRef.current = null;
+      }
+
+      rawLyricsVelocityRef.current = 0;
     }
   }, [currentTrack, lastTrackId]);
 
@@ -276,45 +287,66 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
   useEffect(() => {
     if (isMobile || !isRawLyricsDragging) return;
 
-    const animateRawLyricsScroll = () => {
-      const container = rawLyricsContainerRef.current;
-      if (!container) {
-        rawLyricsAnimationFrameRef.current = null;
-        return;
-      }
-
-      const target = rawLyricsTargetScrollTopRef.current;
-      const current = container.scrollTop;
-      const delta = target - current;
-
-      // Eased follow makes drag scrolling feel less jumpy.
-      if (Math.abs(delta) < 0.5) {
-        container.scrollTop = target;
-        rawLyricsAnimationFrameRef.current = null;
-        return;
-      }
-
-      container.scrollTop = current + delta * 0.35;
-      rawLyricsAnimationFrameRef.current = requestAnimationFrame(animateRawLyricsScroll);
-    };
-
     const handleRawLyricsMouseMove = (e: MouseEvent) => {
       const container = rawLyricsContainerRef.current;
       if (!container) return;
 
       e.preventDefault();
-      const deltaY = e.clientY - rawLyricsDragStart.y;
-      const rawTarget = rawLyricsDragStart.scrollTop - deltaY;
-      const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
-      rawLyricsTargetScrollTopRef.current = Math.min(Math.max(rawTarget, 0), maxScrollTop);
+      const now = performance.now();
+      const deltaYFromLast = e.clientY - rawLyricsLastYRef.current;
+      const elapsed = Math.max(1, now - rawLyricsLastTimeRef.current);
+      // Keep a smoothed drag velocity (px per ms) to drive momentum on release.
+      const instantVelocity = deltaYFromLast / elapsed;
+      rawLyricsVelocityRef.current = rawLyricsVelocityRef.current * 0.75 + instantVelocity * 0.25;
+      rawLyricsLastYRef.current = e.clientY;
+      rawLyricsLastTimeRef.current = now;
 
-      if (rawLyricsAnimationFrameRef.current === null) {
-        rawLyricsAnimationFrameRef.current = requestAnimationFrame(animateRawLyricsScroll);
-      }
+      const deltaY = e.clientY - rawLyricsDragStart.y;
+      container.scrollTop = rawLyricsDragStart.scrollTop - deltaY;
     };
 
     const handleRawLyricsMouseUp = () => {
+      const container = rawLyricsContainerRef.current;
+      const initialVelocity = rawLyricsVelocityRef.current;
       setIsRawLyricsDragging(false);
+
+      if (!container) return;
+      if (Math.abs(initialVelocity) < 0.02) {
+        rawLyricsVelocityRef.current = 0;
+        return;
+      }
+
+      let velocity = initialVelocity;
+      let previousTime = performance.now();
+      const friction = 0.95;
+
+      const animateMomentum = (currentTime: number) => {
+        const scrollContainer = rawLyricsContainerRef.current;
+        if (!scrollContainer) {
+          rawLyricsMomentumRafRef.current = null;
+          return;
+        }
+
+        const dt = Math.max(1, currentTime - previousTime);
+        previousTime = currentTime;
+
+        scrollContainer.scrollTop -= velocity * dt * 16;
+        velocity *= friction;
+
+        const atTop = scrollContainer.scrollTop <= 0;
+        const atBottom = scrollContainer.scrollTop + scrollContainer.clientHeight >= scrollContainer.scrollHeight;
+        const hitBoundary = (velocity > 0 && atTop) || (velocity < 0 && atBottom);
+
+        if (Math.abs(velocity) < 0.01 || hitBoundary) {
+          rawLyricsMomentumRafRef.current = null;
+          rawLyricsVelocityRef.current = 0;
+          return;
+        }
+
+        rawLyricsMomentumRafRef.current = requestAnimationFrame(animateMomentum);
+      };
+
+      rawLyricsMomentumRafRef.current = requestAnimationFrame(animateMomentum);
     };
 
     document.addEventListener('mousemove', handleRawLyricsMouseMove);
@@ -323,10 +355,6 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
     return () => {
       document.removeEventListener('mousemove', handleRawLyricsMouseMove);
       document.removeEventListener('mouseup', handleRawLyricsMouseUp);
-      if (rawLyricsAnimationFrameRef.current !== null) {
-        cancelAnimationFrame(rawLyricsAnimationFrameRef.current);
-        rawLyricsAnimationFrameRef.current = null;
-      }
     };
   }, [isMobile, isRawLyricsDragging, rawLyricsDragStart]);
 
@@ -451,8 +479,14 @@ export const LyricsDisplay: React.FC<LyricsDisplayProps> = ({
           onMouseDown={!isMobile ? (e) => {
             if (!rawLyricsContainerRef.current) return;
             e.preventDefault();
+            if (rawLyricsMomentumRafRef.current !== null) {
+              cancelAnimationFrame(rawLyricsMomentumRafRef.current);
+              rawLyricsMomentumRafRef.current = null;
+            }
             setIsRawLyricsDragging(true);
-            rawLyricsTargetScrollTopRef.current = rawLyricsContainerRef.current.scrollTop;
+            rawLyricsVelocityRef.current = 0;
+            rawLyricsLastYRef.current = e.clientY;
+            rawLyricsLastTimeRef.current = performance.now();
             setRawLyricsDragStart({
               y: e.clientY,
               scrollTop: rawLyricsContainerRef.current.scrollTop
