@@ -35,20 +35,19 @@ jobs:
         if: github.event_name == 'push'
         id: bump
         run: |
-          msg="${{ github.event.head_commit.message }}"
+          msg="$(printf '%s' "${{ github.event.head_commit.message }}" | head -n1)"
           bump="patch"
-          increment=1
-          if echo "$msg" | grep -Eiq 'release-major(\+[0-9]+)?|major:'; then
-            bump="major"
-          elif echo "$msg" | grep -Eiq 'release-minor(\+[0-9]+)?|minor:|^feat(\(.+\))?:'; then
-            bump="minor"
-          elif echo "$msg" | grep -Eiq 'release-patch(\+[0-9]+)?|patch:|^fix(\(.+\))?:'; then
-            bump="patch"
-          fi
+          increment=5
 
-          explicit_increment="$(echo "$msg" | sed -nE 's/.*release-(major|minor|patch)\+([0-9]+).*/\2/p' | head -n1)"
-          if [ -n "$explicit_increment" ]; then
-            increment="$explicit_increment"
+          if echo "$msg" | grep -Eiq '^feat(\(.+\))?:'; then
+            bump="major"
+            increment=1
+          elif echo "$msg" | grep -Eiq '^refactor(\(.+\))?:|^perf(\(.+\))?:'; then
+            bump="minor"
+            increment=3
+          elif echo "$msg" | grep -Eiq '^fix(\(.+\))?:|^chore(\(.+\))?:|^docs(\(.+\))?:|^style(\(.+\))?:|^test(\(.+\))?:|^build(\(.+\))?:|^ci(\(.+\))?:|^revert(\(.+\))?:|^merge(\(.+\))?:'; then
+            bump="patch"
+            increment=5
           fi
 
           echo "bump_type=$bump" >> $GITHUB_OUTPUT
