@@ -1,6 +1,6 @@
 {
   "name": "audioweb",
-  "version": "31.1.1",
+  "version": "31.1.2",
   "description": "A modern, feature-rich web-based audio player built with Next.js, React, and TypeScript",
   "author": "KasunCSB",
   "homepage": "https://aw.kasunc.uk",
