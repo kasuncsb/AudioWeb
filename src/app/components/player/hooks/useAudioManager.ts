@@ -16,6 +16,7 @@ interface DetectedFrequencies {
   subPeak: number;       // Sub-bass "body" frequency (25-80Hz)
   treblePeak: number;    // Treble "air" frequency (6-16kHz)
   confidence: number;    // Analysis confidence (0-1)
+  loudnessDb: number;    // Integrated track loudness estimate (dBFS)
 }
 
 // Default frequencies when analysis unavailable
@@ -24,6 +25,7 @@ const DEFAULT_FREQUENCIES: DetectedFrequencies = {
   subPeak: 45,
   treblePeak: 10000,
   confidence: 0,
+  loudnessDb: -18,
 };
 
 // Frequency detection bounds (industry-standard ranges)
@@ -71,7 +73,7 @@ function analyzeBufferAtPosition(
   audioBuffer: AudioBuffer,
   position: number,
   fftSize: number
-): { bass: { freq: number; energy: number }; sub: { freq: number; energy: number }; treble: { freq: number; energy: number } } {
+): { bass: { freq: number; energy: number }; sub: { freq: number; energy: number }; treble: { freq: number; energy: number }; loudnessDb: number } {
   const sampleRate = audioBuffer.sampleRate;
   const channelData = audioBuffer.getChannelData(0); // Use first channel
   const startSample = Math.floor(position * sampleRate);
@@ -84,6 +86,15 @@ function analyzeBufferAtPosition(
     samples[i] = channelData[startSample + i] * windowMultiplier;
   }
 
+  // Short-window loudness estimate (RMS in dBFS).
+  let sumSquares = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const s = samples[i];
+    sumSquares += s * s;
+  }
+  const rms = Math.sqrt(sumSquares / Math.max(1, samples.length));
+  const loudnessDb = rms > 0 ? Math.max(-60, 20 * Math.log10(rms)) : -60;
+
   // Compute FFT magnitude spectrum
   const spectrum = computeFFTMagnitude(samples, sampleRate);
   
@@ -92,7 +103,7 @@ function analyzeBufferAtPosition(
   const sub = findCentroidInRange(spectrum, sampleRate, fftSize, FREQ_BOUNDS.sub.min, FREQ_BOUNDS.sub.max);
   const treble = findCentroidInRange(spectrum, sampleRate, fftSize, FREQ_BOUNDS.treble.min, FREQ_BOUNDS.treble.max);
 
-  return { bass, sub, treble };
+  return { bass, sub, treble, loudnessDb };
 }
 
 /**
@@ -275,7 +286,7 @@ async function analyzeFullTrack(trackUrl: string, file?: File, cacheKey?: string
       const endPos = duration * (1 - skipPercent);
       const interval = (endPos - startPos) / samplePoints;
 
-      const results: Array<{ bass: { freq: number; energy: number }; sub: { freq: number; energy: number }; treble: { freq: number; energy: number } }> = [];
+      const results: Array<{ bass: { freq: number; energy: number }; sub: { freq: number; energy: number }; treble: { freq: number; energy: number }; loudnessDb: number }> = [];
 
       // Process in batches with yielding to avoid blocking the main thread.
       // Each 8192-pt FFT is ~100K operations; batching 10 at a time keeps
@@ -297,6 +308,7 @@ async function analyzeFullTrack(trackUrl: string, file?: File, cacheKey?: string
       let bassWeightedSum = 0, bassWeightTotal = 0;
       let subWeightedSum = 0, subWeightTotal = 0;
       let trebleWeightedSum = 0, trebleWeightTotal = 0;
+      let loudnessPowerSum = 0;
       let maxBassEnergy = -Infinity, maxSubEnergy = -Infinity, maxTrebleEnergy = -Infinity;
 
       for (const r of results) {
@@ -304,6 +316,7 @@ async function analyzeFullTrack(trackUrl: string, file?: File, cacheKey?: string
         const bassWeight = Math.pow(10, (r.bass.energy + 60) / 40);
         const subWeight = Math.pow(10, (r.sub.energy + 60) / 40);
         const trebleWeight = Math.pow(10, (r.treble.energy + 60) / 40);
+        const loudnessPower = Math.pow(10, r.loudnessDb / 10);
 
         bassWeightedSum += r.bass.freq * bassWeight;
         bassWeightTotal += bassWeight;
@@ -311,6 +324,7 @@ async function analyzeFullTrack(trackUrl: string, file?: File, cacheKey?: string
         subWeightTotal += subWeight;
         trebleWeightedSum += r.treble.freq * trebleWeight;
         trebleWeightTotal += trebleWeight;
+        loudnessPowerSum += loudnessPower;
 
         maxBassEnergy = Math.max(maxBassEnergy, r.bass.energy);
         maxSubEnergy = Math.max(maxSubEnergy, r.sub.energy);
@@ -321,6 +335,9 @@ async function analyzeFullTrack(trackUrl: string, file?: File, cacheKey?: string
       const bassPeak = bassWeightTotal > 0 ? Math.round(bassWeightedSum / bassWeightTotal) : DEFAULT_FREQUENCIES.bassPeak;
       const subPeak = subWeightTotal > 0 ? Math.round(subWeightedSum / subWeightTotal) : DEFAULT_FREQUENCIES.subPeak;
       const treblePeak = trebleWeightTotal > 0 ? Math.round(trebleWeightedSum / trebleWeightTotal) : DEFAULT_FREQUENCIES.treblePeak;
+      const loudnessDb = loudnessPowerSum > 0
+        ? Math.max(-60, 10 * Math.log10(loudnessPowerSum / results.length))
+        : DEFAULT_FREQUENCIES.loudnessDb;
 
       // Calculate confidence based on peak energy levels
       const noiseFloor = -60;
@@ -330,11 +347,11 @@ async function analyzeFullTrack(trackUrl: string, file?: File, cacheKey?: string
       const trebleConf = Math.min(1, Math.max(0, (maxTrebleEnergy - noiseFloor) / signalRange));
       const confidence = (bassConf + subConf + trebleConf) / 3;
 
-      const detected: DetectedFrequencies = { bassPeak, subPeak, treblePeak, confidence };
+      const detected: DetectedFrequencies = { bassPeak, subPeak, treblePeak, confidence, loudnessDb };
 
       const elapsed = performance.now() - startTime;
       const trebleDisplay = treblePeak >= 1000 ? `${(treblePeak / 1000).toFixed(1)}k` : `${treblePeak}`;
-      logger.info(`EQ tuned: ${bassPeak}Hz / ${subPeak}Hz / ${trebleDisplay}Hz (${(elapsed / 1000).toFixed(1)}s)`);
+      logger.info(`EQ tuned: ${bassPeak}Hz / ${subPeak}Hz / ${trebleDisplay}Hz, loudness ${loudnessDb.toFixed(1)}dBFS (${(elapsed / 1000).toFixed(1)}s)`);
 
       // Cache result (in-memory only)
       cacheFrequencies(trackUrl, detected);
@@ -360,7 +377,7 @@ interface AudioChain {
 
   // Simple Signal Flow:
   // Source → Analyser → HPF → Preamp → EQ → Bass → Treble → Limiter → Normalizer → Output
-  normalizerGain: GainNode;            // Session loudness baseline (track-consistent)
+  normalizerGain: GainNode;            // Session loudness compensation output trim
   preamp: GainNode;                    // Input headroom control
   highPass: BiquadFilterNode;          // Rumble removal
   filters: BiquadFilterNode[];         // 10-band EQ
@@ -397,8 +414,10 @@ export const useAudioManager = (
   const [isChainReady, setIsChainReady] = useState(false);
   const fadeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isFadingRef = useRef<boolean>(false);
-  const hasCapturedNormalizerBaselineRef = useRef<boolean>(false);
-  const normalizerBaselineRef = useRef<number>(Math.max(0, volume / 100));
+  const hasSessionAnchorRef = useRef<boolean>(false);
+  const sessionAnchorLoudnessRef = useRef<number>(DEFAULT_FREQUENCIES.loudnessDb);
+  const sessionAnchorOutputRef = useRef<number>(Math.max(0, volume / 100));
+  const currentTrackLoudnessRef = useRef<number>(DEFAULT_FREQUENCIES.loudnessDb);
   const hasInitializedVolumeEffectRef = useRef<boolean>(false);
   // Always-current volume ref so fadeIn/chain-init read the latest value
   // regardless of when their closures were created.
@@ -407,23 +426,60 @@ export const useAudioManager = (
 
   const scheduleNormalizerGain = useCallback((chain: AudioChain, target: number, rampSeconds: number = 0.1) => {
     const now = chain.context.currentTime;
-    // Keep normalizer trim conservative: attenuation-only to avoid adding gain
-    // on top of aggressive EQ presets.
-    const safeTarget = Math.max(0, Math.min(1, target));
+    const safeTarget = Math.max(0.01, Math.min(8, target));
     chain.normalizerGain.gain.cancelScheduledValues(now);
     chain.normalizerGain.gain.setValueAtTime(chain.normalizerGain.gain.value, now);
     chain.normalizerGain.gain.linearRampToValueAtTime(safeTarget, now + rampSeconds);
   }, []);
 
-  const captureFirstPlaybackBaseline = useCallback((chain: AudioChain) => {
-    if (hasCapturedNormalizerBaselineRef.current) return;
-    const captured = Math.max(0, Math.min(1, volumeRef.current / 100));
-    normalizerBaselineRef.current = captured;
-    hasCapturedNormalizerBaselineRef.current = true;
-    // Initial playback establishes the session baseline.
-    scheduleNormalizerGain(chain, captured, 0.05);
-    logger.info(`Normalizer baseline captured: ${(captured * 100).toFixed(0)}%`);
-  }, [scheduleNormalizerGain]);
+  const getTrackLoudness = useCallback((trackUrl: string): number => {
+    const cached = frequencyCache.get(trackUrl);
+    return cached?.loudnessDb ?? DEFAULT_FREQUENCIES.loudnessDb;
+  }, []);
+
+  const getEqAwareBoostCapDb = useCallback((): number => {
+    if (!equalizerSettings.enabled) return 12;
+    const eqGains = [
+      equalizerSettings.band32, equalizerSettings.band64, equalizerSettings.band125,
+      equalizerSettings.band250, equalizerSettings.band500, equalizerSettings.band1k,
+      equalizerSettings.band2k, equalizerSettings.band4k, equalizerSettings.band8k,
+      equalizerSettings.band16k,
+    ];
+    const eqBoost = eqGains.reduce((sum, g) => sum + Math.max(0, g), 0);
+    const toneBoost = Math.max(0, equalizerSettings.bassTone) * 1.7 + Math.max(0, equalizerSettings.trebleTone);
+    const pressure = eqBoost + toneBoost;
+    return pressure > 18 ? 6 : 12;
+  }, [equalizerSettings]);
+
+  const computeNormalizedOutputGain = useCallback((trackLoudnessDb: number): number => {
+    const anchorOutput = Math.max(0.01, sessionAnchorOutputRef.current);
+    const deltaDb = sessionAnchorLoudnessRef.current - trackLoudnessDb;
+    const rawGain = anchorOutput * Math.pow(10, deltaDb / 20);
+    const minGain = Math.pow(10, -24 / 20);
+    const maxGain = Math.pow(10, getEqAwareBoostCapDb() / 20);
+    return Math.max(minGain, Math.min(maxGain, rawGain));
+  }, [getEqAwareBoostCapDb]);
+
+  const captureSessionAnchor = useCallback((reason: string, loudnessDb: number, outputGain: number) => {
+    sessionAnchorLoudnessRef.current = loudnessDb;
+    sessionAnchorOutputRef.current = Math.max(0.01, Math.min(1, outputGain));
+    hasSessionAnchorRef.current = true;
+    logger.debug(`Normalizer anchor (${reason}): ${loudnessDb.toFixed(1)}dBFS @ ${(sessionAnchorOutputRef.current * 100).toFixed(0)}%`);
+  }, []);
+
+  const applyTrackCompensation = useCallback((reason: string, rampSeconds: number = 0.08) => {
+    const chain = audioChainRef.current;
+    if (!chain?.connected) return;
+
+    if (!equalizerSettings.enabled || !equalizerSettings.normalizerEnabled || !hasSessionAnchorRef.current) {
+      scheduleNormalizerGain(chain, Math.max(0.01, volumeRef.current / 100), rampSeconds);
+      return;
+    }
+
+    const compensatedGain = computeNormalizedOutputGain(currentTrackLoudnessRef.current);
+    scheduleNormalizerGain(chain, compensatedGain, rampSeconds);
+    logger.debug(`Normalizer ${reason}: ${currentTrackLoudnessRef.current.toFixed(1)}dBFS -> ${(compensatedGain * 100).toFixed(0)}%`);
+  }, [equalizerSettings.enabled, equalizerSettings.normalizerEnabled, computeNormalizedOutputGain, scheduleNormalizerGain]);
 
   // ===== ADAPTIVE FREQUENCY STATE =====
   const detectedFreqRef = useRef<DetectedFrequencies>(DEFAULT_FREQUENCIES);
@@ -472,10 +528,16 @@ export const useAudioManager = (
 
     // Read chain ref AFTER await to get current value (not stale)
     const chain = audioChainRef.current;
+    if (currentTrackUrlRef.current === trackUrl) {
+      currentTrackLoudnessRef.current = detected.loudnessDb;
+    }
     if (chain?.connected) {
       applyDetectedFrequencies(chain, detected);
+      if (isPlaying && currentTrackUrlRef.current === trackUrl) {
+        applyTrackCompensation('analysis-update', 0.12);
+      }
     }
-  }, [applyDetectedFrequencies]);
+  }, [applyDetectedFrequencies, isPlaying, applyTrackCompensation]);
 
   // Fade in audio
   const fadeIn = useCallback((duration: number = 800) => {
@@ -491,7 +553,10 @@ export const useAudioManager = (
 
     if (chain?.outputGain && chain.connected) {
       try {
-        captureFirstPlaybackBaseline(chain);
+        if (!hasSessionAnchorRef.current) {
+          captureSessionAnchor('first-play', currentTrackLoudnessRef.current, volumeRef.current / 100);
+        }
+        applyTrackCompensation('playback-start', 0.05);
         isFadingRef.current = true;
         const now = chain.context.currentTime;
         chain.outputGain.gain.cancelScheduledValues(now);
@@ -517,7 +582,7 @@ export const useAudioManager = (
     }
 
     audio.volume = targetVolume;
-  }, [captureFirstPlaybackBaseline]);
+  }, [captureSessionAnchor, applyTrackCompensation]);
 
   // Fade out audio
   const fadeOut = useCallback((duration: number = 800): Promise<void> => {
@@ -671,8 +736,8 @@ export const useAudioManager = (
         // ===== NORMALIZER - Session output-level trim =====
         // Placed post-processing to avoid affecting EQ/tonal chain behavior.
         const normalizerGain = audioContext.createGain();
-        const baselineGain = hasCapturedNormalizerBaselineRef.current
-          ? normalizerBaselineRef.current
+        const baselineGain = hasSessionAnchorRef.current
+          ? sessionAnchorOutputRef.current
           : Math.max(0, volumeRef.current / 100);
         normalizerGain.gain.value = baselineGain;
 
@@ -960,12 +1025,13 @@ export const useAudioManager = (
     if (currentTrackUrlRef.current !== trackUrl) {
       currentTrackUrlRef.current = trackUrl;
       analysisCompleteRef.current = false;
+      currentTrackLoudnessRef.current = getTrackLoudness(trackUrl);
 
       // Run full-track analysis (async, doesn't block playback)
       logger.debug('Starting full-track frequency analysis for:', currentTrack.title);
       runFrequencyAnalysis(trackUrl, currentTrack.file, currentTrack.cacheKey);
     }
-  }, [playlist, currentTrackIndex, runFrequencyAnalysis]);
+  }, [playlist, currentTrackIndex, runFrequencyAnalysis, getTrackLoudness]);
 
   // Apply detected frequencies when chain becomes ready (if analysis completed first)
   useEffect(() => {
@@ -1032,9 +1098,8 @@ export const useAudioManager = (
 
     const targetVolume = volume / 100;
 
-    // User volume updates always win and become the new session baseline.
-    normalizerBaselineRef.current = targetVolume;
-    hasCapturedNormalizerBaselineRef.current = true;
+    // User volume updates are explicit intent: re-anchor session baseline.
+    captureSessionAnchor('volume-change', currentTrackLoudnessRef.current, targetVolume);
 
     if (chain?.normalizerGain && chain.connected && !isFadingRef.current) {
       try {
@@ -1046,17 +1111,17 @@ export const useAudioManager = (
     } else if (!isFadingRef.current) {
       audio.volume = targetVolume;
     }
-  }, [volume, scheduleNormalizerGain]);
+  }, [volume, scheduleNormalizerGain, captureSessionAnchor]);
 
   // On track transitions, re-apply the latest baseline for session-consistent level.
   // This behavior is active only when both EQ and Normalizer are enabled.
   useEffect(() => {
     if (!isPlaying) return;
-    if (!equalizerSettings.enabled || !equalizerSettings.normalizerEnabled) return;
-    const chain = audioChainRef.current;
-    if (!chain?.connected) return;
-    scheduleNormalizerGain(chain, normalizerBaselineRef.current, 0.08);
-  }, [currentTrackIndex, isPlaying, equalizerSettings.normalizerEnabled, equalizerSettings.enabled, scheduleNormalizerGain]);
+    const track = playlist[currentTrackIndex];
+    if (!track?.url) return;
+    currentTrackLoudnessRef.current = getTrackLoudness(track.url);
+    applyTrackCompensation('track-change', 0.08);
+  }, [currentTrackIndex, isPlaying, playlist, getTrackLoudness, applyTrackCompensation]);
 
   // Play/Pause handler
   const handlePlayPause = useCallback(() => {

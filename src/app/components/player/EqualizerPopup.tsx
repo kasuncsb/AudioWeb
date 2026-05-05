@@ -86,7 +86,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       band16k: 0,
       bassTone: 0,
       trebleTone: 0,
-      normalizerEnabled: settings.normalizerEnabled,
+      normalizerEnabled: false,
       preset: 'flat',
       enabled: settings.enabled,
     });
