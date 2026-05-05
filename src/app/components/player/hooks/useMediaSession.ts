@@ -151,13 +151,15 @@ export const useMediaSession = ({
       const safePosition = Math.max(0, Math.min(currentTime, duration));
       navigator.mediaSession.setPositionState({
         duration: duration,
-        playbackRate: isPlaying ? 1.0 : 0.0,
+        // The Media Session API rejects 0 playbackRate. Use a positive value
+        // even when paused so position updates remain valid.
+        playbackRate: 1.0,
         position: safePosition
       });
     } catch (error) {
       logger.warn('Failed to update position state:', error);
     }
-  }, [duration, currentTime, isPlaying]);
+  }, [duration, currentTime]);
 
   const updatePositionStateRef = useRef(updatePositionState);
   useEffect(() => {
