@@ -74,32 +74,22 @@ export const useMediaSession = ({
   }, []);
 
   const buildArtwork = useCallback((track: AudioTrack): MediaImage[] => {
-    const preferredSizes = ['96x96', '128x128', '192x192', '256x256', '384x384', '512x512'] as const;
+    const preferredSizes = ['96x96', '192x192', '256x256'] as const;
     if (track.albumArt) {
-      // Keep list compact to stay below browser MediaImage entry limits.
+      // Keep list very small - some browsers enforce strict MediaImage limits.
       const detectedType = resolveArtworkMime(track.albumArt);
       const albumArtEntries: MediaImage[] = preferredSizes.map((size) => ({
         src: track.albumArt!,
         sizes: size,
         type: detectedType ?? 'image/jpeg'
       }));
-      const fallbackEntries: MediaImage[] = [
-        { src: '/images/aw-logo.svg', sizes: '512x512', type: 'image/svg+xml' },
-        { src: '/images/aw-logo.svg', sizes: '256x256', type: 'image/svg+xml' },
-        { src: FALLBACK_ARTWORK_PNG, sizes: '128x128', type: 'image/png' },
-        { src: FALLBACK_ARTWORK_PNG, sizes: '96x96', type: 'image/png' }
-      ];
+      const fallbackEntries: MediaImage[] = [{ src: FALLBACK_ARTWORK_PNG, sizes: '128x128', type: 'image/png' }];
       return [...albumArtEntries, ...fallbackEntries];
     }
 
     return [
-      { src: '/images/aw-logo.svg', sizes: '512x512', type: 'image/svg+xml' },
       { src: '/images/aw-logo.svg', sizes: '256x256', type: 'image/svg+xml' },
       { src: '/images/aw-logo.svg', sizes: '128x128', type: 'image/svg+xml' },
-      { src: '/images/aw-logo.svg', sizes: '96x96', type: 'image/svg+xml' },
-      { src: FALLBACK_ARTWORK_PNG, sizes: '384x384', type: 'image/png' },
-      { src: FALLBACK_ARTWORK_PNG, sizes: '192x192', type: 'image/png' },
-      { src: FALLBACK_ARTWORK_PNG, sizes: '128x128', type: 'image/png' },
       { src: FALLBACK_ARTWORK_PNG, sizes: '96x96', type: 'image/png' }
     ];
   }, [resolveArtworkMime]);

@@ -359,7 +359,7 @@ interface AudioChain {
   source: MediaElementAudioSourceNode;
 
   // Simple Signal Flow:
-  // Source → Analyser → HPF → Normalizer → Preamp → EQ → Bass → Treble → Limiter → Output
+  // Source → Analyser → HPF → Preamp → EQ → Bass → Treble → Limiter → Normalizer → Output
   normalizerGain: GainNode;            // Session loudness baseline (track-consistent)
   preamp: GainNode;                    // Input headroom control
   highPass: BiquadFilterNode;          // Rumble removal
@@ -422,7 +422,7 @@ export const useAudioManager = (
 
   const captureFirstPlaybackBaseline = useCallback((chain: AudioChain) => {
     if (hasCapturedNormalizerBaselineRef.current) return;
-    const captured = Math.max(0, chain.outputGain.gain.value);
+    const captured = Math.max(0, chain.normalizerGain.gain.value);
     normalizerBaselineRef.current = captured;
     hasCapturedNormalizerBaselineRef.current = true;
     scheduleNormalizerGain(chain, captured, 0.05);
@@ -611,23 +611,15 @@ export const useAudioManager = (
         // Create MediaElementSource (can only be done once per element)
         const source = audioContext.createMediaElementSource(audio);
 
-        // ===== PREAMP - Input headroom =====
-        const preamp = audioContext.createGain();
-        preamp.gain.value = 0.8; // Start with headroom
-        // ===== NORMALIZER - Session loudness baseline =====
-        // Captures first playback session level and reuses across track changes.
-        // Updated only by explicit user volume changes.
-        const normalizerGain = audioContext.createGain();
-        normalizerGain.gain.value = hasCapturedNormalizerBaselineRef.current
-          ? normalizerBaselineRef.current
-          : Math.max(0, volumeRef.current / 100);
-
-
         // ===== HIGH-PASS FILTER - Rumble removal =====
         const highPass = audioContext.createBiquadFilter();
         highPass.type = 'highpass';
         highPass.frequency.value = 25; // Remove sub-20Hz rumble
         highPass.Q.value = 0.7;
+
+        // ===== PREAMP - Input headroom =====
+        const preamp = audioContext.createGain();
+        preamp.gain.value = 0.8; // Start with headroom
 
         // ===== 10-BAND EQ =====
         const filters: BiquadFilterNode[] = [];
@@ -680,8 +672,15 @@ export const useAudioManager = (
         limiter.attack.value = 0.003;    // 3ms - lets transients breathe
         limiter.release.value = 0.1;     // 100ms release - smooth recovery
 
+        // ===== NORMALIZER - Session output-level trim =====
+        // Placed post-processing to avoid affecting EQ/tonal chain behavior.
+        const normalizerGain = audioContext.createGain();
+        normalizerGain.gain.value = hasCapturedNormalizerBaselineRef.current
+          ? normalizerBaselineRef.current
+          : Math.max(0, volumeRef.current / 100);
+
         // ===== OUTPUT GAIN - Master volume =====
-        // Reserved for fades so user volume/session baseline stay in normalizerGain.
+        // Reserved for fades only; user/session level lives in normalizerGain.
         const outputGain = audioContext.createGain();
         outputGain.gain.value = 1;
 
@@ -691,12 +690,11 @@ export const useAudioManager = (
         } catch { }
 
         // ===== CONNECT SIMPLE CHAIN =====
-        // Source → Analyser → HPF → Normalizer → Preamp → EQ (10 bands) → Bass → Sub → Treble → Limiter → Output
+        // Source → Analyser → HPF → Preamp → EQ (10 bands) → Bass → Sub → Treble → Limiter → Normalizer → Output
         // Analyser placed early for raw frequency analysis (visualization + adaptive EQ detection)
         source.connect(analyser);
         analyser.connect(highPass);
-        highPass.connect(normalizerGain);
-        normalizerGain.connect(preamp);
+        highPass.connect(preamp);
 
         // Connect EQ chain
         let currentNode: AudioNode = preamp;
@@ -710,7 +708,8 @@ export const useAudioManager = (
         bassBoost.connect(subBoost);
         subBoost.connect(trebleBoost);
         trebleBoost.connect(limiter);
-        limiter.connect(outputGain);
+        limiter.connect(normalizerGain);
+        normalizerGain.connect(outputGain);
         outputGain.connect(audioContext.destination);
 
         // Store chain
@@ -735,7 +734,7 @@ export const useAudioManager = (
         setIsChainReady(true);
 
         logger.info('Audio chain initialized');
-        logger.debug('Signal Flow: Source → Analyser → HPF → Normalizer → Preamp → 10-Band EQ → Bass → Sub → Treble → Limiter → Output');
+        logger.debug('Signal Flow: Source → Analyser → HPF → Preamp → 10-Band EQ → Bass → Sub → Treble → Limiter → Normalizer → Output');
 
       } catch (error: unknown) {
         const err = error as Error;
