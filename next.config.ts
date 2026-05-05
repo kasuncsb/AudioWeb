@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import packageJson from "./package.json";
 
 const nextConfig: NextConfig = {
   // Docker optimization - standalone output
@@ -6,7 +7,7 @@ const nextConfig: NextConfig = {
 
   // Expose app version at build time so components don't import package.json at runtime
   env: {
-    NEXT_PUBLIC_APP_VERSION: require('./package.json').version,
+    NEXT_PUBLIC_APP_VERSION: packageJson.version,
   },
   
   webpack: (config) => {

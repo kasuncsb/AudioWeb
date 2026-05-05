@@ -238,7 +238,7 @@ export const useMediaSession = ({
   useEffect(() => {
     updatePlaybackState();
     updatePositionState(true);
-  }, [updatePlaybackState]);
+  }, [updatePlaybackState, updatePositionState]);
 
   // Immediate updates for duration/current time transitions and track changes
   useEffect(() => {
