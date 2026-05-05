@@ -430,19 +430,6 @@ export const LOG_LEVELS = {
 export const FREQUENCY_CACHE_MAX_SIZE = 50;
 
 /**
- * Loudness normalizer settings
- * Target and guard values are intentionally conservative for transparent playback.
- */
-export const LOUDNESS_TARGET_DBFS = -14.5;         // Upward normalization target (RMS proxy)
-export const NORMALIZER_GAIN_MIN_DB = 0;           // Do not cut loud tracks
-export const NORMALIZER_GAIN_MAX_DB = 10;          // Cap boost for transparency
-export const NORMALIZER_RAMP_TIME_SEC = 0.18;      // Faster but click-free transition
-export const NORMALIZER_ANALYSIS_WINDOW_SEC = 0.35; // Short-term loudness window
-export const NORMALIZER_ANALYSIS_SAMPLE_POINTS = 80;
-export const NORMALIZER_NOISE_FLOOR_DBFS = -52;    // Ignore near-silence sections
-export const NORMALIZER_PEAK_HEADROOM_DB = 1;      // Keep ~1dB headroom before limiter
-
-/**
  * Development mode flag
  */
 export const IS_DEV = process.env.NODE_ENV === 'development';
