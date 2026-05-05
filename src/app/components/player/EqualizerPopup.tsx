@@ -54,6 +54,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       band16k: preset.gains[9],
       bassTone: preset.bassTone,
       trebleTone: preset.trebleTone,
+      normalizerEnabled: settings.normalizerEnabled,
       preset: presetKey,
       enabled: settings.enabled,
     };
@@ -85,6 +86,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       band16k: 0,
       bassTone: 0,
       trebleTone: 0,
+      normalizerEnabled: settings.normalizerEnabled,
       preset: 'flat',
       enabled: settings.enabled,
     });
@@ -94,6 +96,14 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
     onUpdateSettings({
       ...settings,
       enabled: !settings.enabled,
+    });
+  };
+
+  const handleToggleNormalizer = () => {
+    if (!settings.enabled) return;
+    onUpdateSettings({
+      ...settings,
+      normalizerEnabled: !settings.normalizerEnabled,
     });
   };
 
@@ -593,6 +603,31 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                     </div>
                   </div>
                 </div>
+
+                {/* Volume Control */}
+                <div className="space-y-3 p-4 rounded-xl bg-linear-to-br from-emerald-500/10 to-cyan-500/10 border border-emerald-500/20">
+                  <h3 className="text-xs font-semibold text-emerald-300/80 uppercase tracking-wider flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M14 3.23v17.54c0 .42-.49.64-.8.36L7.83 16H4c-.55 0-1-.45-1-1V9c0-.55.45-1 1-1h3.83l5.37-5.13c.31-.28.8-.06.8.36zM16.5 8.5a1 1 0 011.41 0 5 5 0 010 7.07 1 1 0 01-1.41-1.41 3 3 0 000-4.24 1 1 0 010-1.42z" />
+                    </svg>
+                    Volume Control
+                  </h3>
+                  <button
+                    onClick={handleToggleNormalizer}
+                    disabled={!settings.enabled}
+                    className={`w-full px-4 py-2 rounded-xl transition-all duration-200 text-sm font-medium border ${!settings.enabled
+                      ? 'bg-white/5 text-white/30 border-white/10 cursor-not-allowed'
+                      : settings.normalizerEnabled
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                        : 'bg-red-500/20 text-red-300 border-red-500/40'
+                      }`}
+                  >
+                    {settings.normalizerEnabled ? 'Normalizer Enabled' : 'Normalizer Disabled'}
+                  </button>
+                  <p className="text-[10px] text-white/50">
+                    Keeps output level consistent between tracks. Turn off for pure manual volume.
+                  </p>
+                </div>
               </div>
             </div>
           );
@@ -784,6 +819,30 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                     </div>
                   </div>
 
+                </div>
+
+                <div className="space-y-3 p-4 rounded-xl bg-linear-to-br from-emerald-500/10 to-cyan-500/10 border border-emerald-500/20">
+                  <h3 className="text-xs font-semibold text-emerald-300/80 uppercase tracking-wider flex items-center gap-2">
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M14 3.23v17.54c0 .42-.49.64-.8.36L7.83 16H4c-.55 0-1-.45-1-1V9c0-.55.45-1 1-1h3.83l5.37-5.13c.31-.28.8-.06.8.36zM16.5 8.5a1 1 0 011.41 0 5 5 0 010 7.07 1 1 0 01-1.41-1.41 3 3 0 000-4.24 1 1 0 010-1.42z" />
+                    </svg>
+                    Volume Control
+                  </h3>
+                  <button
+                    onClick={handleToggleNormalizer}
+                    disabled={!settings.enabled}
+                    className={`w-full px-4 py-2 rounded-xl transition-all duration-200 text-sm font-medium border ${!settings.enabled
+                      ? 'bg-white/5 text-white/30 border-white/10 cursor-not-allowed'
+                      : settings.normalizerEnabled
+                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                        : 'bg-red-500/20 text-red-300 border-red-500/40'
+                      }`}
+                  >
+                    {settings.normalizerEnabled ? 'Normalizer Enabled' : 'Normalizer Disabled'}
+                  </button>
+                  <p className="text-[10px] text-white/50">
+                    Keeps output level consistent between tracks. Turn off for pure manual volume.
+                  </p>
                 </div>
               </div>
             </div>

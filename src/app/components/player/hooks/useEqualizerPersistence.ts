@@ -18,6 +18,7 @@ const defaultSettings: EqualizerSettings = {
   band16k: 0,
   bassTone: 0,
   trebleTone: 0,
+  normalizerEnabled: false,
   preset: 'flat',
   enabled: false,
 };
@@ -36,9 +37,10 @@ export const useEqualizerPersistence = (shouldInit: boolean = false) => {
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.EQUALIZER_SETTINGS);
       if (stored) {
-        const parsed = JSON.parse(stored) as EqualizerSettings;
-        setSettings(parsed);
-        logger.info('Equalizer settings loaded from localStorage:', parsed.preset);
+        const parsed = JSON.parse(stored) as Partial<EqualizerSettings>;
+        const merged: EqualizerSettings = { ...defaultSettings, ...parsed };
+        setSettings(merged);
+        logger.info('Equalizer settings loaded from localStorage:', merged.preset);
       } else {
         // Fresh user: don't overwrite in-memory settings the user may have
         // already changed. If the current in-memory settings differ from

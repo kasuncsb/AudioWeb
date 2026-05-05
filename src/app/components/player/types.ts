@@ -165,6 +165,9 @@ export interface EqualizerSettings {
   bassTone: number;    // -12 to +12 dB - Deep bass enhancement
   trebleTone: number;  // -12 to +12 dB - Crisp treble enhancement
 
+  // Session normalizer toggle
+  normalizerEnabled: boolean;
+
   preset: string;
   enabled: boolean;  // Master EQ on/off toggle
 }

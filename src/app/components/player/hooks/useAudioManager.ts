@@ -415,14 +415,18 @@ export const useAudioManager = (
     chain.normalizerGain.gain.linearRampToValueAtTime(safeTarget, now + rampSeconds);
   }, []);
 
+  const getNormalizerTargetGain = useCallback((baseGain: number, normalizerEnabled: boolean, eqEnabled: boolean) => {
+    return normalizerEnabled && eqEnabled ? Math.max(0, Math.min(1, baseGain)) : 1;
+  }, []);
+
   const captureFirstPlaybackBaseline = useCallback((chain: AudioChain) => {
     if (hasCapturedNormalizerBaselineRef.current) return;
     const captured = Math.max(0, Math.min(1, volumeRef.current / 100));
     normalizerBaselineRef.current = captured;
     hasCapturedNormalizerBaselineRef.current = true;
-    scheduleNormalizerGain(chain, captured, 0.05);
+    scheduleNormalizerGain(chain, getNormalizerTargetGain(captured, equalizerSettings.normalizerEnabled, equalizerSettings.enabled), 0.05);
     logger.info(`Normalizer baseline captured: ${(captured * 100).toFixed(0)}%`);
-  }, [scheduleNormalizerGain]);
+  }, [scheduleNormalizerGain, getNormalizerTargetGain, equalizerSettings.normalizerEnabled, equalizerSettings.enabled]);
 
   // ===== ADAPTIVE FREQUENCY STATE =====
   const detectedFreqRef = useRef<DetectedFrequencies>(DEFAULT_FREQUENCIES);
@@ -670,9 +674,14 @@ export const useAudioManager = (
         // ===== NORMALIZER - Session output-level trim =====
         // Placed post-processing to avoid affecting EQ/tonal chain behavior.
         const normalizerGain = audioContext.createGain();
-        normalizerGain.gain.value = hasCapturedNormalizerBaselineRef.current
+        const baselineGain = hasCapturedNormalizerBaselineRef.current
           ? normalizerBaselineRef.current
           : Math.max(0, volumeRef.current / 100);
+        normalizerGain.gain.value = getNormalizerTargetGain(
+          baselineGain,
+          equalizerSettings.normalizerEnabled,
+          equalizerSettings.enabled
+        );
 
         // ===== OUTPUT GAIN - Master volume =====
         // Reserved for fades only; user/session level lives in normalizerGain.
@@ -749,7 +758,7 @@ export const useAudioManager = (
       audio.removeEventListener('play', initAudioChain);
       if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);
     };
-  }, []);
+  }, [getNormalizerTargetGain, equalizerSettings.normalizerEnabled, equalizerSettings.enabled]);
 
   // Apply equalizer settings - clean and simple
   const applyEqualizerSettingsToChain = (chain: AudioChain, settings: EqualizerSettings) => {
@@ -1036,14 +1045,30 @@ export const useAudioManager = (
 
     if (chain?.normalizerGain && chain.connected && !isFadingRef.current) {
       try {
-        scheduleNormalizerGain(chain, targetVolume, 0.1);
+        scheduleNormalizerGain(
+          chain,
+          getNormalizerTargetGain(targetVolume, equalizerSettings.normalizerEnabled, equalizerSettings.enabled),
+          0.1
+        );
       } catch {
         audio.volume = targetVolume;
       }
     } else if (!isFadingRef.current) {
       audio.volume = targetVolume;
     }
-  }, [volume, scheduleNormalizerGain]);
+  }, [volume, scheduleNormalizerGain, getNormalizerTargetGain, equalizerSettings.normalizerEnabled, equalizerSettings.enabled]);
+
+  // Toggle normalizer on/off without changing stored baseline.
+  useEffect(() => {
+    const chain = audioChainRef.current;
+    if (!chain?.connected) return;
+    const target = getNormalizerTargetGain(
+      normalizerBaselineRef.current,
+      equalizerSettings.normalizerEnabled,
+      equalizerSettings.enabled
+    );
+    scheduleNormalizerGain(chain, target, 0.08);
+  }, [equalizerSettings.normalizerEnabled, equalizerSettings.enabled, getNormalizerTargetGain, scheduleNormalizerGain]);
 
   // Play/Pause handler
   const handlePlayPause = useCallback(() => {
