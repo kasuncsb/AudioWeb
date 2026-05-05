@@ -359,7 +359,8 @@ interface AudioChain {
   source: MediaElementAudioSourceNode;
 
   // Simple Signal Flow:
-  // Source → Analyser → Preamp → HPF → EQ → Bass → Treble → Limiter → Output
+  // Source → Analyser → HPF → Normalizer → Preamp → EQ → Bass → Treble → Limiter → Output
+  normalizerGain: GainNode;            // Session loudness baseline (track-consistent)
   preamp: GainNode;                    // Input headroom control
   highPass: BiquadFilterNode;          // Rumble removal
   filters: BiquadFilterNode[];         // 10-band EQ
@@ -396,10 +397,37 @@ export const useAudioManager = (
   const [isChainReady, setIsChainReady] = useState(false);
   const fadeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isFadingRef = useRef<boolean>(false);
+  const hasCapturedNormalizerBaselineRef = useRef<boolean>(false);
+  const normalizerBaselineRef = useRef<number>(Math.max(0, volume / 100));
+  const hasInitializedVolumeEffectRef = useRef<boolean>(false);
   // Always-current volume ref so fadeIn/chain-init read the latest value
   // regardless of when their closures were created.
   const volumeRef = useRef(volume);
   useEffect(() => { volumeRef.current = volume; }, [volume]);
+
+  const scheduleNormalizerGain = useCallback((chain: AudioChain, target: number, rampSeconds: number = 0.1) => {
+    const now = chain.context.currentTime;
+    const safeTarget = Math.max(0, target);
+    chain.normalizerGain.gain.cancelScheduledValues(now);
+    chain.normalizerGain.gain.setValueAtTime(chain.normalizerGain.gain.value, now);
+    chain.normalizerGain.gain.linearRampToValueAtTime(safeTarget, now + rampSeconds);
+  }, []);
+
+  const applySessionNormalizer = useCallback((reason: string, rampSeconds: number = 0.1) => {
+    const chain = audioChainRef.current;
+    if (!chain?.connected) return;
+    scheduleNormalizerGain(chain, normalizerBaselineRef.current, rampSeconds);
+    logger.debug(`Normalizer applied (${reason}): ${(normalizerBaselineRef.current * 100).toFixed(0)}%`);
+  }, [scheduleNormalizerGain]);
+
+  const captureFirstPlaybackBaseline = useCallback((chain: AudioChain) => {
+    if (hasCapturedNormalizerBaselineRef.current) return;
+    const captured = Math.max(0, chain.outputGain.gain.value);
+    normalizerBaselineRef.current = captured;
+    hasCapturedNormalizerBaselineRef.current = true;
+    scheduleNormalizerGain(chain, captured, 0.05);
+    logger.info(`Normalizer baseline captured: ${(captured * 100).toFixed(0)}%`);
+  }, [scheduleNormalizerGain]);
 
   // ===== ADAPTIVE FREQUENCY STATE =====
   const detectedFreqRef = useRef<DetectedFrequencies>(DEFAULT_FREQUENCIES);
@@ -467,11 +495,12 @@ export const useAudioManager = (
 
     if (chain?.outputGain && chain.connected) {
       try {
+        captureFirstPlaybackBaseline(chain);
         isFadingRef.current = true;
         const now = chain.context.currentTime;
         chain.outputGain.gain.cancelScheduledValues(now);
         chain.outputGain.gain.setValueAtTime(0, now);
-        chain.outputGain.gain.linearRampToValueAtTime(targetVolume, now + duration / 1000);
+        chain.outputGain.gain.linearRampToValueAtTime(1, now + duration / 1000);
 
         if (fadeTimeoutRef.current) clearTimeout(fadeTimeoutRef.current);
         fadeTimeoutRef.current = setTimeout(() => {
@@ -479,7 +508,7 @@ export const useAudioManager = (
           // Re-sync volume after fade in case it was restored from
           // localStorage during the fade window.
           try {
-            const correctVolume = volumeRef.current / 100;
+            const correctVolume = 1;
             const ct = chain.context.currentTime;
             chain.outputGain.gain.cancelScheduledValues(ct);
             chain.outputGain.gain.setValueAtTime(correctVolume, ct);
@@ -492,7 +521,7 @@ export const useAudioManager = (
     }
 
     audio.volume = targetVolume;
-  }, []);
+  }, [captureFirstPlaybackBaseline]);
 
   // Fade out audio
   const fadeOut = useCallback((duration: number = 800): Promise<void> => {
@@ -585,6 +614,14 @@ export const useAudioManager = (
         // ===== PREAMP - Input headroom =====
         const preamp = audioContext.createGain();
         preamp.gain.value = 0.8; // Start with headroom
+        // ===== NORMALIZER - Session loudness baseline =====
+        // Captures first playback session level and reuses across track changes.
+        // Updated only by explicit user volume changes.
+        const normalizerGain = audioContext.createGain();
+        normalizerGain.gain.value = hasCapturedNormalizerBaselineRef.current
+          ? normalizerBaselineRef.current
+          : Math.max(0, volumeRef.current / 100);
+
 
         // ===== HIGH-PASS FILTER - Rumble removal =====
         const highPass = audioContext.createBiquadFilter();
@@ -644,8 +681,9 @@ export const useAudioManager = (
         limiter.release.value = 0.1;     // 100ms release - smooth recovery
 
         // ===== OUTPUT GAIN - Master volume =====
+        // Reserved for fades so user volume/session baseline stay in normalizerGain.
         const outputGain = audioContext.createGain();
-        outputGain.gain.value = volumeRef.current / 100;
+        outputGain.gain.value = 1;
 
         // Reset HTML element volume to unity (chain controls volume)
         try {
@@ -653,14 +691,15 @@ export const useAudioManager = (
         } catch { }
 
         // ===== CONNECT SIMPLE CHAIN =====
-        // Source → Analyser → Preamp → HPF → EQ (10 bands) → Bass → Sub → Treble → Limiter → Output
+        // Source → Analyser → HPF → Normalizer → Preamp → EQ (10 bands) → Bass → Sub → Treble → Limiter → Output
         // Analyser placed early for raw frequency analysis (visualization + adaptive EQ detection)
         source.connect(analyser);
-        analyser.connect(preamp);
-        preamp.connect(highPass);
+        analyser.connect(highPass);
+        highPass.connect(normalizerGain);
+        normalizerGain.connect(preamp);
 
         // Connect EQ chain
-        let currentNode: AudioNode = highPass;
+        let currentNode: AudioNode = preamp;
         filters.forEach(filter => {
           currentNode.connect(filter);
           currentNode = filter;
@@ -678,6 +717,7 @@ export const useAudioManager = (
         const chain: AudioChain = {
           context: audioContext,
           source,
+          normalizerGain,
           preamp,
           highPass,
           filters,
@@ -695,7 +735,7 @@ export const useAudioManager = (
         setIsChainReady(true);
 
         logger.info('Audio chain initialized');
-        logger.debug('Signal Flow: Source → Analyser → Preamp → HPF → 10-Band EQ → Bass → Sub → Treble → Limiter → Output');
+        logger.debug('Signal Flow: Source → Analyser → HPF → Normalizer → Preamp → 10-Band EQ → Bass → Sub → Treble → Limiter → Output');
 
       } catch (error: unknown) {
         const err = error as Error;
@@ -847,6 +887,12 @@ export const useAudioManager = (
     }
   }, [playlist, currentTrackIndex, isPlaying, setIsPlaying, fadeIn]);
 
+  // Re-apply session baseline whenever track changes during active playback.
+  useEffect(() => {
+    if (!isPlaying) return;
+    applySessionNormalizer('track-change', 0.12);
+  }, [currentTrackIndex, isPlaying, applySessionNormalizer]);
+
   // Position restore on page load (separate effect for reliability on mobile)
   useEffect(() => {
     const audio = audioRef.current;
@@ -988,21 +1034,28 @@ export const useAudioManager = (
 
     if (!audio) return;
 
+    // Ignore first render sync; only subsequent changes represent user intent.
+    if (!hasInitializedVolumeEffectRef.current) {
+      hasInitializedVolumeEffectRef.current = true;
+      return;
+    }
+
     const targetVolume = volume / 100;
 
-    if (chain?.outputGain && chain.connected && !isFadingRef.current) {
+    // User volume updates always win and become the new session baseline.
+    normalizerBaselineRef.current = targetVolume;
+    hasCapturedNormalizerBaselineRef.current = true;
+
+    if (chain?.normalizerGain && chain.connected && !isFadingRef.current) {
       try {
-        const now = chain.context.currentTime;
-        chain.outputGain.gain.cancelScheduledValues(now);
-        chain.outputGain.gain.setValueAtTime(chain.outputGain.gain.value, now);
-        chain.outputGain.gain.linearRampToValueAtTime(targetVolume, now + 0.1);
+        scheduleNormalizerGain(chain, targetVolume, 0.1);
       } catch {
         audio.volume = targetVolume;
       }
     } else if (!isFadingRef.current) {
       audio.volume = targetVolume;
     }
-  }, [volume]);
+  }, [volume, scheduleNormalizerGain]);
 
   // Play/Pause handler
   const handlePlayPause = useCallback(() => {
