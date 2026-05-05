@@ -1,10 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AudioTrack, EqualizerSettings } from '../types';
 import { createLogger } from '@/utils/logger';
-import { STORAGE_KEYS } from '@/config/constants';
+import {
+  EQUALIZER_BANDS,
+  FREQUENCY_CACHE_MAX_SIZE,
+  LOUDNESS_TARGET_DBFS,
+  NORMALIZER_ANALYSIS_SAMPLE_POINTS,
+  NORMALIZER_ANALYSIS_WINDOW_SEC,
+  NORMALIZER_GAIN_MAX_DB,
+  NORMALIZER_GAIN_MIN_DB,
+  NORMALIZER_NOISE_FLOOR_DBFS,
+  NORMALIZER_PEAK_HEADROOM_DB,
+  NORMALIZER_RAMP_TIME_SEC,
+  STORAGE_KEYS,
+} from '@/config/constants';
 import { getAudioErrorMessage } from '@/utils/audioUtils';
 import { isBlobURLActive, getAudioBlob } from '@/utils/cacheManager';
-import { EQUALIZER_BANDS, FREQUENCY_CACHE_MAX_SIZE } from '@/config/constants';
 
 const logger = createLogger('AudioManager');
 
@@ -18,11 +29,25 @@ interface DetectedFrequencies {
   confidence: number;    // Analysis confidence (0-1)
 }
 
+interface LoudnessAnalysis {
+  measuredDbfs: number;
+  peakDbfs: number;
+  normalizationGainDb: number;
+  confidence: number;
+}
+
 // Default frequencies when analysis unavailable
 const DEFAULT_FREQUENCIES: DetectedFrequencies = {
   bassPeak: 100,
   subPeak: 45,
   treblePeak: 10000,
+  confidence: 0,
+};
+
+const DEFAULT_LOUDNESS: LoudnessAnalysis = {
+  measuredDbfs: LOUDNESS_TARGET_DBFS,
+  peakDbfs: -12,
+  normalizationGainDb: 0,
   confidence: 0,
 };
 
@@ -54,6 +79,8 @@ function isPowerOfTwo(n: number): boolean {
 const frequencyCache = new Map<string, DetectedFrequencies>();
 // Track ongoing analysis promises to prevent duplicate work
 const analysisPromises = new Map<string, Promise<DetectedFrequencies>>();
+const loudnessCache = new Map<string, LoudnessAnalysis>();
+const loudnessPromises = new Map<string, Promise<LoudnessAnalysis>>();
 
 function cacheFrequencies(trackUrl: string, freqs: DetectedFrequencies) {
   // Evict oldest entry if cache is full (Map maintains insertion order)
@@ -62,6 +89,14 @@ function cacheFrequencies(trackUrl: string, freqs: DetectedFrequencies) {
     if (oldestKey) frequencyCache.delete(oldestKey);
   }
   frequencyCache.set(trackUrl, freqs);
+}
+
+function cacheLoudness(trackUrl: string, loudness: LoudnessAnalysis) {
+  if (loudnessCache.size >= FREQUENCY_CACHE_MAX_SIZE) {
+    const oldestKey = loudnessCache.keys().next().value;
+    if (oldestKey) loudnessCache.delete(oldestKey);
+  }
+  loudnessCache.set(trackUrl, loudness);
 }
 
 /**
@@ -186,6 +221,34 @@ function findCentroidInRange(
   };
 }
 
+async function fetchTrackArrayBuffer(trackUrl: string, file?: File, cacheKey?: string): Promise<ArrayBuffer> {
+  if (file) {
+    const realBlobSize = Blob.prototype.slice.call(file, 0).size;
+    if (realBlobSize > 0) {
+      return await file.arrayBuffer();
+    }
+    if (cacheKey) {
+      const blob = await getAudioBlob(cacheKey);
+      if (blob) {
+        return await blob.arrayBuffer();
+      }
+    }
+  }
+
+  const response = await fetch(trackUrl);
+  return await response.arrayBuffer();
+}
+
+async function decodeAudioForAnalysis(arrayBuffer: ArrayBuffer): Promise<AudioBuffer> {
+  const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+  const audioContext = new AudioContextClass({ latencyHint: 'playback' });
+  try {
+    return await audioContext.decodeAudioData(arrayBuffer);
+  } finally {
+    await audioContext.close();
+  }
+}
+
 /**
  * Full-track offline frequency analysis
  * Decodes entire audio file and samples at multiple positions for accurate detection
@@ -223,28 +286,7 @@ async function analyzeFullTrack(trackUrl: string, file?: File, cacheKey?: string
 
       // Fetch audio data with timeout
       let arrayBuffer: ArrayBuffer;
-      const fetchPromise = (async () => {
-        if (file) {
-          // Cache-restored tracks have a 0-byte placeholder File with an
-          // overridden .size property.  Detect this by reading the real
-          // Blob size via the prototype, and fall back to the Cache API
-          // (more reliable than fetching a blob URL which may be revoked).
-          const realBlobSize = Blob.prototype.slice.call(file, 0).size;
-          if (realBlobSize > 0) {
-            return await file.arrayBuffer();
-          }
-          // Placeholder file — read audio blob directly from Cache API
-          if (cacheKey) {
-            const blob = await getAudioBlob(cacheKey);
-            if (blob) {
-              return await blob.arrayBuffer();
-            }
-          }
-        }
-        // Fallback: fetch from the trackUrl (non-cached files)
-        const response = await fetch(trackUrl);
-        return await response.arrayBuffer();
-      })();
+      const fetchPromise = fetchTrackArrayBuffer(trackUrl, file, cacheKey);
 
       const timeoutPromise = new Promise<never>((_, reject) => 
         setTimeout(() => reject(new Error('Analysis timeout')), ANALYSIS_CONFIG.timeoutMs)
@@ -257,15 +299,8 @@ async function analyzeFullTrack(trackUrl: string, file?: File, cacheKey?: string
         return DEFAULT_FREQUENCIES;
       }
 
-      // Decode audio using a temporary context with 'playback' latency hint.
-      // This context is only used for offline decoding (no real-time output),
-      // so larger buffers are fine and reduce CPU overhead during analysis.
-      // The main playback context uses the default 'interactive' hint for
-      // tighter, more responsive EQ and filter processing.
-      const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
-      const audioContext = new AudioContextClass({ latencyHint: 'playback' });
-      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-      await audioContext.close();
+      // Decode using a temporary context optimized for offline analysis.
+      const audioBuffer = await decodeAudioForAnalysis(arrayBuffer);
 
       const duration = audioBuffer.duration;
       const { fftSize, samplePoints, skipPercent } = ANALYSIS_CONFIG;
@@ -352,6 +387,124 @@ async function analyzeFullTrack(trackUrl: string, file?: File, cacheKey?: string
   return analysisPromise;
 }
 
+async function analyzeTrackLoudness(trackUrl: string, file?: File, cacheKey?: string): Promise<LoudnessAnalysis> {
+  const cached = loudnessCache.get(trackUrl);
+  if (cached) {
+    return cached;
+  }
+
+  const existingPromise = loudnessPromises.get(trackUrl);
+  if (existingPromise) {
+    return existingPromise;
+  }
+
+  const loudnessPromise = (async () => {
+    try {
+      const startTime = performance.now();
+      if (file && file.size > ANALYSIS_CONFIG.maxFileSizeMB * 1024 * 1024) {
+        logger.warn(`File too large for loudness analysis (${(file.size / 1024 / 1024).toFixed(1)}MB > ${ANALYSIS_CONFIG.maxFileSizeMB}MB limit)`);
+        return DEFAULT_LOUDNESS;
+      }
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Loudness analysis timeout')), ANALYSIS_CONFIG.timeoutMs)
+      );
+
+      const arrayBuffer = await Promise.race([
+        fetchTrackArrayBuffer(trackUrl, file, cacheKey),
+        timeoutPromise,
+      ]);
+      const audioBuffer = await decodeAudioForAnalysis(arrayBuffer);
+      const channelData = audioBuffer.getChannelData(0);
+      const sampleRate = audioBuffer.sampleRate;
+      const totalSamples = channelData.length;
+      const duration = audioBuffer.duration;
+
+      if (!totalSamples || !duration) {
+        return DEFAULT_LOUDNESS;
+      }
+
+      const windowSamples = Math.max(256, Math.floor(sampleRate * NORMALIZER_ANALYSIS_WINDOW_SEC));
+      const skipPercent = ANALYSIS_CONFIG.skipPercent;
+      const startSample = Math.floor(totalSamples * skipPercent);
+      const endSample = Math.max(startSample + windowSamples, Math.floor(totalSamples * (1 - skipPercent)));
+      const validSpan = Math.max(1, endSample - startSample - windowSamples);
+      const points = Math.max(8, NORMALIZER_ANALYSIS_SAMPLE_POINTS);
+
+      let weightedRmsSum = 0;
+      let weightTotal = 0;
+      let peak = 0;
+      let activeWindows = 0;
+
+      for (let i = 0; i < points; i++) {
+        const offset = Math.floor((validSpan * i) / Math.max(1, points - 1));
+        const from = Math.min(endSample - windowSamples, startSample + offset);
+        const to = Math.min(totalSamples, from + windowSamples);
+
+        let sumSquares = 0;
+        let localPeak = 0;
+        for (let s = from; s < to; s++) {
+          const sample = channelData[s];
+          const abs = Math.abs(sample);
+          localPeak = Math.max(localPeak, abs);
+          sumSquares += sample * sample;
+        }
+
+        const sampleCount = Math.max(1, to - from);
+        const rms = Math.sqrt(sumSquares / sampleCount);
+        const rmsDb = rms > 0 ? 20 * Math.log10(rms) : -100;
+        peak = Math.max(peak, localPeak);
+
+        if (rmsDb > NORMALIZER_NOISE_FLOOR_DBFS) {
+          const weight = Math.pow(10, Math.min(0, rmsDb) / 20);
+          weightedRmsSum += rms * weight;
+          weightTotal += weight;
+          activeWindows++;
+        }
+
+        if ((i + 1) % 12 === 0) {
+          await new Promise<void>(r => setTimeout(r, 0));
+        }
+      }
+
+      if (weightTotal <= 0 || activeWindows === 0) {
+        return DEFAULT_LOUDNESS;
+      }
+
+      const measuredRms = weightedRmsSum / weightTotal;
+      const measuredDbfs = measuredRms > 0 ? 20 * Math.log10(measuredRms) : DEFAULT_LOUDNESS.measuredDbfs;
+      const peakDbfs = peak > 0 ? 20 * Math.log10(peak) : -100;
+
+      let gainDb = LOUDNESS_TARGET_DBFS - measuredDbfs;
+      // Keep roughly 1 dB headroom before downstream limiter stage.
+      const maxBoostFromPeak = -NORMALIZER_PEAK_HEADROOM_DB - peakDbfs;
+      gainDb = Math.min(gainDb, maxBoostFromPeak);
+      gainDb = Math.max(NORMALIZER_GAIN_MIN_DB, Math.min(NORMALIZER_GAIN_MAX_DB, gainDb));
+
+      const confidence = Math.min(1, activeWindows / points);
+      const analysis: LoudnessAnalysis = {
+        measuredDbfs,
+        peakDbfs,
+        normalizationGainDb: gainDb,
+        confidence,
+      };
+
+      cacheLoudness(trackUrl, analysis);
+      logger.info(
+        `Loudness normalized: track=${measuredDbfs.toFixed(1)}dBFS, peak=${peakDbfs.toFixed(1)}dBFS, gain=${gainDb.toFixed(1)}dB (${((performance.now() - startTime) / 1000).toFixed(1)}s)`
+      );
+      return analysis;
+    } catch (error) {
+      logger.warn('Loudness analysis failed, using unity gain:', error);
+      return DEFAULT_LOUDNESS;
+    } finally {
+      loudnessPromises.delete(trackUrl);
+    }
+  })();
+
+  loudnessPromises.set(trackUrl, loudnessPromise);
+  return loudnessPromise;
+}
+
 // Clean, Simple Audio Chain
 // Focus: Clarity, Punchy Bass, No Artifacts
 interface AudioChain {
@@ -359,9 +512,10 @@ interface AudioChain {
   source: MediaElementAudioSourceNode;
 
   // Simple Signal Flow:
-  // Source → Analyser → Preamp → HPF → EQ → Bass → Treble → Limiter → Output
+  // Source → Analyser and Source → HPF → Normalizer → Preamp → EQ → Bass → Treble → Limiter → Output
   preamp: GainNode;                    // Input headroom control
   highPass: BiquadFilterNode;          // Rumble removal
+  normalizerGain: GainNode;            // Per-track loudness normalization
   filters: BiquadFilterNode[];         // 10-band EQ
   analyser: AnalyserNode;              // Raw frequency analysis (visualization + adaptive EQ)
   bassBoost: BiquadFilterNode;         // Bass punch (adaptive frequency)
@@ -404,6 +558,8 @@ export const useAudioManager = (
   // ===== ADAPTIVE FREQUENCY STATE =====
   const detectedFreqRef = useRef<DetectedFrequencies>(DEFAULT_FREQUENCIES);
   const analysisCompleteRef = useRef<boolean>(false);
+  const loudnessRef = useRef<LoudnessAnalysis>(DEFAULT_LOUDNESS);
+  const loudnessCompleteRef = useRef<boolean>(false);
   const currentTrackUrlRef = useRef<string>('');
   
   // Track whether we've attempted position restore this session (prevent duplicate seeks)
@@ -452,6 +608,28 @@ export const useAudioManager = (
       applyDetectedFrequencies(chain, detected);
     }
   }, [applyDetectedFrequencies]);
+
+  const applyNormalizationGain = useCallback((chain: AudioChain, normalizationGainDb: number) => {
+    if (!chain.connected) return;
+
+    const now = chain.context.currentTime;
+    const targetGain = Math.pow(10, normalizationGainDb / 20);
+    chain.normalizerGain.gain.cancelScheduledValues(now);
+    chain.normalizerGain.gain.setValueAtTime(chain.normalizerGain.gain.value, now);
+    chain.normalizerGain.gain.linearRampToValueAtTime(targetGain, now + NORMALIZER_RAMP_TIME_SEC);
+    logger.debug(`Normalizer gain applied: ${normalizationGainDb.toFixed(1)}dB`);
+  }, []);
+
+  const runLoudnessAnalysis = useCallback(async (trackUrl: string, file?: File, cacheKey?: string) => {
+    const analysis = await analyzeTrackLoudness(trackUrl, file, cacheKey);
+    loudnessRef.current = analysis;
+    loudnessCompleteRef.current = true;
+
+    const chain = audioChainRef.current;
+    if (chain?.connected) {
+      applyNormalizationGain(chain, analysis.normalizationGainDb);
+    }
+  }, [applyNormalizationGain]);
 
   // Fade in audio
   const fadeIn = useCallback((duration: number = 800) => {
@@ -592,6 +770,10 @@ export const useAudioManager = (
         highPass.frequency.value = 25; // Remove sub-20Hz rumble
         highPass.Q.value = 0.7;
 
+        // ===== NORMALIZER GAIN - Per-track loudness trim =====
+        const normalizerGain = audioContext.createGain();
+        normalizerGain.gain.value = 1;
+
         // ===== 10-BAND EQ =====
         const filters: BiquadFilterNode[] = [];
         EQUALIZER_BANDS.forEach((band, index) => {
@@ -653,14 +835,16 @@ export const useAudioManager = (
         } catch { }
 
         // ===== CONNECT SIMPLE CHAIN =====
-        // Source → Analyser → Preamp → HPF → EQ (10 bands) → Bass → Sub → Treble → Limiter → Output
-        // Analyser placed early for raw frequency analysis (visualization + adaptive EQ detection)
+        // Source split:
+        // 1) Source → Analyser (raw visualization/analysis tap)
+        // 2) Source → HPF → Normalizer → Preamp → EQ → Bass → Sub → Treble → Limiter → Output
         source.connect(analyser);
-        analyser.connect(preamp);
-        preamp.connect(highPass);
+        source.connect(highPass);
+        highPass.connect(normalizerGain);
+        normalizerGain.connect(preamp);
 
         // Connect EQ chain
-        let currentNode: AudioNode = highPass;
+        let currentNode: AudioNode = preamp;
         filters.forEach(filter => {
           currentNode.connect(filter);
           currentNode = filter;
@@ -680,6 +864,7 @@ export const useAudioManager = (
           source,
           preamp,
           highPass,
+          normalizerGain,
           filters,
           analyser,
           bassBoost,
@@ -695,7 +880,7 @@ export const useAudioManager = (
         setIsChainReady(true);
 
         logger.info('Audio chain initialized');
-        logger.debug('Signal Flow: Source → Analyser → Preamp → HPF → 10-Band EQ → Bass → Sub → Treble → Limiter → Output');
+        logger.debug('Signal Flow: Source → (Analyser tap) + Source → HPF → Normalizer → Preamp → 10-Band EQ → Bass → Sub → Treble → Limiter → Output');
 
       } catch (error: unknown) {
         const err = error as Error;
@@ -903,8 +1088,8 @@ export const useAudioManager = (
     };
   }, [playlist, currentTrackIndex, setCurrentTime]);
 
-  // ===== ADAPTIVE FREQUENCY ANALYSIS =====
-  // Analyze track's frequency content when track changes (full offline scan)
+  // ===== TRACK ANALYSIS (FREQUENCY + LOUDNESS) =====
+  // Analyze each track offline for adaptive EQ and loudness normalization.
   useEffect(() => {
     const currentTrack = playlist[currentTrackIndex];
     if (!currentTrack) return;
@@ -924,12 +1109,20 @@ export const useAudioManager = (
     if (currentTrackUrlRef.current !== trackUrl) {
       currentTrackUrlRef.current = trackUrl;
       analysisCompleteRef.current = false;
+      loudnessCompleteRef.current = false;
 
-      // Run full-track analysis (async, doesn't block playback)
-      logger.debug('Starting full-track frequency analysis for:', currentTrack.title);
+      // Reset to unity quickly so new tracks never inherit previous track trim.
+      const chain = audioChainRef.current;
+      if (chain?.connected) {
+        applyNormalizationGain(chain, 0);
+      }
+
+      // Run analyses async (do not block playback).
+      logger.debug('Starting track analysis (frequency + loudness) for:', currentTrack.title);
       runFrequencyAnalysis(trackUrl, currentTrack.file, currentTrack.cacheKey);
+      runLoudnessAnalysis(trackUrl, currentTrack.file, currentTrack.cacheKey);
     }
-  }, [playlist, currentTrackIndex, runFrequencyAnalysis]);
+  }, [playlist, currentTrackIndex, runFrequencyAnalysis, runLoudnessAnalysis, applyNormalizationGain]);
 
   // Apply detected frequencies when chain becomes ready (if analysis completed first)
   useEffect(() => {
@@ -939,6 +1132,15 @@ export const useAudioManager = (
 
     applyDetectedFrequencies(chain, detectedFreqRef.current);
   }, [isChainReady, applyDetectedFrequencies]);
+
+  // Apply detected loudness trim when chain becomes ready (if analysis completed first)
+  useEffect(() => {
+    if (!isChainReady) return;
+    const chain = audioChainRef.current;
+    if (!chain?.connected || !loudnessCompleteRef.current) return;
+
+    applyNormalizationGain(chain, loudnessRef.current.normalizationGainDb);
+  }, [isChainReady, applyNormalizationGain]);
 
   // Audio event listeners
   useEffect(() => {
