@@ -430,8 +430,7 @@ async function analyzeTrackLoudness(trackUrl: string, file?: File, cacheKey?: st
       const validSpan = Math.max(1, endSample - startSample - windowSamples);
       const points = Math.max(8, NORMALIZER_ANALYSIS_SAMPLE_POINTS);
 
-      let weightedRmsSum = 0;
-      let weightTotal = 0;
+      const activeWindowDb: number[] = [];
       let peak = 0;
       let activeWindows = 0;
 
@@ -455,9 +454,7 @@ async function analyzeTrackLoudness(trackUrl: string, file?: File, cacheKey?: st
         peak = Math.max(peak, localPeak);
 
         if (rmsDb > NORMALIZER_NOISE_FLOOR_DBFS) {
-          const weight = Math.pow(10, Math.min(0, rmsDb) / 20);
-          weightedRmsSum += rms * weight;
-          weightTotal += weight;
+          activeWindowDb.push(rmsDb);
           activeWindows++;
         }
 
@@ -466,15 +463,19 @@ async function analyzeTrackLoudness(trackUrl: string, file?: File, cacheKey?: st
         }
       }
 
-      if (weightTotal <= 0 || activeWindows === 0) {
+      if (activeWindows === 0) {
         return DEFAULT_LOUDNESS;
       }
 
-      const measuredRms = weightedRmsSum / weightTotal;
-      const measuredDbfs = measuredRms > 0 ? 20 * Math.log10(measuredRms) : DEFAULT_LOUDNESS.measuredDbfs;
+      // Use upper-quartile short-term loudness so quiet intros don't drag
+      // the estimate down and cause excessive boost.
+      activeWindowDb.sort((a, b) => a - b);
+      const q75Index = Math.floor((activeWindowDb.length - 1) * 0.75);
+      const measuredDbfs = activeWindowDb[q75Index] ?? DEFAULT_LOUDNESS.measuredDbfs;
       const peakDbfs = peak > 0 ? 20 * Math.log10(peak) : -100;
 
-      let gainDb = LOUDNESS_TARGET_DBFS - measuredDbfs;
+      // Upward normalization only: keep loud masters untouched.
+      let gainDb = Math.max(0, LOUDNESS_TARGET_DBFS - measuredDbfs);
       // Keep roughly 1 dB headroom before downstream limiter stage.
       const maxBoostFromPeak = -NORMALIZER_PEAK_HEADROOM_DB - peakDbfs;
       gainDb = Math.min(gainDb, maxBoostFromPeak);
@@ -512,10 +513,10 @@ interface AudioChain {
   source: MediaElementAudioSourceNode;
 
   // Simple Signal Flow:
-  // Source → Analyser and Source → HPF → Normalizer → Preamp → EQ → Bass → Treble → Limiter → Output
+  // Source → Analyser → Preamp → HPF → EQ → Bass → Treble → Normalizer → Limiter → Output
   preamp: GainNode;                    // Input headroom control
   highPass: BiquadFilterNode;          // Rumble removal
-  normalizerGain: GainNode;            // Per-track loudness normalization
+  normalizerGain: GainNode;            // Upward track loudness trim
   filters: BiquadFilterNode[];         // 10-band EQ
   analyser: AnalyserNode;              // Raw frequency analysis (visualization + adaptive EQ)
   bassBoost: BiquadFilterNode;         // Bass punch (adaptive frequency)
@@ -770,10 +771,6 @@ export const useAudioManager = (
         highPass.frequency.value = 25; // Remove sub-20Hz rumble
         highPass.Q.value = 0.7;
 
-        // ===== NORMALIZER GAIN - Per-track loudness trim =====
-        const normalizerGain = audioContext.createGain();
-        normalizerGain.gain.value = 1;
-
         // ===== 10-BAND EQ =====
         const filters: BiquadFilterNode[] = [];
         EQUALIZER_BANDS.forEach((band, index) => {
@@ -816,6 +813,11 @@ export const useAudioManager = (
         trebleBoost.Q.value = 0.7;
         trebleBoost.gain.value = 0;
 
+        // ===== NORMALIZER GAIN - Upward loudness leveling =====
+        // Placed near chain end to preserve original EQ tone balance.
+        const normalizerGain = audioContext.createGain();
+        normalizerGain.gain.value = 1;
+
         // ===== LIMITER - Relaxed to preserve micro-dynamics =====
         // Gentle limiting that only catches real peaks
         const limiter = audioContext.createDynamicsCompressor();
@@ -835,16 +837,13 @@ export const useAudioManager = (
         } catch { }
 
         // ===== CONNECT SIMPLE CHAIN =====
-        // Source split:
-        // 1) Source → Analyser (raw visualization/analysis tap)
-        // 2) Source → HPF → Normalizer → Preamp → EQ → Bass → Sub → Treble → Limiter → Output
+        // Source → Analyser → Preamp → HPF → EQ (10 bands) → Bass → Sub → Treble → Normalizer → Limiter → Output
         source.connect(analyser);
-        source.connect(highPass);
-        highPass.connect(normalizerGain);
-        normalizerGain.connect(preamp);
+        analyser.connect(preamp);
+        preamp.connect(highPass);
 
         // Connect EQ chain
-        let currentNode: AudioNode = preamp;
+        let currentNode: AudioNode = highPass;
         filters.forEach(filter => {
           currentNode.connect(filter);
           currentNode = filter;
@@ -854,7 +853,8 @@ export const useAudioManager = (
         currentNode.connect(bassBoost);
         bassBoost.connect(subBoost);
         subBoost.connect(trebleBoost);
-        trebleBoost.connect(limiter);
+        trebleBoost.connect(normalizerGain);
+        normalizerGain.connect(limiter);
         limiter.connect(outputGain);
         outputGain.connect(audioContext.destination);
 
@@ -880,7 +880,7 @@ export const useAudioManager = (
         setIsChainReady(true);
 
         logger.info('Audio chain initialized');
-        logger.debug('Signal Flow: Source → (Analyser tap) + Source → HPF → Normalizer → Preamp → 10-Band EQ → Bass → Sub → Treble → Limiter → Output');
+        logger.debug('Signal Flow: Source → Analyser → Preamp → HPF → 10-Band EQ → Bass → Sub → Treble → Normalizer → Limiter → Output');
 
       } catch (error: unknown) {
         const err = error as Error;
