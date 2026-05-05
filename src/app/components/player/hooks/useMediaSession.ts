@@ -3,6 +3,10 @@ import { AudioTrack } from '../types';
 import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('MediaSession');
+const POSITION_UPDATE_INTERVAL_MS = 1000;
+// 1x1 PNG fallback (browser-safe image format for notification artwork)
+const FALLBACK_ARTWORK_PNG =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wn6S1UAAAAASUVORK5CYII=';
 
 interface MediaSessionHookProps {
   currentTrack: AudioTrack | null;
@@ -27,43 +31,74 @@ export const useMediaSession = ({
   duration,
   currentTime
 }: MediaSessionHookProps) => {
-  
+  const callbacksRef = useRef({
+    handlePlay,
+    handlePause,
+    handleNext,
+    handlePrevious,
+    handleSeekTo
+  });
+  const playbackRef = useRef({
+    duration,
+    currentTime,
+    isPlaying
+  });
+
+  useEffect(() => {
+    callbacksRef.current = {
+      handlePlay,
+      handlePause,
+      handleNext,
+      handlePrevious,
+      handleSeekTo
+    };
+  }, [handlePlay, handlePause, handleNext, handlePrevious, handleSeekTo]);
+
+  useEffect(() => {
+    playbackRef.current = {
+      duration,
+      currentTime,
+      isPlaying
+    };
+  }, [duration, currentTime, isPlaying]);
+
+  const buildArtwork = useCallback((track: AudioTrack): MediaImage[] => {
+    const fallbackArtwork: MediaImage[] = [
+      { src: FALLBACK_ARTWORK_PNG, sizes: '512x512', type: 'image/png' },
+      { src: FALLBACK_ARTWORK_PNG, sizes: '256x256', type: 'image/png' },
+      { src: FALLBACK_ARTWORK_PNG, sizes: '128x128', type: 'image/png' },
+      { src: FALLBACK_ARTWORK_PNG, sizes: '96x96', type: 'image/png' }
+    ];
+
+    if (!track.albumArt) {
+      return fallbackArtwork;
+    }
+
+    // Keep blob/data-url track artwork first and always include PNG fallback
+    return [
+      { src: track.albumArt, sizes: '512x512' },
+      { src: track.albumArt, sizes: '256x256' },
+      { src: track.albumArt, sizes: '128x128' },
+      { src: track.albumArt, sizes: '96x96' },
+      ...fallbackArtwork
+    ];
+  }, []);
+
   // Update media metadata when track changes
   const updateMediaMetadata = useCallback(() => {
     if (!('mediaSession' in navigator) || !currentTrack) return;
 
     try {
-      // Create artwork array with multiple sizes for better compatibility
-      const artwork: MediaImage[] = [];
-      
-      if (currentTrack.albumArt) {
-        // Use the extracted album art from the audio file
-        artwork.push(
-          { src: currentTrack.albumArt, sizes: '512x512', type: 'image/jpeg' },
-          { src: currentTrack.albumArt, sizes: '256x256', type: 'image/jpeg' },
-          { src: currentTrack.albumArt, sizes: '128x128', type: 'image/jpeg' },
-          { src: currentTrack.albumArt, sizes: '96x96', type: 'image/jpeg' }
-        );
-      } else {
-        // Fallback to app logo
-        artwork.push(
-          { src: '/images/aw-logo.svg', sizes: '512x512', type: 'image/svg+xml' },
-          { src: '/images/aw-logo.svg', sizes: '256x256', type: 'image/svg+xml' },
-          { src: '/images/aw-logo.svg', sizes: '128x128', type: 'image/svg+xml' },
-          { src: '/images/aw-logo.svg', sizes: '96x96', type: 'image/svg+xml' }
-        );
-      }
-
       navigator.mediaSession.metadata = new MediaMetadata({
         title: currentTrack.title || 'Unknown Title',
         artist: currentTrack.artist || 'Unknown Artist',
         album: currentTrack.album || 'Unknown Album',
-        artwork: artwork
+        artwork: buildArtwork(currentTrack)
       });
     } catch (error) {
       logger.warn('Failed to update media metadata:', error);
     }
-  }, [currentTrack]);
+  }, [currentTrack, buildArtwork]);
 
   // Update playback state
   const updatePlaybackState = useCallback(() => {
@@ -77,27 +112,33 @@ export const useMediaSession = ({
     }
   }, [isPlaying]);
 
-  // Throttled position state update - only update every 5 seconds to avoid excessive calls
+  // Position state update (throttled to avoid excessive calls while keeping mini-player responsive)
   const lastPositionUpdateRef = useRef(0);
-  const updatePositionState = useCallback(() => {
+  const updatePositionState = useCallback((force = false) => {
     if (!('mediaSession' in navigator) || !duration || duration === 0) return;
 
     const now = Date.now();
-    if (now - lastPositionUpdateRef.current < 5000) return;
+    if (!force && (now - lastPositionUpdateRef.current < POSITION_UPDATE_INTERVAL_MS)) return;
     lastPositionUpdateRef.current = now;
 
     try {
+      const safePosition = Math.max(0, Math.min(currentTime, duration));
       navigator.mediaSession.setPositionState({
         duration: duration,
         playbackRate: 1.0,
-        position: currentTime
+        position: safePosition
       });
     } catch (error) {
       logger.warn('Failed to update position state:', error);
     }
   }, [duration, currentTime]);
 
-  // Set up action handlers
+  const updatePositionStateRef = useRef(updatePositionState);
+  useEffect(() => {
+    updatePositionStateRef.current = updatePositionState;
+  }, [updatePositionState]);
+
+  // Set up action handlers once; use refs so handlers always see fresh values
   useEffect(() => {
     if (!('mediaSession' in navigator)) {
       logger.info('Media Session API not supported in this browser');
@@ -107,31 +148,37 @@ export const useMediaSession = ({
     // Set up media session action handlers
     const actionHandlers: Array<[MediaSessionAction, MediaSessionActionHandler]> = [
       ['play', () => {
-        handlePlay();
+        callbacksRef.current.handlePlay();
       }],
       ['pause', () => {
-        handlePause();
+        callbacksRef.current.handlePause();
       }],
       ['nexttrack', () => {
-        handleNext();
+        callbacksRef.current.handleNext();
       }],
       ['previoustrack', () => {
-        handlePrevious();
+        callbacksRef.current.handlePrevious();
       }],
       ['seekto', (details) => {
         if (details.seekTime !== undefined) {
-          handleSeekTo(details.seekTime);
+          callbacksRef.current.handleSeekTo(details.seekTime);
+          window.setTimeout(() => updatePositionStateRef.current(true), 0);
         }
       }],
       ['seekbackward', (details) => {
         const skipTime = details.seekOffset || 10;
-        const newTime = Math.max(0, currentTime - skipTime);
-        handleSeekTo(newTime);
+        const newTime = Math.max(0, playbackRef.current.currentTime - skipTime);
+        callbacksRef.current.handleSeekTo(newTime);
+        window.setTimeout(() => updatePositionStateRef.current(true), 0);
       }],
       ['seekforward', (details) => {
         const skipTime = details.seekOffset || 10;
-        const newTime = Math.min(duration, currentTime + skipTime);
-        handleSeekTo(newTime);
+        const durationValue = playbackRef.current.duration || 0;
+        const newTime = durationValue > 0
+          ? Math.min(durationValue, playbackRef.current.currentTime + skipTime)
+          : Math.max(0, playbackRef.current.currentTime + skipTime);
+        callbacksRef.current.handleSeekTo(newTime);
+        window.setTimeout(() => updatePositionStateRef.current(true), 0);
       }]
     ];
 
@@ -154,7 +201,7 @@ export const useMediaSession = ({
         }
       });
     };
-  }, [handlePlay, handlePause, handleNext, handlePrevious, handleSeekTo, currentTime, duration]);
+  }, []);
 
   // Update metadata when track changes
   useEffect(() => {
@@ -164,12 +211,28 @@ export const useMediaSession = ({
   // Update playback state when playing state changes
   useEffect(() => {
     updatePlaybackState();
+    updatePositionState(true);
   }, [updatePlaybackState]);
 
-  // Update position state when time or duration changes
+  // Immediate updates for duration/current time transitions and track changes
   useEffect(() => {
-    updatePositionState();
-  }, [updatePositionState]);
+    updatePositionState(true);
+  }, [duration, currentTrack?.id, updatePositionState]);
+
+  // During playback, refresh at ~1s cadence for notification seekbar reliability
+  useEffect(() => {
+    if (!isPlaying || !duration || duration <= 0) return;
+    const intervalId = window.setInterval(() => {
+      updatePositionState(false);
+    }, POSITION_UPDATE_INTERVAL_MS);
+    return () => window.clearInterval(intervalId);
+  }, [isPlaying, duration, updatePositionState]);
+
+  // Keep state reasonably fresh while paused/idle too
+  useEffect(() => {
+    if (isPlaying) return;
+    updatePositionState(false);
+  }, [isPlaying, currentTime, updatePositionState]);
 
   // Return functions that can be called externally
   return {
