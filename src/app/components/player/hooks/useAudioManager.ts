@@ -407,22 +407,17 @@ export const useAudioManager = (
 
   const scheduleNormalizerGain = useCallback((chain: AudioChain, target: number, rampSeconds: number = 0.1) => {
     const now = chain.context.currentTime;
-    const safeTarget = Math.max(0, target);
+    // Keep normalizer trim conservative: attenuation-only to avoid adding gain
+    // on top of aggressive EQ presets.
+    const safeTarget = Math.max(0, Math.min(1, target));
     chain.normalizerGain.gain.cancelScheduledValues(now);
     chain.normalizerGain.gain.setValueAtTime(chain.normalizerGain.gain.value, now);
     chain.normalizerGain.gain.linearRampToValueAtTime(safeTarget, now + rampSeconds);
   }, []);
 
-  const applySessionNormalizer = useCallback((reason: string, rampSeconds: number = 0.1) => {
-    const chain = audioChainRef.current;
-    if (!chain?.connected) return;
-    scheduleNormalizerGain(chain, normalizerBaselineRef.current, rampSeconds);
-    logger.debug(`Normalizer applied (${reason}): ${(normalizerBaselineRef.current * 100).toFixed(0)}%`);
-  }, [scheduleNormalizerGain]);
-
   const captureFirstPlaybackBaseline = useCallback((chain: AudioChain) => {
     if (hasCapturedNormalizerBaselineRef.current) return;
-    const captured = Math.max(0, chain.normalizerGain.gain.value);
+    const captured = Math.max(0, Math.min(1, volumeRef.current / 100));
     normalizerBaselineRef.current = captured;
     hasCapturedNormalizerBaselineRef.current = true;
     scheduleNormalizerGain(chain, captured, 0.05);
@@ -885,12 +880,6 @@ export const useAudioManager = (
       }
     }
   }, [playlist, currentTrackIndex, isPlaying, setIsPlaying, fadeIn]);
-
-  // Re-apply session baseline whenever track changes during active playback.
-  useEffect(() => {
-    if (!isPlaying) return;
-    applySessionNormalizer('track-change', 0.12);
-  }, [currentTrackIndex, isPlaying, applySessionNormalizer]);
 
   // Position restore on page load (separate effect for reliability on mobile)
   useEffect(() => {
