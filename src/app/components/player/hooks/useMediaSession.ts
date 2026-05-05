@@ -4,6 +4,8 @@ import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('MediaSession');
 const POSITION_UPDATE_INTERVAL_MS = 1000;
+const FALLBACK_ARTWORK_PNG =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wn6S1UAAAAASUVORK5CYII=';
 
 interface MediaSessionHookProps {
   currentTrack: AudioTrack | null;
@@ -59,14 +61,40 @@ export const useMediaSession = ({
     };
   }, [duration, currentTime, isPlaying]);
 
+  const resolveArtworkMime = useCallback((src: string): string | undefined => {
+    if (src.startsWith('data:')) {
+      const match = src.match(/^data:([^;]+);/i);
+      return match?.[1];
+    }
+    if (src.endsWith('.png')) return 'image/png';
+    if (src.endsWith('.webp')) return 'image/webp';
+    if (src.endsWith('.svg')) return 'image/svg+xml';
+    if (src.endsWith('.jpg') || src.endsWith('.jpeg')) return 'image/jpeg';
+    return undefined;
+  }, []);
+
   const buildArtwork = useCallback((track: AudioTrack): MediaImage[] => {
     if (track.albumArt) {
-      // Keep original desktop-friendly behavior for embedded artwork.
+      // Multi-entry strategy for better cross-device compatibility:
+      // typed + untyped entries, followed by guaranteed fallbacks.
+      const detectedType = resolveArtworkMime(track.albumArt);
       return [
-        { src: track.albumArt, sizes: '512x512', type: 'image/jpeg' },
-        { src: track.albumArt, sizes: '256x256', type: 'image/jpeg' },
-        { src: track.albumArt, sizes: '128x128', type: 'image/jpeg' },
-        { src: track.albumArt, sizes: '96x96', type: 'image/jpeg' }
+        { src: track.albumArt, sizes: '512x512', type: detectedType ?? 'image/jpeg' },
+        { src: track.albumArt, sizes: '256x256', type: detectedType ?? 'image/jpeg' },
+        { src: track.albumArt, sizes: '128x128', type: detectedType ?? 'image/jpeg' },
+        { src: track.albumArt, sizes: '96x96', type: detectedType ?? 'image/jpeg' },
+        { src: track.albumArt, sizes: '512x512' },
+        { src: track.albumArt, sizes: '256x256' },
+        { src: track.albumArt, sizes: '128x128' },
+        { src: track.albumArt, sizes: '96x96' },
+        { src: '/images/aw-logo.svg', sizes: '512x512', type: 'image/svg+xml' },
+        { src: '/images/aw-logo.svg', sizes: '256x256', type: 'image/svg+xml' },
+        { src: '/images/aw-logo.svg', sizes: '128x128', type: 'image/svg+xml' },
+        { src: '/images/aw-logo.svg', sizes: '96x96', type: 'image/svg+xml' },
+        { src: FALLBACK_ARTWORK_PNG, sizes: '512x512', type: 'image/png' },
+        { src: FALLBACK_ARTWORK_PNG, sizes: '256x256', type: 'image/png' },
+        { src: FALLBACK_ARTWORK_PNG, sizes: '128x128', type: 'image/png' },
+        { src: FALLBACK_ARTWORK_PNG, sizes: '96x96', type: 'image/png' }
       ];
     }
 
@@ -74,9 +102,13 @@ export const useMediaSession = ({
       { src: '/images/aw-logo.svg', sizes: '512x512', type: 'image/svg+xml' },
       { src: '/images/aw-logo.svg', sizes: '256x256', type: 'image/svg+xml' },
       { src: '/images/aw-logo.svg', sizes: '128x128', type: 'image/svg+xml' },
-      { src: '/images/aw-logo.svg', sizes: '96x96', type: 'image/svg+xml' }
+      { src: '/images/aw-logo.svg', sizes: '96x96', type: 'image/svg+xml' },
+      { src: FALLBACK_ARTWORK_PNG, sizes: '512x512', type: 'image/png' },
+      { src: FALLBACK_ARTWORK_PNG, sizes: '256x256', type: 'image/png' },
+      { src: FALLBACK_ARTWORK_PNG, sizes: '128x128', type: 'image/png' },
+      { src: FALLBACK_ARTWORK_PNG, sizes: '96x96', type: 'image/png' }
     ];
-  }, []);
+  }, [resolveArtworkMime]);
 
   // Update media metadata when track changes
   const updateMediaMetadata = useCallback(() => {
@@ -109,7 +141,7 @@ export const useMediaSession = ({
   // Position state update (throttled to avoid excessive calls while keeping mini-player responsive)
   const lastPositionUpdateRef = useRef(0);
   const updatePositionState = useCallback((force = false) => {
-    if (!('mediaSession' in navigator) || !duration || duration === 0) return;
+    if (!('mediaSession' in navigator) || !Number.isFinite(duration) || duration <= 0) return;
 
     const now = Date.now();
     if (!force && (now - lastPositionUpdateRef.current < POSITION_UPDATE_INTERVAL_MS)) return;
@@ -119,13 +151,13 @@ export const useMediaSession = ({
       const safePosition = Math.max(0, Math.min(currentTime, duration));
       navigator.mediaSession.setPositionState({
         duration: duration,
-        playbackRate: 1.0,
+        playbackRate: isPlaying ? 1.0 : 0.0,
         position: safePosition
       });
     } catch (error) {
       logger.warn('Failed to update position state:', error);
     }
-  }, [duration, currentTime]);
+  }, [duration, currentTime, isPlaying]);
 
   const updatePositionStateRef = useRef(updatePositionState);
   useEffect(() => {
