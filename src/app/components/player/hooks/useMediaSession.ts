@@ -4,9 +4,6 @@ import { createLogger } from '@/utils/logger';
 
 const logger = createLogger('MediaSession');
 const POSITION_UPDATE_INTERVAL_MS = 1000;
-// 1x1 PNG fallback (browser-safe image format for notification artwork)
-const FALLBACK_ARTWORK_PNG =
-  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wn6S1UAAAAASUVORK5CYII=';
 
 interface MediaSessionHookProps {
   currentTrack: AudioTrack | null;
@@ -63,24 +60,21 @@ export const useMediaSession = ({
   }, [duration, currentTime, isPlaying]);
 
   const buildArtwork = useCallback((track: AudioTrack): MediaImage[] => {
-    const fallbackArtwork: MediaImage[] = [
-      { src: FALLBACK_ARTWORK_PNG, sizes: '512x512', type: 'image/png' },
-      { src: FALLBACK_ARTWORK_PNG, sizes: '256x256', type: 'image/png' },
-      { src: FALLBACK_ARTWORK_PNG, sizes: '128x128', type: 'image/png' },
-      { src: FALLBACK_ARTWORK_PNG, sizes: '96x96', type: 'image/png' }
-    ];
-
-    if (!track.albumArt) {
-      return fallbackArtwork;
+    if (track.albumArt) {
+      // Keep original desktop-friendly behavior for embedded artwork.
+      return [
+        { src: track.albumArt, sizes: '512x512', type: 'image/jpeg' },
+        { src: track.albumArt, sizes: '256x256', type: 'image/jpeg' },
+        { src: track.albumArt, sizes: '128x128', type: 'image/jpeg' },
+        { src: track.albumArt, sizes: '96x96', type: 'image/jpeg' }
+      ];
     }
 
-    // Keep blob/data-url track artwork first and always include PNG fallback
     return [
-      { src: track.albumArt, sizes: '512x512' },
-      { src: track.albumArt, sizes: '256x256' },
-      { src: track.albumArt, sizes: '128x128' },
-      { src: track.albumArt, sizes: '96x96' },
-      ...fallbackArtwork
+      { src: '/images/aw-logo.svg', sizes: '512x512', type: 'image/svg+xml' },
+      { src: '/images/aw-logo.svg', sizes: '256x256', type: 'image/svg+xml' },
+      { src: '/images/aw-logo.svg', sizes: '128x128', type: 'image/svg+xml' },
+      { src: '/images/aw-logo.svg', sizes: '96x96', type: 'image/svg+xml' }
     ];
   }, []);
 
