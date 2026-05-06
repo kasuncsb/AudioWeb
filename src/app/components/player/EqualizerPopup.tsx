@@ -7,6 +7,9 @@ const MIN_DISPLAY_FREQ_HZ = 20;
 const MAX_DISPLAY_FREQ_HZ = 20000;
 const PER_BAR_SMOOTHING = 0.22;
 const DIVIDER_GAP_PX = 2;
+const DIVIDER_BASE_ALPHA = 0.22;
+const DIVIDER_GLOW_ALPHA = 0.10;
+const DIVIDER_GLOW_BLUR = 10;
 
 interface EqualizerPopupProps {
   show: boolean;
@@ -125,15 +128,38 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
     const drawBackground = (width: number, height: number, activeAlpha: number, barWidth: number, barGap: number) => {
       // Keep only the center divider between bars and reflection.
       const half = height / 2;
-      const alpha = Math.max(0.22, 0.16 * activeAlpha);
+      const alpha = Math.max(DIVIDER_BASE_ALPHA, 0.16 * activeAlpha);
       ctx.save();
-      ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
       ctx.lineWidth = 1;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
       // 1 dash = 1 bar (dash length = bar width, gap = bar gap)
       const dash = Math.max(1, barWidth);
       const gap = Math.max(0, barGap);
       ctx.setLineDash([dash, gap]);
       ctx.lineDashOffset = 0;
+
+      // Subtle left→right fade so it blends with the UI.
+      const grad = ctx.createLinearGradient(0, 0, width, 0);
+      grad.addColorStop(0, `rgba(255, 255, 255, ${alpha * 0.35})`);
+      grad.addColorStop(0.2, `rgba(255, 255, 255, ${alpha * 0.85})`);
+      grad.addColorStop(0.5, `rgba(255, 255, 255, ${alpha})`);
+      grad.addColorStop(0.8, `rgba(255, 255, 255, ${alpha * 0.85})`);
+      grad.addColorStop(1, `rgba(255, 255, 255, ${alpha * 0.35})`);
+
+      // Soft glow pass (underlay)
+      ctx.save();
+      ctx.strokeStyle = grad;
+      ctx.shadowColor = `rgba(255, 255, 255, ${DIVIDER_GLOW_ALPHA})`;
+      ctx.shadowBlur = DIVIDER_GLOW_BLUR;
+      ctx.beginPath();
+      ctx.moveTo(0, half);
+      ctx.lineTo(width, half);
+      ctx.stroke();
+      ctx.restore();
+
+      // Crisp pass (overlay)
+      ctx.strokeStyle = grad;
       ctx.beginPath();
       ctx.moveTo(0, half);
       ctx.lineTo(width, half);
