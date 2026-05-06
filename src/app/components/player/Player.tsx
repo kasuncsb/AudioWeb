@@ -349,7 +349,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
   }, [currentTrackIndex, isVisualizerLoaded, visualizerSettings.mode, availablePresets.length]);
 
   // Custom hooks
-  const { audioRef, handlePlayPause, handleSeek, getAnalyser, getEqAnalyser, getAudioContext } = useAudioManager(
+  const { audioRef, handlePlayPause, handleSeek, getAnalyser, getAudioContext } = useAudioManager(
     playlist,
     currentTrackIndex,
     isPlaying,
@@ -846,7 +846,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
           onMouseDown={(e) => handleMouseDown('equalizer', e)}
           onUpdateSettings={setEqualizerSettings}
           showVisualization={showVisualization}
-          analyserNode={getEqAnalyser()}
+          analyserNode={getAnalyser()}
         />
 
         <VisualizerPopup

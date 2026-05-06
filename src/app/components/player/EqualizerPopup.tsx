@@ -46,6 +46,50 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const processedAnalyzer = analyserNode;
     const processedData = processedAnalyzer ? new Float32Array(processedAnalyzer.frequencyBinCount) : null;
+    const eqBandPoints = [
+      { freq: 32, gain: settings.band32 },
+      { freq: 64, gain: settings.band64 },
+      { freq: 125, gain: settings.band125 },
+      { freq: 250, gain: settings.band250 },
+      { freq: 500, gain: settings.band500 },
+      { freq: 1000, gain: settings.band1k },
+      { freq: 2000, gain: settings.band2k },
+      { freq: 4000, gain: settings.band4k },
+      { freq: 8000, gain: settings.band8k },
+      { freq: 16000, gain: settings.band16k },
+    ];
+
+    const lerp = (a: number, b: number, t: number) => a + ((b - a) * t);
+    const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
+    const smoothStep = (edge0: number, edge1: number, x: number) => {
+      const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
+      return t * t * (3 - (2 * t));
+    };
+
+    const getInterpolatedEqGain = (freq: number): number => {
+      const logFreq = Math.log10(freq);
+      if (logFreq <= Math.log10(eqBandPoints[0].freq)) return eqBandPoints[0].gain;
+      if (logFreq >= Math.log10(eqBandPoints[eqBandPoints.length - 1].freq)) return eqBandPoints[eqBandPoints.length - 1].gain;
+
+      for (let i = 0; i < eqBandPoints.length - 1; i++) {
+        const left = eqBandPoints[i];
+        const right = eqBandPoints[i + 1];
+        const leftLog = Math.log10(left.freq);
+        const rightLog = Math.log10(right.freq);
+        if (logFreq >= leftLog && logFreq <= rightLog) {
+          const t = (logFreq - leftLog) / (rightLog - leftLog);
+          return lerp(left.gain, right.gain, t);
+        }
+      }
+
+      return 0;
+    };
+
+    const getToneGain = (freq: number): number => {
+      const bassWeight = 1 - smoothStep(80, 420, freq);
+      const trebleWeight = smoothStep(2200, 12000, freq);
+      return (settings.bassTone * bassWeight) + (settings.trebleTone * trebleWeight);
+    };
 
     const draw = () => {
       const width = visualizerCanvas.clientWidth;
@@ -134,7 +178,13 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
             f1,
             processedAnalyzer.fftSize
           );
-          const barHeight = Math.max(2, value * (height * 0.48));
+          const bandCenterFreq = Math.sqrt(f0 * f1);
+          const eqGainDb = settings.enabled
+            ? (getInterpolatedEqGain(bandCenterFreq) + getToneGain(bandCenterFreq))
+            : 0;
+          const eqBoostMultiplier = clamp(Math.pow(10, eqGainDb / 30), 0.45, 2.25);
+          const boostedValue = clamp(value * eqBoostMultiplier, 0, 1);
+          const barHeight = Math.max(2, boostedValue * (height * 0.48));
           const x = i * (barWidth + barGap);
           const yTop = (height / 2) - barHeight;
           const hue = 170 + ((i / barCount) * 220);
