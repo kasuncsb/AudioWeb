@@ -432,7 +432,7 @@ export const useAudioManager = (
 
   const scheduleNormalizerGain = useCallback((chain: AudioChain, target: number, rampSeconds: number = 0.1) => {
     const now = chain.context.currentTime;
-    const safeTarget = Math.max(0.01, Math.min(8, target));
+    const safeTarget = Math.max(0, Math.min(8, target));
     chain.normalizerGain.gain.cancelScheduledValues(now);
     chain.normalizerGain.gain.setValueAtTime(chain.normalizerGain.gain.value, now);
     chain.normalizerGain.gain.linearRampToValueAtTime(safeTarget, now + rampSeconds);
@@ -458,7 +458,8 @@ export const useAudioManager = (
   }, [equalizerSettings]);
 
   const computeNormalizedOutputGain = useCallback((trackLoudnessDb: number): number => {
-    const anchorOutput = Math.max(0.01, sessionAnchorOutputRef.current);
+    const anchorOutput = Math.max(0, sessionAnchorOutputRef.current);
+    if (anchorOutput === 0) return 0;
     const deltaDb = sessionAnchorLoudnessRef.current - trackLoudnessDb;
     const rawGain = anchorOutput * Math.pow(10, deltaDb / 20);
     const minGain = Math.pow(10, NORMALIZER_MIN_GAIN_DB / 20);
@@ -468,7 +469,7 @@ export const useAudioManager = (
 
   const captureSessionAnchor = useCallback((reason: string, loudnessDb: number, outputGain: number) => {
     sessionAnchorLoudnessRef.current = loudnessDb;
-    sessionAnchorOutputRef.current = Math.max(0.01, Math.min(1, outputGain));
+    sessionAnchorOutputRef.current = Math.max(0, Math.min(1, outputGain));
     hasSessionAnchorRef.current = true;
     logger.debug(`Normalizer anchor (${reason}): ${loudnessDb.toFixed(1)}dBFS @ ${(sessionAnchorOutputRef.current * 100).toFixed(0)}%`);
   }, []);
@@ -478,7 +479,7 @@ export const useAudioManager = (
     if (!chain?.connected) return;
 
     if (!equalizerSettings.enabled || !equalizerSettings.normalizerEnabled || !hasSessionAnchorRef.current) {
-      scheduleNormalizerGain(chain, Math.max(0.01, volumeRef.current / 100), rampSeconds);
+      scheduleNormalizerGain(chain, Math.max(0, volumeRef.current / 100), rampSeconds);
       return;
     }
 
