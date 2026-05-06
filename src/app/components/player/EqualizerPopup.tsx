@@ -922,16 +922,17 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
 
               {/* Right Column: Tone Controls */}
               <div className="w-72 flex flex-col gap-4">
-                <div className="space-y-4 p-5 rounded-xl bg-linear-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20">
-                  <h3 className="text-xs font-semibold text-purple-300/80 uppercase tracking-wider flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
-                    </svg>
-                    Tone Control
-                  </h3>
+                <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-4">
+                  <div className="space-y-4 p-5 rounded-xl bg-linear-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20">
+                    <h3 className="text-xs font-semibold text-purple-300/80 uppercase tracking-wider flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
+                      </svg>
+                      Tone Control
+                    </h3>
 
-                  {/* Bass Tone */}
-                  <div className="space-y-2">
+                    {/* Bass Tone */}
+                    <div className="space-y-2">
                     <label className="text-white/80 text-xs font-medium flex justify-between items-center">
                       <span className="font-semibold">🎵 Bass</span>
                       <span className={`font-mono text-sm ${settings.bassTone > 0 ? 'text-green-400' : settings.bassTone < 0 ? 'text-red-400' : 'text-white/50'
@@ -957,10 +958,10 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                       />
                       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-0.5 h-5 bg-white/20 pointer-events-none" />
                     </div>
-                  </div>
+                    </div>
 
-                  {/* Treble Tone */}
-                  <div className="space-y-2">
+                    {/* Treble Tone */}
+                    <div className="space-y-2">
                     <label className="text-white/80 text-xs font-medium flex justify-between items-center">
                       <span className="font-semibold">🎶 Treble</span>
                       <span className={`font-mono text-sm ${settings.trebleTone > 0 ? 'text-green-400' : settings.trebleTone < 0 ? 'text-red-400' : 'text-white/50'
@@ -986,32 +987,32 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                       />
                       <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-0.5 h-5 bg-white/20 pointer-events-none" />
                     </div>
+                    </div>
                   </div>
 
-                </div>
-
-                <div className="space-y-3 p-4 rounded-xl bg-linear-to-br from-emerald-500/10 to-cyan-500/10 border border-emerald-500/20">
-                  <h3 className="text-xs font-semibold text-emerald-300/80 uppercase tracking-wider flex items-center gap-2">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M14 3.23v17.54c0 .42-.49.64-.8.36L7.83 16H4c-.55 0-1-.45-1-1V9c0-.55.45-1 1-1h3.83l5.37-5.13c.31-.28.8-.06.8.36zM16.5 8.5a1 1 0 011.41 0 5 5 0 010 7.07 1 1 0 01-1.41-1.41 3 3 0 000-4.24 1 1 0 010-1.42z" />
-                    </svg>
-                    Volume Control
-                  </h3>
-                  <button
-                    onClick={handleToggleNormalizer}
-                    disabled={!settings.enabled}
-                    className={`w-full px-4 py-2 rounded-xl transition-all duration-200 text-sm font-medium border ${!settings.enabled
-                      ? 'bg-white/5 text-white/30 border-white/10 cursor-not-allowed'
-                      : settings.normalizerEnabled
-                        ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
-                        : 'bg-red-500/20 text-red-300 border-red-500/40'
-                      }`}
-                  >
-                    {settings.normalizerEnabled ? 'Normalizer Enabled' : 'Normalizer Disabled'}
-                  </button>
-                  <p className="text-[10px] text-white/50">
-                    Keeps output level consistent between tracks.
-                  </p>
+                  <div className="space-y-3 p-4 rounded-xl bg-linear-to-br from-emerald-500/10 to-cyan-500/10 border border-emerald-500/20">
+                    <h3 className="text-xs font-semibold text-emerald-300/80 uppercase tracking-wider flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M14 3.23v17.54c0 .42-.49.64-.8.36L7.83 16H4c-.55 0-1-.45-1-1V9c0-.55.45-1 1-1h3.83l5.37-5.13c.31-.28.8-.06.8.36zM16.5 8.5a1 1 0 011.41 0 5 5 0 010 7.07 1 1 0 01-1.41-1.41 3 3 0 000-4.24 1 1 0 010-1.42z" />
+                      </svg>
+                      Volume Control
+                    </h3>
+                    <button
+                      onClick={handleToggleNormalizer}
+                      disabled={!settings.enabled}
+                      className={`w-full px-4 py-2 rounded-xl transition-all duration-200 text-sm font-medium border ${!settings.enabled
+                        ? 'bg-white/5 text-white/30 border-white/10 cursor-not-allowed'
+                        : settings.normalizerEnabled
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
+                          : 'bg-red-500/20 text-red-300 border-red-500/40'
+                        }`}
+                    >
+                      {settings.normalizerEnabled ? 'Normalizer Enabled' : 'Normalizer Disabled'}
+                    </button>
+                    <p className="text-[10px] text-white/50">
+                      Keeps output level consistent between tracks.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
