@@ -69,16 +69,6 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       ctx.scale(dpr, dpr);
     };
 
-    // EQ master OFF => visualizer fully OFF (no masked rendering, no animation loop).
-    if (!settings.enabled) {
-      const width = visualizerCanvas.clientWidth;
-      const height = visualizerCanvas.clientHeight;
-      resizeCanvas(width, height);
-      ctx.clearRect(0, 0, width, height);
-      smoothedBarsRef.current = new Float32Array(0);
-      return;
-    }
-
     const drawRoundedBar = (x: number, y: number, w: number, h: number, r: number) => {
       const radius = Math.max(0, Math.min(r, w / 2, h / 2));
       ctx.beginPath();
@@ -132,13 +122,30 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
     const drawBackground = (width: number, height: number, activeAlpha: number, _isEqEnabled: boolean) => {
       // Keep only the center divider between bars and reflection.
       const half = height / 2;
-      ctx.strokeStyle = `rgba(255, 255, 255, ${0.16 * activeAlpha})`;
+      const alpha = Math.max(0.22, 0.16 * activeAlpha);
+      ctx.save();
+      ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
       ctx.lineWidth = 1;
+      ctx.setLineDash([6, 6]);
+      ctx.lineDashOffset = 0;
       ctx.beginPath();
       ctx.moveTo(0, half);
       ctx.lineTo(width, half);
       ctx.stroke();
+      ctx.restore();
     };
+
+    // EQ master OFF => spectrum bars OFF (no masked rendering, no animation loop),
+    // but keep the dashed divider visible.
+    if (!settings.enabled) {
+      const width = visualizerCanvas.clientWidth;
+      const height = visualizerCanvas.clientHeight;
+      resizeCanvas(width, height);
+      ctx.clearRect(0, 0, width, height);
+      drawBackground(width, height, 0, false);
+      smoothedBarsRef.current = new Float32Array(0);
+      return;
+    }
 
     const draw = () => {
       const width = visualizerCanvas.clientWidth;
