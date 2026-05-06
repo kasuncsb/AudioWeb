@@ -456,9 +456,6 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
 
               {/* 10-Band EQ - Same vertical faders as desktop */}
               <div className="flex flex-col gap-3">
-                <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wider">
-                  10-Band Equalizer
-                </h3>
                 <div
                   className="w-full rounded-lg overflow-hidden mx-auto"
                   style={{
@@ -475,6 +472,9 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                     onContextMenu={handleVisualizerContextMenu}
                   />
                 </div>
+                <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wider">
+                  10-Band Equalizer
+                </h3>
                 <div className="flex items-end gap-2.5 justify-between">
                   {bands.map(({ key, label, value }) => {
                     const fillPercentage = getSliderFillPercentage(value);
