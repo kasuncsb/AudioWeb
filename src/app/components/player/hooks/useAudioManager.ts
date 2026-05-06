@@ -705,12 +705,17 @@ export const useAudioManager = (
         const analyser = audioContext.createAnalyser();
         analyser.fftSize = 4096;          // Better resolution for low-frequency visualization
         analyser.smoothingTimeConstant = 0.3;
+        // Calibrate analyser scale to avoid saturation/flat-topping in getByteFrequencyData()
+        analyser.minDecibels = -110;
+        analyser.maxDecibels = -15;
 
         // ===== EQ ANALYSER - Post-EQ visualization =====
         // Placed after EQ/tone processing so EQ popup reflects live band changes.
         const eqAnalyser = audioContext.createAnalyser();
         eqAnalyser.fftSize = 4096;
         eqAnalyser.smoothingTimeConstant = 0.3;
+        eqAnalyser.minDecibels = -110;
+        eqAnalyser.maxDecibels = -15;
 
         // ===== BASS BOOST - Adaptive punchy bass =====
         // Peaking filter - frequency auto-adjusted based on track analysis
