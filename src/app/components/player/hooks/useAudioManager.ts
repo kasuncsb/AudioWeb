@@ -713,7 +713,8 @@ export const useAudioManager = (
         // Placed after EQ/tone processing so EQ popup reflects live band changes.
         const eqAnalyser = audioContext.createAnalyser();
         eqAnalyser.fftSize = 4096;
-        eqAnalyser.smoothingTimeConstant = 0.3;
+        // Slightly lower smoothing for more faithful sweep tracking in EQ popup.
+        eqAnalyser.smoothingTimeConstant = 0.2;
         eqAnalyser.minDecibels = -110;
         eqAnalyser.maxDecibels = -15;
 

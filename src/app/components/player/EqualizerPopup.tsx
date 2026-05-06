@@ -3,6 +3,9 @@ import { ResizablePopup } from './ResizablePopup';
 import { EQUALIZER_BANDS, EQUALIZER_PRESETS } from '@/config/constants';
 import { useState, useEffect, useRef } from 'react';
 
+const MIN_DISPLAY_FREQ_HZ = 20;
+const MAX_DISPLAY_FREQ_HZ = 20000;
+
 interface EqualizerPopupProps {
   show: boolean;
   position: { x: number; y: number };
@@ -45,7 +48,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const processedAnalyzer = analyserNode;
-    const processedData = processedAnalyzer ? new Uint8Array(processedAnalyzer.frequencyBinCount) : null;
+    const processedData = processedAnalyzer ? new Float32Array(processedAnalyzer.frequencyBinCount) : null;
 
     const draw = () => {
       const width = visualizerCanvas.clientWidth;
@@ -79,15 +82,17 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       ctx.stroke();
 
       if (processedAnalyzer && processedData) {
-        processedAnalyzer.getByteFrequencyData(processedData);
+        processedAnalyzer.getFloatFrequencyData(processedData);
 
         const barCount = Math.min(84, Math.max(30, Math.floor(width / 10)));
         const barGap = 2;
         const nyquist = processedAnalyzer.context.sampleRate / 2;
         const binCount = processedData.length;
         const binHz = nyquist / binCount;
-        const minFreq = Math.max(20, binHz);
-        const maxFreq = Math.min(20000, nyquist);
+        const minFreq = Math.max(MIN_DISPLAY_FREQ_HZ, binHz);
+        const maxFreq = Math.min(MAX_DISPLAY_FREQ_HZ, nyquist);
+        const minDb = processedAnalyzer.minDecibels;
+        const maxDb = processedAnalyzer.maxDecibels;
 
         // Build strictly increasing, non-overlapping log-spaced bin edges.
         // This prevents low-frequency bars from collapsing onto the same FFT bins.
@@ -134,12 +139,25 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
         };
 
         const getBandMagnitudeByBins = (startIndex: number, endIndex: number): number => {
-          let peak = 0;
+          let sumPower = 0;
+          let count = 0;
+
           for (let j = startIndex; j <= endIndex; j++) {
-            const v = processedData[j] ?? 0;
-            if (v > peak) peak = v;
+            const dbValue = processedData[j];
+            if (!Number.isFinite(dbValue)) continue;
+            const clampedDb = Math.max(minDb, Math.min(maxDb, dbValue));
+            // Convert dB magnitude to linear amplitude, then accumulate power.
+            const amplitude = Math.pow(10, clampedDb / 20);
+            sumPower += amplitude * amplitude;
+            count++;
           }
-          return peak / 255;
+
+          if (count === 0) return 0;
+
+          const rmsAmplitude = Math.sqrt(sumPower / count);
+          const rmsDb = 20 * Math.log10(Math.max(rmsAmplitude, 1e-8));
+          const normalized = (rmsDb - minDb) / Math.max(1e-6, (maxDb - minDb));
+          return Math.max(0, Math.min(1, normalized));
         };
 
         // Draw bars directly from original analyser spectrum (log-frequency grouped).
