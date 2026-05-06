@@ -125,7 +125,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       return Math.max(0, Math.min(1, (db - minDb) / Math.max(1e-6, maxDb - minDb)));
     };
 
-    const drawBackground = (width: number, height: number, activeAlpha: number, barWidth: number, barGap: number) => {
+    const drawBackground = (width: number, height: number, activeAlpha: number, _barWidth: number, _barGap: number) => {
       // Keep only the center divider between bars and reflection.
       const half = height / 2;
       const alpha = Math.max(DIVIDER_BASE_ALPHA, 0.16 * activeAlpha);
@@ -133,11 +133,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       ctx.lineWidth = 1;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
-      // 1 dash = 1 bar (dash length = bar width, gap = bar gap)
-      const dash = Math.max(1, barWidth);
-      const gap = Math.max(0, barGap);
-      ctx.setLineDash([dash, gap]);
-      ctx.lineDashOffset = 0;
+      ctx.setLineDash([]);
 
       // Subtle left→right fade so it blends with the UI.
       const grad = ctx.createLinearGradient(0, 0, width, 0);
@@ -174,11 +170,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       const height = visualizerCanvas.clientHeight;
       resizeCanvas(width, height);
       ctx.clearRect(0, 0, width, height);
-      const safeBarCount = Math.min(96, Math.max(32, Math.floor(width / 9)));
-      const barGap = 1.5;
-      const totalGap = (safeBarCount - 1) * barGap;
-      const barWidth = Math.max(2, (width - totalGap) / safeBarCount);
-      drawBackground(width, height, 0, barWidth, barGap);
+      drawBackground(width, height, 0, 0, 0);
       smoothedBarsRef.current = new Float32Array(0);
       return;
     }
