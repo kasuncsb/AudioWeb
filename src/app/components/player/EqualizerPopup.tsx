@@ -129,8 +129,15 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       return Math.max(0, Math.min(1, (db - minDb) / Math.max(1e-6, maxDb - minDb)));
     };
 
-    const drawBackground = (_width: number, _height: number, _activeAlpha: number, _isEqEnabled: boolean) => {
-      // Intentionally empty: no horizontal guides and no background overlay.
+    const drawBackground = (width: number, height: number, activeAlpha: number, _isEqEnabled: boolean) => {
+      // Keep only the center divider between bars and reflection.
+      const half = height / 2;
+      ctx.strokeStyle = `rgba(255, 255, 255, ${0.16 * activeAlpha})`;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, half);
+      ctx.lineTo(width, half);
+      ctx.stroke();
     };
 
     const draw = () => {
