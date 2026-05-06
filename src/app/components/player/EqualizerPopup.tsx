@@ -820,6 +820,27 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
               </div>
             </div>
 
+            {/* Full-width Visualizer Row (desktop) */}
+            <div className="flex flex-col gap-2">
+              <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wider text-center">
+                10-Band Equalizer • ±12dB Range
+              </h3>
+              <div
+                className="w-full rounded-lg overflow-hidden"
+                style={{
+                  height: `${visualizerHeight}px`,
+                  filter: settings.enabled ? 'none' : 'grayscale(1)',
+                  opacity: settings.enabled ? 1 : 0.5,
+                  transition: 'opacity 0.2s ease, filter 0.2s ease'
+                }}
+              >
+                <canvas
+                  ref={setVisualizerCanvas}
+                  className="w-full h-full block"
+                />
+              </div>
+            </div>
+
             {/* Main Content: 2 Column Layout */}
             <div className="flex gap-6 flex-1 overflow-hidden">
               {/* Left Column: Presets */}
@@ -850,23 +871,6 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
 
               {/* Center Column: 10-Band EQ with Vertical Faders */}
               <div className="flex-1 flex flex-col gap-3">
-                <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wider">
-                  10-Band Equalizer • ±12dB Range
-                </h3>
-                <div
-                  className="w-full rounded-lg overflow-hidden"
-                  style={{
-                    height: `${visualizerHeight}px`,
-                    filter: settings.enabled ? 'none' : 'grayscale(1)',
-                    opacity: settings.enabled ? 1 : 0.5,
-                    transition: 'opacity 0.2s ease, filter 0.2s ease'
-                  }}
-                >
-                  <canvas
-                    ref={setVisualizerCanvas}
-                    className="w-full h-full block"
-                  />
-                </div>
                 <div className="flex-1 flex items-end gap-3 justify-between">
                   {bands.map(({ key, label, value }) => {
                     const fillPercentage = getSliderFillPercentage(value);
