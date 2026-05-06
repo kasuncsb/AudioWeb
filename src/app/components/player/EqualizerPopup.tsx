@@ -86,7 +86,8 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
         const totalGap = (barCount - 1) * barGap;
         const barWidth = Math.max(2, (width - totalGap) / barCount);
         const nyquist = processedAnalyzer.context.sampleRate / 2;
-        const minFreq = 20;
+        const binHz = nyquist / processedData.length;
+        const minFreq = Math.max(20, binHz);
         const maxFreq = Math.min(20000, nyquist);
         const minDb = -100;
         const maxDb = -16;
@@ -108,11 +109,10 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
         };
 
         const getBandMagnitude = (startFreq: number, endFreq: number): number => {
-          const startIndex = Math.max(0, Math.floor((startFreq / nyquist) * processedData.length));
-          const endIndex = Math.min(
-            processedData.length - 1,
-            Math.max(startIndex, Math.ceil((endFreq / nyquist) * processedData.length))
-          );
+          const len = processedData.length;
+          const startIndex = Math.max(0, Math.floor((startFreq / nyquist) * (len - 1)));
+          const rawEndIndex = Math.ceil((endFreq / nyquist) * (len - 1));
+          const endIndex = Math.min(len - 1, Math.max(startIndex + 1, rawEndIndex));
 
           let powerSum = 0;
           let count = 0;
