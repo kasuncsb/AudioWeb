@@ -126,21 +126,27 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       ctx.fillStyle = `rgba(2, 6, 23, ${bgAlpha})`;
       ctx.fillRect(0, 0, width, height);
 
-      // Subtle horizontal dB reference guides.
+      // Subtle horizontal dB reference guides in both halves.
       ctx.strokeStyle = `rgba(255, 255, 255, ${0.06 * activeAlpha})`;
       ctx.lineWidth = 1;
+      const half = height / 2;
       for (let i = 1; i <= 4; i++) {
-        const y = height - (height * 0.18 * i);
+        const yUp = half - (half * 0.12 * i);
+        const yDown = half + (half * 0.12 * i);
         ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
+        ctx.moveTo(0, yUp);
+        ctx.lineTo(width, yUp);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, yDown);
+        ctx.lineTo(width, yDown);
         ctx.stroke();
       }
 
       ctx.strokeStyle = `rgba(255, 255, 255, ${isEqEnabled ? 0.14 : 0.08})`;
       ctx.beginPath();
-      ctx.moveTo(0, height - 1);
-      ctx.lineTo(width, height - 1);
+      ctx.moveTo(0, half);
+      ctx.lineTo(width, half);
       ctx.stroke();
     };
 
@@ -210,15 +216,23 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
           const smoothed = prev + (target - prev) * blend;
           smoothedBarsRef.current[i] = smoothed;
 
-          const barHeight = smoothed * (height * 0.92);
+          const barHeight = smoothed * (height * 0.48);
           const x = i * (barWidth + barGap);
-          const yTop = height - barHeight;
+          const yTop = (height / 2) - barHeight;
           const hue = 170 + ((i / safeBarCount) * 220);
-          const topGrad = ctx.createLinearGradient(0, yTop, 0, height);
+          const topGrad = ctx.createLinearGradient(0, yTop, 0, height / 2);
           topGrad.addColorStop(0, `hsla(${hue}, 100%, 62%, ${0.95 * activeAlpha})`);
           topGrad.addColorStop(1, `hsla(${hue}, 95%, 45%, ${0.45 * activeAlpha})`);
           ctx.fillStyle = topGrad;
           drawRoundedBar(x, yTop, barWidth, barHeight, Math.min(6, barWidth / 2));
+
+          // Mirror bars downward for visual style while preserving identical energy mapping.
+          const yBottom = height / 2;
+          const bottomGrad = ctx.createLinearGradient(0, yBottom, 0, yBottom + barHeight);
+          bottomGrad.addColorStop(0, `hsla(${hue}, 95%, 58%, ${0.6 * activeAlpha})`);
+          bottomGrad.addColorStop(1, `hsla(${hue}, 95%, 42%, ${0.08 * activeAlpha})`);
+          ctx.fillStyle = bottomGrad;
+          drawRoundedBar(x, yBottom, barWidth, barHeight, Math.min(6, barWidth / 2));
         }
       }
 
