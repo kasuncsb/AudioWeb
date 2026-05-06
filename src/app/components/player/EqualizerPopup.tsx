@@ -821,7 +821,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
             </div>
 
             {/* Full-width Visualizer Row (desktop) */}
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 px-7">
               <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wider text-center">
                 10-Band Equalizer • ±12dB Range
               </h3>
@@ -871,7 +871,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
 
               {/* Center Column: 10-Band EQ with Vertical Faders */}
               <div className="flex-1 flex flex-col gap-3">
-                <div className="flex-1 flex items-end gap-3 justify-between">
+                <div className="flex items-end gap-3 justify-between pt-1">
                   {bands.map(({ key, label, value }) => {
                     const fillPercentage = getSliderFillPercentage(value);
                     const sliderColor = getSliderColor();
