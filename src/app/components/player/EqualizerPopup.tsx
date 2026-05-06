@@ -5,8 +5,9 @@ import { useState, useEffect, useRef } from 'react';
 
 const MIN_DISPLAY_FREQ_HZ = 20;
 const MAX_DISPLAY_FREQ_HZ = 20000;
-const ATTACK_TIME_SEC = 0.045;
-const RELEASE_TIME_SEC = 0.2;
+const ATTACK_TIME_SEC = 0.008;
+const RELEASE_TIME_SEC = 0.04;
+const DANCE_CURVE_GAMMA = 0.62;
 
 interface EqualizerPopupProps {
   show: boolean;
@@ -191,7 +192,8 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
           const smoothed = prev + (target - prev) * blend;
           smoothedBarsRef.current[i] = smoothed;
 
-          const barHeight = smoothed * (height * 0.48);
+          const danceValue = Math.pow(Math.max(0, Math.min(1, smoothed)), DANCE_CURVE_GAMMA);
+          const barHeight = danceValue * (height * 0.48);
           const x = i * (barWidth + barGap);
           const yTop = (height / 2) - barHeight;
           const hue = 170 + ((i / safeBarCount) * 220);
