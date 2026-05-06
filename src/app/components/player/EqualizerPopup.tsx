@@ -5,6 +5,10 @@ import { useState, useEffect, useRef } from 'react';
 
 const MIN_DISPLAY_FREQ_HZ = 20;
 const MAX_DISPLAY_FREQ_HZ = 20000;
+const ATTACK_TIME_SEC = 0.045;
+const RELEASE_TIME_SEC = 0.2;
+const PEAK_HOLD_SEC = 0.16;
+const PEAK_DECAY_PER_SEC = 1.1;
 
 interface EqualizerPopupProps {
   show: boolean;
@@ -31,6 +35,10 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
   const [isMobileDevice, setIsMobileDevice] = useState(false);
   const [visualizerCanvas, setVisualizerCanvas] = useState<HTMLCanvasElement | null>(null);
   const visualizerRafRef = useRef<number | null>(null);
+  const smoothedBarsRef = useRef<Float32Array>(new Float32Array(0));
+  const peakBarsRef = useRef<Float32Array>(new Float32Array(0));
+  const peakHoldUntilRef = useRef<Float32Array>(new Float32Array(0));
+  const lastFrameTimeRef = useRef<number>(0);
 
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 767px)');
@@ -50,42 +58,118 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
     const processedAnalyzer = analyserNode;
     const processedData = processedAnalyzer ? new Float32Array(processedAnalyzer.frequencyBinCount) : null;
 
-    const draw = () => {
-      const width = visualizerCanvas.clientWidth;
-      const height = visualizerCanvas.clientHeight;
+    const ensureStateBuffers = (barCount: number) => {
+      if (smoothedBarsRef.current.length === barCount) return;
+      smoothedBarsRef.current = new Float32Array(barCount);
+      peakBarsRef.current = new Float32Array(barCount);
+      peakHoldUntilRef.current = new Float32Array(barCount);
+    };
+
+    const resizeCanvas = (width: number, height: number) => {
       const physicalWidth = Math.max(1, Math.floor(width * dpr));
       const physicalHeight = Math.max(1, Math.floor(height * dpr));
-
       if (visualizerCanvas.width !== physicalWidth || visualizerCanvas.height !== physicalHeight) {
         visualizerCanvas.width = physicalWidth;
         visualizerCanvas.height = physicalHeight;
       }
-
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.clearRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
       ctx.scale(dpr, dpr);
+    };
 
-      const isEqEnabled = settings.enabled;
-      const activeAlpha = isEqEnabled ? 1 : 0.35;
+    const drawRoundedBar = (x: number, y: number, w: number, h: number, r: number) => {
+      const radius = Math.max(0, Math.min(r, w / 2, h / 2));
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + w - radius, y);
+      ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+      ctx.lineTo(x + w, y + h - radius);
+      ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+      ctx.lineTo(x + radius, y + h);
+      ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+      ctx.fill();
+    };
+
+    const integrateBandRmsDb = (
+      data: Float32Array,
+      startBin: number,
+      endBinExclusive: number,
+      minDb: number,
+      maxDb: number
+    ): number => {
+      let totalPower = 0;
+      let weightSum = 0;
+
+      for (let b = startBin; b < endBinExclusive; b++) {
+        const db = data[b];
+        if (!Number.isFinite(db)) continue;
+        const clampedDb = Math.max(minDb, Math.min(maxDb, db));
+        const amplitude = Math.pow(10, clampedDb / 20);
+        const power = amplitude * amplitude;
+        totalPower += power;
+        weightSum += 1;
+      }
+
+      if (weightSum <= 0) return minDb;
+
+      const rmsAmplitude = Math.sqrt(totalPower / weightSum);
+      return 20 * Math.log10(Math.max(rmsAmplitude, 1e-8));
+    };
+
+    const normalizeDb = (db: number, minDb: number, maxDb: number) => {
+      return Math.max(0, Math.min(1, (db - minDb) / Math.max(1e-6, maxDb - minDb)));
+    };
+
+    const drawBackground = (width: number, height: number, activeAlpha: number, isEqEnabled: boolean) => {
       const bgAlpha = isEqEnabled ? 0.08 : 0.04;
-
-      // Borderless dark canvas background
       ctx.fillStyle = `rgba(2, 6, 23, ${bgAlpha})`;
       ctx.fillRect(0, 0, width, height);
 
-      // Midline
-      ctx.strokeStyle = `rgba(255, 255, 255, ${isEqEnabled ? 0.14 : 0.08})`;
+      // Subtle horizontal dB reference guides in both halves.
+      ctx.strokeStyle = `rgba(255, 255, 255, ${0.06 * activeAlpha})`;
       ctx.lineWidth = 1;
+      const half = height / 2;
+      for (let i = 1; i <= 4; i++) {
+        const yUp = half - (half * 0.12 * i);
+        const yDown = half + (half * 0.12 * i);
+        ctx.beginPath();
+        ctx.moveTo(0, yUp);
+        ctx.lineTo(width, yUp);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, yDown);
+        ctx.lineTo(width, yDown);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = `rgba(255, 255, 255, ${isEqEnabled ? 0.14 : 0.08})`;
       ctx.beginPath();
-      ctx.moveTo(0, height / 2);
-      ctx.lineTo(width, height / 2);
+      ctx.moveTo(0, half);
+      ctx.lineTo(width, half);
       ctx.stroke();
+    };
+
+    const draw = () => {
+      const nowSec = performance.now() / 1000;
+      const dt = lastFrameTimeRef.current > 0 ? Math.min(0.2, nowSec - lastFrameTimeRef.current) : 1 / 60;
+      lastFrameTimeRef.current = nowSec;
+
+      const width = visualizerCanvas.clientWidth;
+      const height = visualizerCanvas.clientHeight;
+      resizeCanvas(width, height);
+
+      const isEqEnabled = settings.enabled;
+      const activeAlpha = isEqEnabled ? 1 : 0.35;
+      drawBackground(width, height, activeAlpha, isEqEnabled);
 
       if (processedAnalyzer && processedData) {
         processedAnalyzer.getFloatFrequencyData(processedData);
 
-        const barCount = Math.min(84, Math.max(30, Math.floor(width / 10)));
-        const barGap = 2;
+        const barCount = Math.min(96, Math.max(32, Math.floor(width / 9)));
+        const barGap = 1.5;
         const nyquist = processedAnalyzer.context.sampleRate / 2;
         const binCount = processedData.length;
         const binHz = nyquist / binCount;
@@ -102,17 +186,17 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
         const maxIndexInclusive = Math.min(binCount - 1, Math.ceil(maxFreq / binHz));
         const maxEdgeExclusive = Math.min(binCount, maxIndexInclusive + 1);
 
-        const availableBins = Math.max(1, maxEdgeExclusive - minIndex);
-        const safeBarCount = Math.min(barCount, availableBins);
+        const availableBins = Math.max(2, maxEdgeExclusive - minIndex);
+        const safeBarCount = Math.min(barCount, availableBins - 1);
+        ensureStateBuffers(safeBarCount);
 
         const logMin = Math.log(minIndex);
         const logMax = Math.log(maxEdgeExclusive);
-        const edges: number[] = new Array(safeBarCount + 1);
+        const edges = new Int32Array(safeBarCount + 1);
         edges[0] = minIndex;
         for (let i = 1; i < safeBarCount; i++) {
           const t = i / safeBarCount;
           const ideal = Math.round(Math.exp(logMin + (logMax - logMin) * t));
-          // Keep strictly increasing edges and reserve space for remaining bars.
           const latestAllowed = maxEdgeExclusive - (safeBarCount - i);
           const clampedIdeal = Math.min(latestAllowed, Math.max(minIndex, ideal));
           edges[i] = Math.max(edges[i - 1] + 1, clampedIdeal);
@@ -121,51 +205,30 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
 
         const totalGap = (safeBarCount - 1) * barGap;
         const barWidth = Math.max(2, (width - totalGap) / safeBarCount);
-
-        const drawRoundedBar = (x: number, y: number, w: number, h: number, r: number) => {
-          const radius = Math.max(0, Math.min(r, w / 2, h / 2));
-          ctx.beginPath();
-          ctx.moveTo(x + radius, y);
-          ctx.lineTo(x + w - radius, y);
-          ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
-          ctx.lineTo(x + w, y + h - radius);
-          ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
-          ctx.lineTo(x + radius, y + h);
-          ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
-          ctx.lineTo(x, y + radius);
-          ctx.quadraticCurveTo(x, y, x + radius, y);
-          ctx.closePath();
-          ctx.fill();
-        };
-
-        const getBandMagnitudeByBins = (startIndex: number, endIndex: number): number => {
-          let sumPower = 0;
-          let count = 0;
-
-          for (let j = startIndex; j <= endIndex; j++) {
-            const dbValue = processedData[j];
-            if (!Number.isFinite(dbValue)) continue;
-            const clampedDb = Math.max(minDb, Math.min(maxDb, dbValue));
-            // Convert dB magnitude to linear amplitude, then accumulate power.
-            const amplitude = Math.pow(10, clampedDb / 20);
-            sumPower += amplitude * amplitude;
-            count++;
-          }
-
-          if (count === 0) return 0;
-
-          const rmsAmplitude = Math.sqrt(sumPower / count);
-          const rmsDb = 20 * Math.log10(Math.max(rmsAmplitude, 1e-8));
-          const normalized = (rmsDb - minDb) / Math.max(1e-6, (maxDb - minDb));
-          return Math.max(0, Math.min(1, normalized));
-        };
-
-        // Draw bars directly from original analyser spectrum (log-frequency grouped).
         for (let i = 0; i < safeBarCount; i++) {
           const startIndex = edges[i];
-          const endIndex = Math.max(startIndex, edges[i + 1] - 1);
-          const value = getBandMagnitudeByBins(startIndex, endIndex);
-          const barHeight = value * (height * 0.48);
+          const endIndexExclusive = Math.max(startIndex + 1, edges[i + 1]);
+          const rmsDb = integrateBandRmsDb(processedData, startIndex, endIndexExclusive, minDb, maxDb);
+          const target = normalizeDb(rmsDb, minDb, maxDb);
+
+          const prev = smoothedBarsRef.current[i];
+          const attackBlend = 1 - Math.exp(-dt / ATTACK_TIME_SEC);
+          const releaseBlend = 1 - Math.exp(-dt / RELEASE_TIME_SEC);
+          const blend = target >= prev ? attackBlend : releaseBlend;
+          const smoothed = prev + (target - prev) * blend;
+          smoothedBarsRef.current[i] = smoothed;
+
+          let peak = peakBarsRef.current[i];
+          if (smoothed >= peak) {
+            peak = smoothed;
+            peakHoldUntilRef.current[i] = nowSec + PEAK_HOLD_SEC;
+          } else if (nowSec >= peakHoldUntilRef.current[i]) {
+            peak = Math.max(smoothed, peak - PEAK_DECAY_PER_SEC * dt);
+          }
+          peakBarsRef.current[i] = peak;
+
+          const barHeight = smoothed * (height * 0.48);
+          const peakHeight = peak * (height * 0.48);
           const x = i * (barWidth + barGap);
           const yTop = (height / 2) - barHeight;
           const hue = 170 + ((i / safeBarCount) * 220);
@@ -182,6 +245,13 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
           bottomGrad.addColorStop(1, `hsla(${hue}, 95%, 42%, ${0.08 * activeAlpha})`);
           ctx.fillStyle = bottomGrad;
           drawRoundedBar(x, yBottom, barWidth, barHeight, Math.min(6, barWidth / 2));
+
+          // Peak-hold tick for professional analyzer readability.
+          const peakYTop = (height / 2) - peakHeight;
+          const peakYBottom = (height / 2) + peakHeight;
+          ctx.fillStyle = `hsla(${hue}, 100%, 88%, ${0.95 * activeAlpha})`;
+          ctx.fillRect(x, peakYTop - 1, barWidth, 1.5);
+          ctx.fillRect(x, peakYBottom, barWidth, 1.5);
         }
       }
 
@@ -195,6 +265,10 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
         cancelAnimationFrame(visualizerRafRef.current);
         visualizerRafRef.current = null;
       }
+      lastFrameTimeRef.current = 0;
+      smoothedBarsRef.current = new Float32Array(0);
+      peakBarsRef.current = new Float32Array(0);
+      peakHoldUntilRef.current = new Float32Array(0);
     };
   }, [show, visualizerCanvas, analyserNode, settings.enabled]);
 
