@@ -170,7 +170,7 @@ export const AboutPopup: React.FC<AboutPopupProps> = ({ show, onClose, isPlaying
 
   return (
     <div
-      className="fixed inset-0 z-60 flex items-center justify-center p-4 transition-all duration-500"
+      className="fixed inset-0 z-[100] flex items-center justify-center p-4 transition-all duration-500"
       style={{
         background: showVisualization ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.8)',
         backdropFilter: showVisualization ? 'none' : 'var(--blur-overlay)',
