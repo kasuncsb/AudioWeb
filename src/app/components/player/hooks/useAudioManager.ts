@@ -703,14 +703,14 @@ export const useAudioManager = (
         // ===== ANALYSER - Raw frequency analysis =====
         // Placed early in chain for unprocessed signal analysis (visualization + adaptive detection)
         const analyser = audioContext.createAnalyser();
-        analyser.fftSize = 2048;          // Good frequency resolution for detection
-        analyser.smoothingTimeConstant = 0.8;
+        analyser.fftSize = 4096;          // Better resolution for low-frequency visualization
+        analyser.smoothingTimeConstant = 0.3;
 
         // ===== EQ ANALYSER - Post-EQ visualization =====
         // Placed after EQ/tone processing so EQ popup reflects live band changes.
         const eqAnalyser = audioContext.createAnalyser();
-        eqAnalyser.fftSize = 2048;
-        eqAnalyser.smoothingTimeConstant = 0.8;
+        eqAnalyser.fftSize = 4096;
+        eqAnalyser.smoothingTimeConstant = 0.3;
 
         // ===== BASS BOOST - Adaptive punchy bass =====
         // Peaking filter - frequency auto-adjusted based on track analysis

@@ -83,8 +83,6 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
 
         const barCount = Math.min(84, Math.max(30, Math.floor(width / 10)));
         const barGap = 2;
-        const totalGap = (barCount - 1) * barGap;
-        const barWidth = Math.max(2, (width - totalGap) / barCount);
         const nyquist = processedAnalyzer.context.sampleRate / 2;
         const binCount = processedData.length;
         const binHz = nyquist / binCount;
@@ -100,11 +98,16 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
         const logMax = Math.log(maxIndex);
         const edges: number[] = new Array(safeBarCount + 1);
         edges[0] = minIndex;
-        for (let i = 1; i <= safeBarCount; i++) {
+        for (let i = 1; i < safeBarCount; i++) {
           const t = i / safeBarCount;
           const ideal = Math.round(Math.exp(logMin + (logMax - logMin) * t));
-          edges[i] = Math.max(edges[i - 1] + 1, Math.min(maxIndex, ideal));
+          const clampedIdeal = Math.min(maxIndex - (safeBarCount - i), Math.max(minIndex, ideal));
+          edges[i] = Math.min(maxIndex, Math.max(edges[i - 1] + 1, clampedIdeal));
         }
+        edges[safeBarCount] = maxIndex;
+
+        const totalGap = (safeBarCount - 1) * barGap;
+        const barWidth = Math.max(2, (width - totalGap) / safeBarCount);
 
         const drawRoundedBar = (x: number, y: number, w: number, h: number, r: number) => {
           const radius = Math.max(0, Math.min(r, w / 2, h / 2));
@@ -134,7 +137,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
         // Draw bars directly from original analyser spectrum (log-frequency grouped).
         for (let i = 0; i < safeBarCount; i++) {
           const startIndex = edges[i];
-          const endIndex = edges[i + 1];
+          const endIndex = Math.max(startIndex, edges[i + 1] - 1);
           const value = getBandMagnitudeByBins(startIndex, endIndex);
           const barHeight = value * (height * 0.48);
           const x = i * (barWidth + barGap);
