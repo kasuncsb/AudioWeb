@@ -86,9 +86,25 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
         const totalGap = (barCount - 1) * barGap;
         const barWidth = Math.max(2, (width - totalGap) / barCount);
         const nyquist = processedAnalyzer.context.sampleRate / 2;
-        const binHz = nyquist / processedData.length;
+        const binCount = processedData.length;
+        const binHz = nyquist / binCount;
         const minFreq = Math.max(20, binHz);
         const maxFreq = Math.min(20000, nyquist);
+
+        // Build strictly increasing, non-overlapping log-spaced bin edges.
+        // This prevents low-frequency bars from collapsing onto the same FFT bins.
+        const minIndex = Math.max(1, Math.floor(minFreq / binHz)); // skip DC bin
+        const maxIndex = Math.min(binCount - 1, Math.ceil(maxFreq / binHz));
+        const safeBarCount = Math.min(barCount, Math.max(1, maxIndex - minIndex));
+        const logMin = Math.log(minIndex);
+        const logMax = Math.log(maxIndex);
+        const edges: number[] = new Array(safeBarCount + 1);
+        edges[0] = minIndex;
+        for (let i = 1; i <= safeBarCount; i++) {
+          const t = i / safeBarCount;
+          const ideal = Math.round(Math.exp(logMin + (logMax - logMin) * t));
+          edges[i] = Math.max(edges[i - 1] + 1, Math.min(maxIndex, ideal));
+        }
 
         const drawRoundedBar = (x: number, y: number, w: number, h: number, r: number) => {
           const radius = Math.max(0, Math.min(r, w / 2, h / 2));
@@ -106,13 +122,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
           ctx.fill();
         };
 
-        const getBandMagnitude = (startFreq: number, endFreq: number): number => {
-          const len = processedData.length;
-          const startIndex = Math.max(0, Math.floor((startFreq / nyquist) * (len - 1)));
-          const rawEndIndex = Math.ceil((endFreq / nyquist) * (len - 1));
-          const endIndex = Math.min(len - 1, Math.max(startIndex + 1, rawEndIndex));
-
-          // Simple + stable: peak energy in this band.
+        const getBandMagnitudeByBins = (startIndex: number, endIndex: number): number => {
           let peak = 0;
           for (let j = startIndex; j <= endIndex; j++) {
             const v = processedData[j] ?? 0;
@@ -122,16 +132,14 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
         };
 
         // Draw bars directly from original analyser spectrum (log-frequency grouped).
-        for (let i = 0; i < barCount; i++) {
-          const startT = i / barCount;
-          const endT = (i + 1) / barCount;
-          const startFreq = minFreq * Math.pow(maxFreq / minFreq, startT);
-          const endFreq = minFreq * Math.pow(maxFreq / minFreq, endT);
-          const value = getBandMagnitude(startFreq, endFreq);
+        for (let i = 0; i < safeBarCount; i++) {
+          const startIndex = edges[i];
+          const endIndex = edges[i + 1];
+          const value = getBandMagnitudeByBins(startIndex, endIndex);
           const barHeight = value * (height * 0.48);
           const x = i * (barWidth + barGap);
           const yTop = (height / 2) - barHeight;
-          const hue = 170 + ((i / barCount) * 220);
+          const hue = 170 + ((i / safeBarCount) * 220);
           const topGrad = ctx.createLinearGradient(0, yTop, 0, height / 2);
           topGrad.addColorStop(0, `hsla(${hue}, 100%, 62%, ${0.95 * activeAlpha})`);
           topGrad.addColorStop(1, `hsla(${hue}, 95%, 45%, ${0.45 * activeAlpha})`);
