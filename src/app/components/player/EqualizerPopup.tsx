@@ -84,6 +84,22 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
         const barGap = 2;
         const barWidth = (width - (barCount - 1) * barGap) / barCount;
 
+        const drawRoundedBar = (x: number, y: number, w: number, h: number, r: number) => {
+          const radius = Math.max(0, Math.min(r, w / 2, h / 2));
+          ctx.beginPath();
+          ctx.moveTo(x + radius, y);
+          ctx.lineTo(x + w - radius, y);
+          ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+          ctx.lineTo(x + w, y + h - radius);
+          ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+          ctx.lineTo(x + radius, y + h);
+          ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+          ctx.lineTo(x, y + radius);
+          ctx.quadraticCurveTo(x, y, x + radius, y);
+          ctx.closePath();
+          ctx.fill();
+        };
+
         for (let i = 0; i < barCount; i++) {
           const sampleIndex = Math.floor((i / barCount) * frequencyData.length);
           const value = frequencyData[sampleIndex] / 255;
@@ -95,7 +111,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
           topGrad.addColorStop(0, `hsla(${hue}, 100%, 62%, ${0.95 * activeAlpha})`);
           topGrad.addColorStop(1, `hsla(${hue}, 95%, 45%, ${0.45 * activeAlpha})`);
           ctx.fillStyle = topGrad;
-          ctx.fillRect(x, yTop, barWidth, barHeight);
+          drawRoundedBar(x, yTop, barWidth, barHeight, Math.min(6, barWidth / 2));
 
           // Mirror bars downward for the "waveform" look.
           const yBottom = height / 2;
@@ -103,25 +119,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
           bottomGrad.addColorStop(0, `hsla(${hue}, 95%, 58%, ${0.6 * activeAlpha})`);
           bottomGrad.addColorStop(1, `hsla(${hue}, 95%, 42%, ${0.08 * activeAlpha})`);
           ctx.fillStyle = bottomGrad;
-          ctx.fillRect(x, yBottom, barWidth, barHeight);
-        }
-
-        // Add flowing overlay lines for the reference-style look.
-        const lineCount = 4;
-        for (let l = 0; l < lineCount; l++) {
-          const offset = l * 0.8;
-          ctx.beginPath();
-          for (let i = 0; i < barCount; i++) {
-            const sampleIndex = Math.floor((i / barCount) * frequencyData.length);
-            const value = frequencyData[sampleIndex] / 255;
-            const x = i * (barWidth + barGap) + (barWidth / 2);
-            const y = (height / 2) + Math.sin((i / 5) + offset) * (8 + value * 18);
-            if (i === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-          }
-          ctx.strokeStyle = `rgba(255, 255, 255, ${0.16 * activeAlpha})`;
-          ctx.lineWidth = 1;
-          ctx.stroke();
+          drawRoundedBar(x, yBottom, barWidth, barHeight, Math.min(6, barWidth / 2));
         }
       }
 
