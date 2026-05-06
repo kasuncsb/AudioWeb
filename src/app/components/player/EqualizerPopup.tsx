@@ -182,14 +182,11 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
           const eqGainDb = settings.enabled
             ? (getInterpolatedEqGain(bandCenterFreq) + getToneGain(bandCenterFreq))
             : 0;
-          const boundedEqGainDb = clamp(eqGainDb, -18, 18);
-          const eqInfluence = boundedEqGainDb / 18; // -1..+1
-          const boostedValue = eqInfluence >= 0
-            // For boosts, use available headroom only (prevents top clipping).
-            ? clamp(value + ((1 - value) * eqInfluence * 0.55), 0, 1)
-            // For cuts, attenuate proportionally to current energy.
-            : clamp(value * (1 + (eqInfluence * 0.75)), 0, 1);
-          const barHeight = Math.max(2, boostedValue * (height * 0.48));
+          const boundedEqGainDb = clamp(eqGainDb, -12, 12);
+          const eqLinear = Math.pow(10, boundedEqGainDb / 20);
+          // Keep waveform truthful: EQ only scales existing energy, no synthetic floor.
+          const proportionalValue = clamp(value * eqLinear, 0, 1);
+          const barHeight = proportionalValue * (height * 0.48);
           const x = i * (barWidth + barGap);
           const yTop = (height / 2) - barHeight;
           const hue = 170 + ((i / barCount) * 220);
@@ -197,7 +194,9 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
           topGrad.addColorStop(0, `hsla(${hue}, 100%, 62%, ${0.95 * activeAlpha})`);
           topGrad.addColorStop(1, `hsla(${hue}, 95%, 45%, ${0.45 * activeAlpha})`);
           ctx.fillStyle = topGrad;
-          drawRoundedBar(x, yTop, barWidth, barHeight, Math.min(6, barWidth / 2));
+          if (barHeight > 0.5) {
+            drawRoundedBar(x, yTop, barWidth, barHeight, Math.min(6, barWidth / 2));
+          }
 
           // Mirror bars downward for the "waveform" look.
           const yBottom = height / 2;
@@ -205,7 +204,9 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
           bottomGrad.addColorStop(0, `hsla(${hue}, 95%, 58%, ${0.6 * activeAlpha})`);
           bottomGrad.addColorStop(1, `hsla(${hue}, 95%, 42%, ${0.08 * activeAlpha})`);
           ctx.fillStyle = bottomGrad;
-          drawRoundedBar(x, yBottom, barWidth, barHeight, Math.min(6, barWidth / 2));
+          if (barHeight > 0.5) {
+            drawRoundedBar(x, yBottom, barWidth, barHeight, Math.min(6, barWidth / 2));
+          }
         }
       }
 
