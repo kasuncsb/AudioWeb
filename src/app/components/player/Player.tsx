@@ -847,6 +847,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
           onUpdateSettings={setEqualizerSettings}
           showVisualization={showVisualization}
           analyserNode={getEqAnalyser()}
+          rawAnalyserNode={getAnalyser()}
         />
 
         <VisualizerPopup
