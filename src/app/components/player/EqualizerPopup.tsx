@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from 'react';
 const MIN_DISPLAY_FREQ_HZ = 20;
 const MAX_DISPLAY_FREQ_HZ = 20000;
 const PER_BAR_SMOOTHING = 0.22;
+const DIVIDER_GAP_PX = 2;
 
 interface EqualizerPopupProps {
   show: boolean;
@@ -48,7 +49,9 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
     const ctx = visualizerCanvas.getContext('2d');
     if (!ctx) return;
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    // Higher DPR cap for crisper rendering during browser zoom / high-DPI screens.
+    // Keep an upper bound to avoid excessive CPU/GPU cost.
+    const dpr = Math.min(window.devicePixelRatio || 1, 4);
     const processedAnalyzer = analyserNode;
     const processedData = processedAnalyzer ? new Float32Array(processedAnalyzer.frequencyBinCount) : null;
 
@@ -216,16 +219,17 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
 
           const barHeight = smoothed * (height * 0.48);
           const x = i * (barWidth + barGap);
-          const yTop = (height / 2) - barHeight;
+          const half = height / 2;
+          const yTop = (half - DIVIDER_GAP_PX) - barHeight;
           const hue = 170 + ((i / safeBarCount) * 220);
-          const topGrad = ctx.createLinearGradient(0, yTop, 0, height / 2);
+          const topGrad = ctx.createLinearGradient(0, yTop, 0, half - DIVIDER_GAP_PX);
           topGrad.addColorStop(0, `hsla(${hue}, 100%, 62%, ${0.95 * activeAlpha})`);
           topGrad.addColorStop(1, `hsla(${hue}, 95%, 45%, ${0.45 * activeAlpha})`);
           ctx.fillStyle = topGrad;
           drawRoundedBar(x, yTop, barWidth, barHeight, Math.min(6, barWidth / 2));
 
           // Mirror bars downward for visual style while preserving identical energy mapping.
-          const yBottom = height / 2;
+          const yBottom = half + DIVIDER_GAP_PX;
           const bottomGrad = ctx.createLinearGradient(0, yBottom, 0, yBottom + barHeight);
           bottomGrad.addColorStop(0, `hsla(${hue}, 95%, 58%, ${0.6 * activeAlpha})`);
           bottomGrad.addColorStop(1, `hsla(${hue}, 95%, 42%, ${0.08 * activeAlpha})`);
