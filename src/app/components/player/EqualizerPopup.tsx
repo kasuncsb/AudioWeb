@@ -301,6 +301,10 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
     });
   };
 
+  const handleVisualizerContextMenu = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+  };
+
   // Calculate fill percentage correctly
   const getSliderFillPercentage = (value: number): number => {
     // Range is -12 to +12, so 24 total range
@@ -447,6 +451,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                   <canvas
                     ref={setVisualizerCanvas}
                     className="w-full h-full block"
+                    onContextMenu={handleVisualizerContextMenu}
                   />
                 </div>
                 <div className="flex items-end gap-2.5 justify-between">
@@ -899,6 +904,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                 <canvas
                   ref={setVisualizerCanvas}
                   className="w-full h-full block"
+                  onContextMenu={handleVisualizerContextMenu}
                 />
               </div>
             </div>
