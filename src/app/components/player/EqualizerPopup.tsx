@@ -69,6 +69,16 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       ctx.scale(dpr, dpr);
     };
 
+    // EQ master OFF => visualizer fully OFF (no masked rendering, no animation loop).
+    if (!settings.enabled) {
+      const width = visualizerCanvas.clientWidth;
+      const height = visualizerCanvas.clientHeight;
+      resizeCanvas(width, height);
+      ctx.clearRect(0, 0, width, height);
+      smoothedBarsRef.current = new Float32Array(0);
+      return;
+    }
+
     const drawRoundedBar = (x: number, y: number, w: number, h: number, r: number) => {
       const radius = Math.max(0, Math.min(r, w / 2, h / 2));
       ctx.beginPath();
