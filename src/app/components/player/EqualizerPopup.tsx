@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 
 const MIN_DISPLAY_FREQ_HZ = 20;
 const MAX_DISPLAY_FREQ_HZ = 20000;
+const PER_BAR_SMOOTHING = 0.22;
 
 interface EqualizerPopupProps {
   show: boolean;
@@ -31,6 +32,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
   const [isMobileDevice, setIsMobileDevice] = useState(false);
   const [visualizerCanvas, setVisualizerCanvas] = useState<HTMLCanvasElement | null>(null);
   const visualizerRafRef = useRef<number | null>(null);
+  const smoothedBarsRef = useRef<Float32Array>(new Float32Array(0));
 
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 767px)');
@@ -49,6 +51,11 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const processedAnalyzer = analyserNode;
     const processedData = processedAnalyzer ? new Float32Array(processedAnalyzer.frequencyBinCount) : null;
+
+    const ensureStateBuffers = (barCount: number) => {
+      if (smoothedBarsRef.current.length === barCount) return;
+      smoothedBarsRef.current = new Float32Array(barCount);
+    };
 
     const resizeCanvas = (width: number, height: number) => {
       const physicalWidth = Math.max(1, Math.floor(width * dpr));
@@ -148,6 +155,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
 
         const availableBins = Math.max(2, maxEdgeExclusive - minIndex);
         const safeBarCount = Math.min(barCount, availableBins - 1);
+        ensureStateBuffers(safeBarCount);
 
         const logMin = Math.log(minIndex);
         const logMax = Math.log(maxEdgeExclusive);
@@ -169,7 +177,13 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
           const endIndexExclusive = Math.max(startIndex + 1, edges[i + 1]);
           const rmsDb = integrateBandRmsDb(processedData, startIndex, endIndexExclusive, minDb, maxDb);
           const value = normalizeDb(rmsDb, minDb, maxDb);
-          const barHeight = value * (height * 0.48);
+
+          // Minimal per-bar smoothing only; no cross-bar interaction.
+          const prev = smoothedBarsRef.current[i];
+          const smoothed = prev + (value - prev) * PER_BAR_SMOOTHING;
+          smoothedBarsRef.current[i] = smoothed;
+
+          const barHeight = smoothed * (height * 0.48);
           const x = i * (barWidth + barGap);
           const yTop = (height / 2) - barHeight;
           const hue = 170 + ((i / safeBarCount) * 220);
@@ -199,6 +213,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
         cancelAnimationFrame(visualizerRafRef.current);
         visualizerRafRef.current = null;
       }
+      smoothedBarsRef.current = new Float32Array(0);
     };
   }, [show, visualizerCanvas, analyserNode, settings.enabled]);
 
