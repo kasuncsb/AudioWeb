@@ -91,20 +91,28 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
 
         // Build strictly increasing, non-overlapping log-spaced bin edges.
         // This prevents low-frequency bars from collapsing onto the same FFT bins.
+        // Use bin-edge indexing with an *exclusive* upper bound so we never
+        // "drop" the highest bins (a common cause of high-end disappearing).
         const minIndex = Math.max(1, Math.floor(minFreq / binHz)); // skip DC bin
-        const maxIndex = Math.min(binCount - 1, Math.ceil(maxFreq / binHz));
-        const safeBarCount = Math.min(barCount, Math.max(1, maxIndex - minIndex));
+        const maxIndexInclusive = Math.min(binCount - 1, Math.ceil(maxFreq / binHz));
+        const maxEdgeExclusive = Math.min(binCount, maxIndexInclusive + 1);
+
+        const availableBins = Math.max(1, maxEdgeExclusive - minIndex);
+        const safeBarCount = Math.min(barCount, availableBins);
+
         const logMin = Math.log(minIndex);
-        const logMax = Math.log(maxIndex);
+        const logMax = Math.log(maxEdgeExclusive);
         const edges: number[] = new Array(safeBarCount + 1);
         edges[0] = minIndex;
         for (let i = 1; i < safeBarCount; i++) {
           const t = i / safeBarCount;
           const ideal = Math.round(Math.exp(logMin + (logMax - logMin) * t));
-          const clampedIdeal = Math.min(maxIndex - (safeBarCount - i), Math.max(minIndex, ideal));
-          edges[i] = Math.min(maxIndex, Math.max(edges[i - 1] + 1, clampedIdeal));
+          // Keep strictly increasing edges and reserve space for remaining bars.
+          const latestAllowed = maxEdgeExclusive - (safeBarCount - i);
+          const clampedIdeal = Math.min(latestAllowed, Math.max(minIndex, ideal));
+          edges[i] = Math.max(edges[i - 1] + 1, clampedIdeal);
         }
-        edges[safeBarCount] = maxIndex;
+        edges[safeBarCount] = maxEdgeExclusive;
 
         const totalGap = (safeBarCount - 1) * barGap;
         const barWidth = Math.max(2, (width - totalGap) / safeBarCount);
@@ -147,9 +155,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
           topGrad.addColorStop(0, `hsla(${hue}, 100%, 62%, ${0.95 * activeAlpha})`);
           topGrad.addColorStop(1, `hsla(${hue}, 95%, 45%, ${0.45 * activeAlpha})`);
           ctx.fillStyle = topGrad;
-          if (barHeight > 0.5) {
-            drawRoundedBar(x, yTop, barWidth, barHeight, Math.min(6, barWidth / 2));
-          }
+          drawRoundedBar(x, yTop, barWidth, barHeight, Math.min(6, barWidth / 2));
 
           // Mirror bars downward for the "waveform" look.
           const yBottom = height / 2;
@@ -157,9 +163,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
           bottomGrad.addColorStop(0, `hsla(${hue}, 95%, 58%, ${0.6 * activeAlpha})`);
           bottomGrad.addColorStop(1, `hsla(${hue}, 95%, 42%, ${0.08 * activeAlpha})`);
           ctx.fillStyle = bottomGrad;
-          if (barHeight > 0.5) {
-            drawRoundedBar(x, yBottom, barWidth, barHeight, Math.min(6, barWidth / 2));
-          }
+          drawRoundedBar(x, yBottom, barWidth, barHeight, Math.min(6, barWidth / 2));
         }
       }
 
