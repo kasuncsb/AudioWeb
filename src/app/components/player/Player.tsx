@@ -294,14 +294,13 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
     setVolume(newVolume);
   }, []);
 
-  // Load volume from localStorage on mount
-  // Deferred volume persistence: only load/save after the player UI is
-  // visible and at least one track is present. This avoids early
-  // localStorage access and preserves user changes made before init.
+  // Load volume from localStorage as soon as tracks exist.
+  // The mini-player can start playback before the full UI is visible, so
+  // gating this on `isVisible` causes playback to resume at the default volume.
   const [isVolumeLoaded, setIsVolumeLoaded] = useState(false);
 
   useEffect(() => {
-    const shouldInit = isVisible && playlist.length > 0;
+    const shouldInit = playlist.length > 0;
     if (!shouldInit || isVolumeLoaded) return;
 
     try {
@@ -323,7 +322,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
     } catch { }
 
     setIsVolumeLoaded(true);
-  }, [isVisible, playlist.length, volume, isVolumeLoaded]);
+  }, [playlist.length, volume, isVolumeLoaded]);
 
   // Persist volume changes only after initial load/save has occurred
   useEffect(() => {
