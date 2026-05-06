@@ -101,6 +101,15 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
     }
   }, [sleepTimer, onSleepTimerChange]);
 
+  // If the player UI is hidden (e.g. navigate back home), force-close any open popups.
+  useEffect(() => {
+    if (isVisible) return;
+    setShowPlaylist(false);
+    setShowEqualizer(false);
+    setShowVisualizerPopup(false);
+    setShowSleepTimer(false);
+  }, [isVisible]);
+
   // Load repeat mode from localStorage on mount
   useEffect(() => {
     try {
@@ -797,68 +806,70 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
         </div >
       )}
 
-      {/* Popups - Mounted independently with highest z-index priority (above back button/navbar elements) */}
-      <div style={{ zIndex: 60, position: 'relative' }}>
-        <ImportProgressPopup
-          active={uploadState?.active ?? false}
-          total={uploadState?.total ?? 0}
-          processed={uploadState?.processed ?? 0}
-          currentFile={uploadState?.currentFile}
-          items={uploadState?.items ?? []}
-        />
+      {/* Popups - Only render while player UI is visible */}
+      {isVisible && (
+        <div style={{ zIndex: 60, position: 'relative' }}>
+          <ImportProgressPopup
+            active={uploadState?.active ?? false}
+            total={uploadState?.total ?? 0}
+            processed={uploadState?.processed ?? 0}
+            currentFile={uploadState?.currentFile}
+            items={uploadState?.items ?? []}
+          />
 
-        <PlaylistPopup
-          show={showPlaylist}
-          playlist={playlist}
-          position={popupPositions.playlist}
-          onClose={() => setShowPlaylist(false)}
-          onMouseDown={(e) => handleMouseDown('playlist', e)}
-          onSelectTrack={selectTrack}
-          onRemoveTrack={removeTrack}
-          onAddTracks={handleAddTracks}
-          isPlaying={isPlaying}
-          isShuffling={isShuffling}
-          showVisualization={showVisualization}
-        />
+          <PlaylistPopup
+            show={showPlaylist}
+            playlist={playlist}
+            position={popupPositions.playlist}
+            onClose={() => setShowPlaylist(false)}
+            onMouseDown={(e) => handleMouseDown('playlist', e)}
+            onSelectTrack={selectTrack}
+            onRemoveTrack={removeTrack}
+            onAddTracks={handleAddTracks}
+            isPlaying={isPlaying}
+            isShuffling={isShuffling}
+            showVisualization={showVisualization}
+          />
 
-        <SleepTimerPopup
-          show={showSleepTimer}
-          position={popupPositions.sleepTimer}
-          sleepTimer={Math.floor(sleepTimer / 60)} // Display in minutes
-          isTimerActive={sleepTimer > 0} // Pass true if any timer is active
-          onClose={() => setShowSleepTimer(false)}
-          onMouseDown={(e) => handleMouseDown('sleepTimer', e)}
-          onSetTimer={(minutes) => setSleepTimer(minutes * 60)} // Convert minutes to seconds
-          onCancelTimer={() => {
-            setSleepTimer(0);
-            // Notify parent this was a manual cancellation (should not turn off visualization)
-            if (onSleepTimerChange) onSleepTimerChange(0, true);
-          }}
-          showVisualization={showVisualization}
-        />
+          <SleepTimerPopup
+            show={showSleepTimer}
+            position={popupPositions.sleepTimer}
+            sleepTimer={Math.floor(sleepTimer / 60)} // Display in minutes
+            isTimerActive={sleepTimer > 0} // Pass true if any timer is active
+            onClose={() => setShowSleepTimer(false)}
+            onMouseDown={(e) => handleMouseDown('sleepTimer', e)}
+            onSetTimer={(minutes) => setSleepTimer(minutes * 60)} // Convert minutes to seconds
+            onCancelTimer={() => {
+              setSleepTimer(0);
+              // Notify parent this was a manual cancellation (should not turn off visualization)
+              if (onSleepTimerChange) onSleepTimerChange(0, true);
+            }}
+            showVisualization={showVisualization}
+          />
 
-        <EqualizerPopup
-          show={showEqualizer}
-          position={popupPositions.equalizer}
-          settings={equalizerSettings}
-          onClose={() => setShowEqualizer(false)}
-          onMouseDown={(e) => handleMouseDown('equalizer', e)}
-          onUpdateSettings={setEqualizerSettings}
-          showVisualization={showVisualization}
-          analyserNode={getEqAnalyser()}
-        />
+          <EqualizerPopup
+            show={showEqualizer}
+            position={popupPositions.equalizer}
+            settings={equalizerSettings}
+            onClose={() => setShowEqualizer(false)}
+            onMouseDown={(e) => handleMouseDown('equalizer', e)}
+            onUpdateSettings={setEqualizerSettings}
+            showVisualization={showVisualization}
+            analyserNode={getEqAnalyser()}
+          />
 
-        <VisualizerPopup
-          show={showVisualizerPopup}
-          position={popupPositions.visualizer || { x: 50, y: 50 }}
-          settings={visualizerSettings}
-          availablePresets={availablePresets}
-          showVisualization={showVisualization}
-          onClose={() => setShowVisualizerPopup(false)}
-          onMouseDown={(e) => handleMouseDown('visualizer', e)}
-          onUpdateSettings={updateVisualizerSettings}
-        />
-      </div>
+          <VisualizerPopup
+            show={showVisualizerPopup}
+            position={popupPositions.visualizer || { x: 50, y: 50 }}
+            settings={visualizerSettings}
+            availablePresets={availablePresets}
+            showVisualization={showVisualization}
+            onClose={() => setShowVisualizerPopup(false)}
+            onMouseDown={(e) => handleMouseDown('visualizer', e)}
+            onUpdateSettings={updateVisualizerSettings}
+          />
+        </div>
+      )}
     </>
   );
 };
