@@ -82,7 +82,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
         processedAnalyzer.getFloatFrequencyData(processedData);
 
         const barCount = Math.min(84, Math.max(30, Math.floor(width / 10)));
-        const barGap = 3;
+        const barGap = 2;
         const totalGap = (barCount - 1) * barGap;
         const barWidth = Math.max(2, (width - totalGap) / barCount);
         const nyquist = (processedAnalyzer.context.sampleRate / 2);
