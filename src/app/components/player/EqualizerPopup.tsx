@@ -431,9 +431,10 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                   10-Band Equalizer • ±12dB Range
                 </h3>
                 <div
-                  className="w-full rounded-lg overflow-hidden"
+                  className="w-full rounded-lg overflow-hidden mx-auto"
                   style={{
-                    height: `${visualizerHeight}px`,
+                    width: '90%',
+                    height: `${visualizerHeight * 0.9}px`,
                     filter: settings.enabled ? 'none' : 'grayscale(1)',
                     opacity: settings.enabled ? 1 : 0.5,
                     transition: 'opacity 0.2s ease, filter 0.2s ease'
@@ -882,9 +883,10 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                 10-Band Equalizer • ±12dB Range
               </h3>
               <div
-                className="w-full rounded-lg overflow-hidden"
+                className="w-full rounded-lg overflow-hidden mx-auto"
                 style={{
-                  height: `${visualizerHeight}px`,
+                  width: '90%',
+                  height: `${visualizerHeight * 0.9}px`,
                   filter: settings.enabled ? 'none' : 'grayscale(1)',
                   opacity: settings.enabled ? 1 : 0.5,
                   transition: 'opacity 0.2s ease, filter 0.2s ease'
