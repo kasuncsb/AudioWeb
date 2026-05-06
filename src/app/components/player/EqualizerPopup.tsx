@@ -86,8 +86,8 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
     };
 
     const getToneGain = (freq: number): number => {
-      const bassWeight = 1 - smoothStep(80, 420, freq);
-      const trebleWeight = smoothStep(2200, 12000, freq);
+      const bassWeight = 1 - smoothStep(55, 220, freq);
+      const trebleWeight = smoothStep(3500, 14000, freq);
       return (settings.bassTone * bassWeight) + (settings.trebleTone * trebleWeight);
     };
 
@@ -182,8 +182,13 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
           const eqGainDb = settings.enabled
             ? (getInterpolatedEqGain(bandCenterFreq) + getToneGain(bandCenterFreq))
             : 0;
-          const eqBoostMultiplier = clamp(Math.pow(10, eqGainDb / 30), 0.45, 2.25);
-          const boostedValue = clamp(value * eqBoostMultiplier, 0, 1);
+          const boundedEqGainDb = clamp(eqGainDb, -18, 18);
+          const eqInfluence = boundedEqGainDb / 18; // -1..+1
+          const boostedValue = eqInfluence >= 0
+            // For boosts, use available headroom only (prevents top clipping).
+            ? clamp(value + ((1 - value) * eqInfluence * 0.55), 0, 1)
+            // For cuts, attenuate proportionally to current energy.
+            : clamp(value * (1 + (eqInfluence * 0.75)), 0, 1);
           const barHeight = Math.max(2, boostedValue * (height * 0.48));
           const x = i * (barWidth + barGap);
           const yTop = (height / 2) - barHeight;
