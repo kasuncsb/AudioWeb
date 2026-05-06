@@ -1,7 +1,7 @@
 import { EqualizerSettings } from './types';
 import { ResizablePopup } from './ResizablePopup';
 import { EQUALIZER_BANDS, EQUALIZER_PRESETS } from '@/config/constants';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface EqualizerPopupProps {
   show: boolean;
@@ -11,6 +11,7 @@ interface EqualizerPopupProps {
   onMouseDown: (e: React.MouseEvent) => void;
   onUpdateSettings: (settings: EqualizerSettings) => void;
   showVisualization?: boolean;
+  analyserNode?: AnalyserNode | null;
 }
 
 export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
@@ -20,10 +21,13 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
   onClose,
   onMouseDown,
   onUpdateSettings,
-  showVisualization = false
+  showVisualization = false,
+  analyserNode = null
 }) => {
   // Detect mobile device based on window width
   const [isMobileDevice, setIsMobileDevice] = useState(false);
+  const [visualizerCanvas, setVisualizerCanvas] = useState<HTMLCanvasElement | null>(null);
+  const visualizerRafRef = useRef<number | null>(null);
 
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 767px)');
@@ -32,6 +36,75 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
     mql.addEventListener('change', onChange as (e: MediaQueryListEvent) => void);
     return () => mql.removeEventListener('change', onChange as (e: MediaQueryListEvent) => void);
   }, []);
+
+  useEffect(() => {
+    if (!show || !visualizerCanvas) return;
+
+    const ctx = visualizerCanvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const analyzer = analyserNode;
+    const frequencyData = analyzer ? new Uint8Array(analyzer.frequencyBinCount) : null;
+
+    const draw = () => {
+      const width = visualizerCanvas.clientWidth;
+      const height = visualizerCanvas.clientHeight;
+      const physicalWidth = Math.max(1, Math.floor(width * dpr));
+      const physicalHeight = Math.max(1, Math.floor(height * dpr));
+
+      if (visualizerCanvas.width !== physicalWidth || visualizerCanvas.height !== physicalHeight) {
+        visualizerCanvas.width = physicalWidth;
+        visualizerCanvas.height = physicalHeight;
+      }
+
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
+      ctx.scale(dpr, dpr);
+
+      // Subtle panel background + center line
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+      ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(0, height - 1);
+      ctx.lineTo(width, height - 1);
+      ctx.stroke();
+
+      if (analyzer && frequencyData) {
+        analyzer.getByteFrequencyData(frequencyData);
+        const barCount = Math.min(56, Math.max(20, Math.floor(width / 10)));
+        const barGap = 3;
+        const barWidth = (width - (barCount - 1) * barGap) / barCount;
+
+        for (let i = 0; i < barCount; i++) {
+          const sampleIndex = Math.floor((i / barCount) * frequencyData.length);
+          const value = frequencyData[sampleIndex] / 255;
+          const barHeight = Math.max(2, value * (height - 6));
+          const x = i * (barWidth + barGap);
+          const y = height - barHeight;
+
+          const grad = ctx.createLinearGradient(0, y, 0, height);
+          grad.addColorStop(0, 'rgba(56, 189, 248, 0.95)');
+          grad.addColorStop(1, 'rgba(59, 130, 246, 0.75)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(x, y, barWidth, barHeight);
+        }
+      }
+
+      visualizerRafRef.current = requestAnimationFrame(draw);
+    };
+
+    draw();
+
+    return () => {
+      if (visualizerRafRef.current) {
+        cancelAnimationFrame(visualizerRafRef.current);
+        visualizerRafRef.current = null;
+      }
+    };
+  }, [show, visualizerCanvas, analyserNode]);
 
   if (!show) return null;
 
@@ -237,6 +310,12 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                 <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wider">
                   10-Band Equalizer • ±12dB Range
                 </h3>
+                <div className="h-22 w-full rounded-lg border border-white/10 overflow-hidden">
+                  <canvas
+                    ref={setVisualizerCanvas}
+                    className="w-full h-full block"
+                  />
+                </div>
                 <div className="flex items-end gap-2.5 justify-between">
                   {bands.map(({ key, label, value }) => {
                     const fillPercentage = getSliderFillPercentage(value);
@@ -702,6 +781,12 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                 <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wider">
                   10-Band Equalizer • ±12dB Range
                 </h3>
+                <div className="h-28 w-full rounded-lg border border-white/10 overflow-hidden">
+                  <canvas
+                    ref={setVisualizerCanvas}
+                    className="w-full h-full block"
+                  />
+                </div>
                 <div className="flex-1 flex items-end gap-3 justify-between">
                   {bands.map(({ key, label, value }) => {
                     const fillPercentage = getSliderFillPercentage(value);

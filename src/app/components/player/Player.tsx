@@ -846,6 +846,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
           onMouseDown={(e) => handleMouseDown('equalizer', e)}
           onUpdateSettings={setEqualizerSettings}
           showVisualization={showVisualization}
+          analyserNode={getAnalyser()}
         />
 
         <VisualizerPopup
