@@ -7,8 +7,6 @@ const MIN_DISPLAY_FREQ_HZ = 20;
 const MAX_DISPLAY_FREQ_HZ = 20000;
 const ATTACK_TIME_SEC = 0.045;
 const RELEASE_TIME_SEC = 0.2;
-const PEAK_HOLD_SEC = 0.16;
-const PEAK_DECAY_PER_SEC = 1.1;
 
 interface EqualizerPopupProps {
   show: boolean;
@@ -36,8 +34,6 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
   const [visualizerCanvas, setVisualizerCanvas] = useState<HTMLCanvasElement | null>(null);
   const visualizerRafRef = useRef<number | null>(null);
   const smoothedBarsRef = useRef<Float32Array>(new Float32Array(0));
-  const peakBarsRef = useRef<Float32Array>(new Float32Array(0));
-  const peakHoldUntilRef = useRef<Float32Array>(new Float32Array(0));
   const lastFrameTimeRef = useRef<number>(0);
 
   useEffect(() => {
@@ -61,8 +57,6 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
     const ensureStateBuffers = (barCount: number) => {
       if (smoothedBarsRef.current.length === barCount) return;
       smoothedBarsRef.current = new Float32Array(barCount);
-      peakBarsRef.current = new Float32Array(barCount);
-      peakHoldUntilRef.current = new Float32Array(barCount);
     };
 
     const resizeCanvas = (width: number, height: number) => {
@@ -102,11 +96,13 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
     ): number => {
       let totalPower = 0;
       let weightSum = 0;
+      let maxBandDb = minDb;
 
       for (let b = startBin; b < endBinExclusive; b++) {
         const db = data[b];
         if (!Number.isFinite(db)) continue;
         const clampedDb = Math.max(minDb, Math.min(maxDb, db));
+        if (clampedDb > maxBandDb) maxBandDb = clampedDb;
         const amplitude = Math.pow(10, clampedDb / 20);
         const power = amplitude * amplitude;
         totalPower += power;
@@ -116,7 +112,9 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       if (weightSum <= 0) return minDb;
 
       const rmsAmplitude = Math.sqrt(totalPower / weightSum);
-      return 20 * Math.log10(Math.max(rmsAmplitude, 1e-8));
+      const rmsDb = 20 * Math.log10(Math.max(rmsAmplitude, 1e-8));
+      // Blend RMS with max-bin energy so single-tone sweeps stay sharp and traceable.
+      return (rmsDb * 0.35) + (maxBandDb * 0.65);
     };
 
     const normalizeDb = (db: number, minDb: number, maxDb: number) => {
@@ -128,27 +126,21 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       ctx.fillStyle = `rgba(2, 6, 23, ${bgAlpha})`;
       ctx.fillRect(0, 0, width, height);
 
-      // Subtle horizontal dB reference guides in both halves.
+      // Subtle horizontal dB reference guides.
       ctx.strokeStyle = `rgba(255, 255, 255, ${0.06 * activeAlpha})`;
       ctx.lineWidth = 1;
-      const half = height / 2;
       for (let i = 1; i <= 4; i++) {
-        const yUp = half - (half * 0.12 * i);
-        const yDown = half + (half * 0.12 * i);
+        const y = height - (height * 0.18 * i);
         ctx.beginPath();
-        ctx.moveTo(0, yUp);
-        ctx.lineTo(width, yUp);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(0, yDown);
-        ctx.lineTo(width, yDown);
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
         ctx.stroke();
       }
 
       ctx.strokeStyle = `rgba(255, 255, 255, ${isEqEnabled ? 0.14 : 0.08})`;
       ctx.beginPath();
-      ctx.moveTo(0, half);
-      ctx.lineTo(width, half);
+      ctx.moveTo(0, height - 1);
+      ctx.lineTo(width, height - 1);
       ctx.stroke();
     };
 
@@ -218,40 +210,15 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
           const smoothed = prev + (target - prev) * blend;
           smoothedBarsRef.current[i] = smoothed;
 
-          let peak = peakBarsRef.current[i];
-          if (smoothed >= peak) {
-            peak = smoothed;
-            peakHoldUntilRef.current[i] = nowSec + PEAK_HOLD_SEC;
-          } else if (nowSec >= peakHoldUntilRef.current[i]) {
-            peak = Math.max(smoothed, peak - PEAK_DECAY_PER_SEC * dt);
-          }
-          peakBarsRef.current[i] = peak;
-
-          const barHeight = smoothed * (height * 0.48);
-          const peakHeight = peak * (height * 0.48);
+          const barHeight = smoothed * (height * 0.92);
           const x = i * (barWidth + barGap);
-          const yTop = (height / 2) - barHeight;
+          const yTop = height - barHeight;
           const hue = 170 + ((i / safeBarCount) * 220);
-          const topGrad = ctx.createLinearGradient(0, yTop, 0, height / 2);
+          const topGrad = ctx.createLinearGradient(0, yTop, 0, height);
           topGrad.addColorStop(0, `hsla(${hue}, 100%, 62%, ${0.95 * activeAlpha})`);
           topGrad.addColorStop(1, `hsla(${hue}, 95%, 45%, ${0.45 * activeAlpha})`);
           ctx.fillStyle = topGrad;
           drawRoundedBar(x, yTop, barWidth, barHeight, Math.min(6, barWidth / 2));
-
-          // Mirror bars downward for the "waveform" look.
-          const yBottom = height / 2;
-          const bottomGrad = ctx.createLinearGradient(0, yBottom, 0, yBottom + barHeight);
-          bottomGrad.addColorStop(0, `hsla(${hue}, 95%, 58%, ${0.6 * activeAlpha})`);
-          bottomGrad.addColorStop(1, `hsla(${hue}, 95%, 42%, ${0.08 * activeAlpha})`);
-          ctx.fillStyle = bottomGrad;
-          drawRoundedBar(x, yBottom, barWidth, barHeight, Math.min(6, barWidth / 2));
-
-          // Peak-hold tick for professional analyzer readability.
-          const peakYTop = (height / 2) - peakHeight;
-          const peakYBottom = (height / 2) + peakHeight;
-          ctx.fillStyle = `hsla(${hue}, 100%, 88%, ${0.95 * activeAlpha})`;
-          ctx.fillRect(x, peakYTop - 1, barWidth, 1.5);
-          ctx.fillRect(x, peakYBottom, barWidth, 1.5);
         }
       }
 
@@ -267,8 +234,6 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       }
       lastFrameTimeRef.current = 0;
       smoothedBarsRef.current = new Float32Array(0);
-      peakBarsRef.current = new Float32Array(0);
-      peakHoldUntilRef.current = new Float32Array(0);
     };
   }, [show, visualizerCanvas, analyserNode, settings.enabled]);
 
