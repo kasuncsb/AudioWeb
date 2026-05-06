@@ -45,10 +45,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const processedAnalyzer = analyserNode;
-    // Use float spectrum (dB) so we can do stable power-averaging per log band.
-    // Byte spectrum + per-band max tends to exaggerate narrow random spikes and
-    // looks "wrong" on pure sweeps.
-    const processedFloatData = processedAnalyzer ? new Float32Array(processedAnalyzer.frequencyBinCount) : null;
+    const processedData = processedAnalyzer ? new Uint8Array(processedAnalyzer.frequencyBinCount) : null;
 
     const draw = () => {
       const width = visualizerCanvas.clientWidth;
@@ -81,13 +78,13 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       ctx.lineTo(width, height / 2);
       ctx.stroke();
 
-      if (processedAnalyzer && processedFloatData) {
-        processedAnalyzer.getFloatFrequencyData(processedFloatData);
+      if (processedAnalyzer && processedData) {
+        processedAnalyzer.getByteFrequencyData(processedData);
 
         const barCount = Math.min(84, Math.max(30, Math.floor(width / 10)));
         const barGap = 2;
         const nyquist = processedAnalyzer.context.sampleRate / 2;
-        const binCount = processedFloatData.length;
+        const binCount = processedData.length;
         const binHz = nyquist / binCount;
         const minFreq = Math.max(20, binHz);
         const maxFreq = Math.min(20000, nyquist);
@@ -136,75 +133,13 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
           ctx.fill();
         };
 
-        const minDb = Number.isFinite(processedAnalyzer.minDecibels) ? processedAnalyzer.minDecibels : -100;
-        const maxDb = Number.isFinite(processedAnalyzer.maxDecibels) ? processedAnalyzer.maxDecibels : -20;
-        const dbRange = Math.max(1, maxDb - minDb);
-        // Noise floor gating.
-        // - fixed component: avoids drawing low-level FFT noise
-        // - adaptive component: tracks codec / track-dependent floor so the gate
-        //   stays effective without killing quiet-but-real content
-        const fixedGateDb = Math.max(minDb + 6, -85);
-        let frameFloorDb = fixedGateDb;
-        {
-          // Estimate a conservative floor from the quietest bins (excluding DC).
-          // We take the 10th percentile-ish by sampling bins and keeping a small
-          // set of the lowest values (O(n), cheap, no allocations per frame).
-          let lowest: number[] = [];
-          const targetLowestCount = 24;
-          const step = Math.max(1, Math.floor(binCount / 256));
-          for (let j = 1; j < binCount; j += step) {
-            const db = processedFloatData[j];
-            if (!Number.isFinite(db)) continue;
-            if (lowest.length < targetLowestCount) {
-              lowest.push(db);
-              if (lowest.length === targetLowestCount) lowest.sort((a, b) => a - b);
-              continue;
-            }
-            if (db < lowest[lowest.length - 1]) {
-              lowest[lowest.length - 1] = db;
-              // Bubble down last element (targetLowestCount is tiny)
-              for (let k = lowest.length - 1; k > 0; k--) {
-                if (lowest[k] < lowest[k - 1]) {
-                  const tmp = lowest[k - 1];
-                  lowest[k - 1] = lowest[k];
-                  lowest[k] = tmp;
-                } else {
-                  break;
-                }
-              }
-            }
-          }
-          if (lowest.length > 0) {
-            const idx = Math.min(lowest.length - 1, Math.floor(lowest.length * 0.6));
-            frameFloorDb = lowest[idx];
-          }
-        }
-        // Gate a bit above the estimated floor.
-        const adaptiveGateDb = Math.min(maxDb - 3, frameFloorDb + 12);
-        const gateDb = Math.max(fixedGateDb, adaptiveGateDb);
-
         const getBandMagnitudeByBins = (startIndex: number, endIndex: number): number => {
-          // Average linear power in this band (RMS-like behavior) then map back to dB.
-          // This produces a single dominant region for a pure tone sweep instead of
-          // multiple unrelated bars lighting up due to random narrow spikes.
-          let sumPower = 0;
-          let count = 0;
-
+          let peak = 0;
           for (let j = startIndex; j <= endIndex; j++) {
-            const db = processedFloatData[j];
-            if (!Number.isFinite(db) || db < gateDb) continue;
-            // Convert dB amplitude to linear power. getFloatFrequencyData() is in dBFS.
-            const power = Math.pow(10, db / 10);
-            sumPower += power;
-            count++;
+            const v = processedData[j] ?? 0;
+            if (v > peak) peak = v;
           }
-
-          if (count === 0 || sumPower <= 0) return 0;
-
-          const avgPower = sumPower / count;
-          const bandDb = 10 * Math.log10(avgPower);
-          const norm = (bandDb - minDb) / dbRange;
-          return Math.max(0, Math.min(1, norm));
+          return peak / 255;
         };
 
         // Draw bars directly from original analyser spectrum (log-frequency grouped).

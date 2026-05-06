@@ -713,11 +713,9 @@ export const useAudioManager = (
         // Placed after EQ/tone processing so EQ popup reflects live band changes.
         const eqAnalyser = audioContext.createAnalyser();
         eqAnalyser.fftSize = 4096;
-        // Accuracy-first: reduce temporal smearing so sweeps don't "ghost" and
-        // tighten the dB window so low-level FFT noise doesn't render as signal.
-        eqAnalyser.smoothingTimeConstant = 0.08;
-        eqAnalyser.minDecibels = -95;
-        eqAnalyser.maxDecibels = -20;
+        eqAnalyser.smoothingTimeConstant = 0.3;
+        eqAnalyser.minDecibels = -110;
+        eqAnalyser.maxDecibels = -15;
 
         // ===== BASS BOOST - Adaptive punchy bass =====
         // Peaking filter - frequency auto-adjusted based on track analysis
