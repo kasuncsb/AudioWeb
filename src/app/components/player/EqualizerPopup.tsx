@@ -121,33 +121,8 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       return Math.max(0, Math.min(1, (db - minDb) / Math.max(1e-6, maxDb - minDb)));
     };
 
-    const drawBackground = (width: number, height: number, activeAlpha: number, isEqEnabled: boolean) => {
-      const bgAlpha = isEqEnabled ? 0.08 : 0.04;
-      ctx.fillStyle = `rgba(2, 6, 23, ${bgAlpha})`;
-      ctx.fillRect(0, 0, width, height);
-
-      // Subtle horizontal dB reference guides in both halves.
-      ctx.strokeStyle = `rgba(255, 255, 255, ${0.06 * activeAlpha})`;
-      ctx.lineWidth = 1;
-      const half = height / 2;
-      for (let i = 1; i <= 4; i++) {
-        const yUp = half - (half * 0.12 * i);
-        const yDown = half + (half * 0.12 * i);
-        ctx.beginPath();
-        ctx.moveTo(0, yUp);
-        ctx.lineTo(width, yUp);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(0, yDown);
-        ctx.lineTo(width, yDown);
-        ctx.stroke();
-      }
-
-      ctx.strokeStyle = `rgba(255, 255, 255, ${isEqEnabled ? 0.14 : 0.08})`;
-      ctx.beginPath();
-      ctx.moveTo(0, half);
-      ctx.lineTo(width, half);
-      ctx.stroke();
+    const drawBackground = (_width: number, _height: number, _activeAlpha: number, _isEqEnabled: boolean) => {
+      // Intentionally empty: no horizontal guides and no background overlay.
     };
 
     const draw = () => {
