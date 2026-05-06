@@ -12,7 +12,6 @@ interface EqualizerPopupProps {
   onUpdateSettings: (settings: EqualizerSettings) => void;
   showVisualization?: boolean;
   analyserNode?: AnalyserNode | null;
-  rawAnalyserNode?: AnalyserNode | null;
 }
 
 export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
@@ -23,8 +22,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
   onMouseDown,
   onUpdateSettings,
   showVisualization = false,
-  analyserNode = null,
-  rawAnalyserNode = null
+  analyserNode = null
 }) => {
   // Detect mobile device based on window width
   const [isMobileDevice, setIsMobileDevice] = useState(false);
@@ -47,9 +45,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const processedAnalyzer = analyserNode;
-    const rawAnalyzer = rawAnalyserNode;
     const processedData = processedAnalyzer ? new Float32Array(processedAnalyzer.frequencyBinCount) : null;
-    const rawData = rawAnalyzer ? new Float32Array(rawAnalyzer.frequencyBinCount) : null;
 
     const draw = () => {
       const width = visualizerCanvas.clientWidth;
@@ -82,22 +78,18 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       ctx.lineTo(width, height / 2);
       ctx.stroke();
 
-      if ((processedAnalyzer && processedData) || (rawAnalyzer && rawData)) {
-        if (processedAnalyzer && processedData) {
-          processedAnalyzer.getFloatFrequencyData(processedData);
-        }
-        if (rawAnalyzer && rawData) {
-          rawAnalyzer.getFloatFrequencyData(rawData);
-        }
+      if (processedAnalyzer && processedData) {
+        processedAnalyzer.getFloatFrequencyData(processedData);
 
-        const barCount = Math.min(68, Math.max(26, Math.floor(width / 9)));
-        const barGap = 2;
-        const barWidth = (width - (barCount - 1) * barGap) / barCount;
-        const nyquist = ((processedAnalyzer?.context.sampleRate ?? rawAnalyzer?.context.sampleRate ?? 44100) / 2);
+        const barCount = Math.min(84, Math.max(30, Math.floor(width / 10)));
+        const barGap = 3;
+        const totalGap = (barCount - 1) * barGap;
+        const barWidth = Math.max(2, (width - totalGap) / barCount);
+        const nyquist = (processedAnalyzer.context.sampleRate / 2);
         const minFreq = 20;
         const maxFreq = 20000;
         const minDb = -90;
-        const maxDb = -12;
+        const maxDb = -14;
 
         const drawRoundedBar = (x: number, y: number, w: number, h: number, r: number) => {
           const radius = Math.max(0, Math.min(r, w / 2, h / 2));
@@ -115,39 +107,20 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
           ctx.fill();
         };
 
-        const getBandMagnitude = (data: Float32Array | null, startFreq: number, endFreq: number, fftSize: number): number => {
+        const getBandMagnitude = (data: Float32Array, startFreq: number, endFreq: number, fftSize: number): number => {
           if (!data) return 0;
           const startIndex = Math.max(0, Math.floor((startFreq / nyquist) * (fftSize / 2)));
           const endIndex = Math.min(data.length - 1, Math.max(startIndex + 1, Math.ceil((endFreq / nyquist) * (fftSize / 2))));
-          let sum = 0;
-          let count = 0;
+          let peakDb = minDb;
           for (let j = startIndex; j <= endIndex; j++) {
             const db = data[j];
-            sum += Number.isFinite(db) ? db : minDb;
-            count++;
+            const safeDb = Number.isFinite(db) ? db : minDb;
+            if (safeDb > peakDb) peakDb = safeDb;
           }
-          const avgDb = count > 0 ? (sum / count) : minDb;
-          const normalized = (avgDb - minDb) / (maxDb - minDb);
-          return Math.max(0, Math.min(1, normalized));
+          const normalized = Math.max(0, Math.min(1, (peakDb - minDb) / (maxDb - minDb)));
+          // Non-linear lift for stronger visual contrast and volatility.
+          return Math.pow(normalized, 0.68);
         };
-
-        // Draw raw reference first (ghost bars) for clear contrast.
-        if (rawAnalyzer && rawData) {
-          for (let i = 0; i < barCount; i++) {
-            const t0 = i / barCount;
-            const t1 = (i + 1) / barCount;
-            const f0 = minFreq * Math.pow(maxFreq / minFreq, t0);
-            const f1 = minFreq * Math.pow(maxFreq / minFreq, t1);
-            const value = getBandMagnitude(rawData, f0, f1, rawAnalyzer.fftSize);
-            const barHeight = Math.max(2, value * (height * 0.42));
-            const x = i * (barWidth + barGap);
-            const yTop = (height / 2) - barHeight;
-            const yBottom = height / 2;
-            ctx.fillStyle = `rgba(156, 163, 175, ${0.28 * activeAlpha})`;
-            drawRoundedBar(x, yTop, barWidth, barHeight, Math.min(5, barWidth / 2));
-            drawRoundedBar(x, yBottom, barWidth, barHeight, Math.min(5, barWidth / 2));
-          }
-        }
 
         // Draw processed bars on top.
         for (let i = 0; i < barCount; i++) {
@@ -159,7 +132,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
             processedData,
             f0,
             f1,
-            processedAnalyzer?.fftSize ?? 2048
+            processedAnalyzer.fftSize
           );
           const barHeight = Math.max(2, value * (height * 0.48));
           const x = i * (barWidth + barGap);
@@ -192,7 +165,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
         visualizerRafRef.current = null;
       }
     };
-  }, [show, visualizerCanvas, analyserNode, rawAnalyserNode, settings.enabled]);
+  }, [show, visualizerCanvas, analyserNode, settings.enabled]);
 
   if (!show) return null;
 
@@ -850,7 +823,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
             {/* Main Content: 2 Column Layout */}
             <div className="flex gap-6 flex-1 overflow-hidden">
               {/* Left Column: Presets */}
-              <div className="w-64 flex flex-col gap-3">
+              <div className="w-72 flex flex-col gap-3">
                 <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wider">Presets</h3>
                 <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-2">
                   {presetKeys.map((presetKey) => {
