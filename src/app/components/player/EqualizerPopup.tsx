@@ -568,12 +568,13 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
 
               {/* Tone Controls - Same as desktop */}
               <div className="flex flex-col gap-4">
+                <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wider">Controllers</h3>
                 <div className="space-y-4 p-5 rounded-xl bg-linear-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20">
                   <h3 className="text-xs font-semibold text-purple-300/80 uppercase tracking-wider flex items-center gap-2">
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
                     </svg>
-                    Tone Control
+                    Tone
                   </h3>
 
                   {/* Bass Tone */}
@@ -811,13 +812,12 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                   </div>
                 </div>
 
-                {/* Volume Control */}
                 <div className="space-y-3 p-4 rounded-xl bg-linear-to-br from-emerald-500/10 to-cyan-500/10 border border-emerald-500/20">
                   <h3 className="text-xs font-semibold text-emerald-300/80 uppercase tracking-wider flex items-center gap-2">
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M14 3.23v17.54c0 .42-.49.64-.8.36L7.83 16H4c-.55 0-1-.45-1-1V9c0-.55.45-1 1-1h3.83l5.37-5.13c.31-.28.8-.06.8.36zM16.5 8.5a1 1 0 011.41 0 5 5 0 010 7.07 1 1 0 01-1.41-1.41 3 3 0 000-4.24 1 1 0 010-1.42z" />
                     </svg>
-                    Volume Control
+                    Volume
                   </h3>
                   <button
                     onClick={handleToggleNormalizer}
@@ -978,13 +978,14 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
 
               {/* Right Column: Tone Controls */}
               <div className="w-72 flex flex-col gap-4">
+                <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wider">Controllers</h3>
                 <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 space-y-4">
                   <div className="space-y-4 p-5 rounded-xl bg-linear-to-br from-purple-500/10 to-blue-500/10 border border-purple-500/20">
                     <h3 className="text-xs font-semibold text-purple-300/80 uppercase tracking-wider flex items-center gap-2">
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" />
                       </svg>
-                      Tone Control
+                      Tone
                     </h3>
 
                     {/* Bass Tone */}
@@ -1051,7 +1052,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                         <path d="M14 3.23v17.54c0 .42-.49.64-.8.36L7.83 16H4c-.55 0-1-.45-1-1V9c0-.55.45-1 1-1h3.83l5.37-5.13c.31-.28.8-.06.8.36zM16.5 8.5a1 1 0 011.41 0 5 5 0 010 7.07 1 1 0 01-1.41-1.41 3 3 0 000-4.24 1 1 0 010-1.42z" />
                       </svg>
-                      Volume Control
+                      Volume
                     </h3>
                     <button
                       onClick={handleToggleNormalizer}
