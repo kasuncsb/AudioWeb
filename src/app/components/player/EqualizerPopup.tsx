@@ -62,34 +62,66 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       ctx.clearRect(0, 0, visualizerCanvas.width, visualizerCanvas.height);
       ctx.scale(dpr, dpr);
 
-      // Subtle panel background + center line
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.04)';
+      const isEqEnabled = settings.enabled;
+      const activeAlpha = isEqEnabled ? 1 : 0.35;
+      const bgAlpha = isEqEnabled ? 0.08 : 0.04;
+
+      // Borderless dark canvas background
+      ctx.fillStyle = `rgba(2, 6, 23, ${bgAlpha})`;
       ctx.fillRect(0, 0, width, height);
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.14)';
+
+      // Midline
+      ctx.strokeStyle = `rgba(255, 255, 255, ${isEqEnabled ? 0.14 : 0.08})`;
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(0, height - 1);
-      ctx.lineTo(width, height - 1);
+      ctx.moveTo(0, height / 2);
+      ctx.lineTo(width, height / 2);
       ctx.stroke();
 
       if (analyzer && frequencyData) {
         analyzer.getByteFrequencyData(frequencyData);
-        const barCount = Math.min(56, Math.max(20, Math.floor(width / 10)));
-        const barGap = 3;
+        const barCount = Math.min(68, Math.max(26, Math.floor(width / 9)));
+        const barGap = 2;
         const barWidth = (width - (barCount - 1) * barGap) / barCount;
 
         for (let i = 0; i < barCount; i++) {
           const sampleIndex = Math.floor((i / barCount) * frequencyData.length);
           const value = frequencyData[sampleIndex] / 255;
-          const barHeight = Math.max(2, value * (height - 6));
+          const barHeight = Math.max(2, value * (height * 0.48));
           const x = i * (barWidth + barGap);
-          const y = height - barHeight;
+          const yTop = (height / 2) - barHeight;
+          const hue = 170 + ((i / barCount) * 220);
+          const topGrad = ctx.createLinearGradient(0, yTop, 0, height / 2);
+          topGrad.addColorStop(0, `hsla(${hue}, 100%, 62%, ${0.95 * activeAlpha})`);
+          topGrad.addColorStop(1, `hsla(${hue}, 95%, 45%, ${0.45 * activeAlpha})`);
+          ctx.fillStyle = topGrad;
+          ctx.fillRect(x, yTop, barWidth, barHeight);
 
-          const grad = ctx.createLinearGradient(0, y, 0, height);
-          grad.addColorStop(0, 'rgba(56, 189, 248, 0.95)');
-          grad.addColorStop(1, 'rgba(59, 130, 246, 0.75)');
-          ctx.fillStyle = grad;
-          ctx.fillRect(x, y, barWidth, barHeight);
+          // Mirror bars downward for the "waveform" look.
+          const yBottom = height / 2;
+          const bottomGrad = ctx.createLinearGradient(0, yBottom, 0, yBottom + barHeight);
+          bottomGrad.addColorStop(0, `hsla(${hue}, 95%, 58%, ${0.6 * activeAlpha})`);
+          bottomGrad.addColorStop(1, `hsla(${hue}, 95%, 42%, ${0.08 * activeAlpha})`);
+          ctx.fillStyle = bottomGrad;
+          ctx.fillRect(x, yBottom, barWidth, barHeight);
+        }
+
+        // Add flowing overlay lines for the reference-style look.
+        const lineCount = 4;
+        for (let l = 0; l < lineCount; l++) {
+          const offset = l * 0.8;
+          ctx.beginPath();
+          for (let i = 0; i < barCount; i++) {
+            const sampleIndex = Math.floor((i / barCount) * frequencyData.length);
+            const value = frequencyData[sampleIndex] / 255;
+            const x = i * (barWidth + barGap) + (barWidth / 2);
+            const y = (height / 2) + Math.sin((i / 5) + offset) * (8 + value * 18);
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+          }
+          ctx.strokeStyle = `rgba(255, 255, 255, ${0.16 * activeAlpha})`;
+          ctx.lineWidth = 1;
+          ctx.stroke();
         }
       }
 
@@ -104,7 +136,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
         visualizerRafRef.current = null;
       }
     };
-  }, [show, visualizerCanvas, analyserNode]);
+  }, [show, visualizerCanvas, analyserNode, settings.enabled]);
 
   if (!show) return null;
 
@@ -244,6 +276,9 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
           : Math.min(400, 200 * heightScale); // Desktop: taller faders
         const faderWidth = Math.min(12, 8 * widthScale);
         const thumbSize = Math.min(28, 20 + (widthScale - 1) * 4);
+        const visualizerHeight = isMobile
+          ? Math.min(140, Math.max(78, size.height * 0.16))
+          : Math.min(190, Math.max(96, size.height * 0.2));
 
         // Mobile Layout: Vertical Stack (same components as desktop)
         if (isMobile) {
@@ -310,7 +345,15 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                 <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wider">
                   10-Band Equalizer • ±12dB Range
                 </h3>
-                <div className="h-22 w-full rounded-lg border border-white/10 overflow-hidden">
+                <div
+                  className="w-full rounded-lg overflow-hidden"
+                  style={{
+                    height: `${visualizerHeight}px`,
+                    filter: settings.enabled ? 'none' : 'grayscale(1)',
+                    opacity: settings.enabled ? 1 : 0.5,
+                    transition: 'opacity 0.2s ease, filter 0.2s ease'
+                  }}
+                >
                   <canvas
                     ref={setVisualizerCanvas}
                     className="w-full h-full block"
@@ -704,7 +747,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                     {settings.normalizerEnabled ? 'Normalizer Enabled' : 'Normalizer Disabled'}
                   </button>
                   <p className="text-[10px] text-white/50">
-                    Keeps output level consistent between tracks. Turn off for pure manual volume.
+                    Keeps output level consistent between tracks.
                   </p>
                 </div>
               </div>
@@ -781,7 +824,15 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                 <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wider">
                   10-Band Equalizer • ±12dB Range
                 </h3>
-                <div className="h-28 w-full rounded-lg border border-white/10 overflow-hidden">
+                <div
+                  className="w-full rounded-lg overflow-hidden"
+                  style={{
+                    height: `${visualizerHeight}px`,
+                    filter: settings.enabled ? 'none' : 'grayscale(1)',
+                    opacity: settings.enabled ? 1 : 0.5,
+                    transition: 'opacity 0.2s ease, filter 0.2s ease'
+                  }}
+                >
                   <canvas
                     ref={setVisualizerCanvas}
                     className="w-full h-full block"
@@ -926,7 +977,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                     {settings.normalizerEnabled ? 'Normalizer Enabled' : 'Normalizer Disabled'}
                   </button>
                   <p className="text-[10px] text-white/50">
-                    Keeps output level consistent between tracks. Turn off for pure manual volume.
+                    Keeps output level consistent between tracks.
                   </p>
                 </div>
               </div>
