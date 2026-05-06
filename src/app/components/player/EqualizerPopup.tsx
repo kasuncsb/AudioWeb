@@ -150,9 +150,9 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       onMouseDown={onMouseDown}
       title="Equalizer"
       minWidth={isMobileDevice ? 320 : 980}
-      minHeight={isMobileDevice ? 600 : 560}
+      minHeight={isMobileDevice ? 600 : 640}
       maxWidth={isMobileDevice ? 600 : 1400}
-      maxHeight={isMobileDevice ? 900 : 840}
+      maxHeight={isMobileDevice ? 900 : 920}
       showVisualization={showVisualization}
     >
       {(size) => {
