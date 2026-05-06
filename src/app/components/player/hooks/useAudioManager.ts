@@ -387,6 +387,7 @@ interface AudioChain {
   highPass: BiquadFilterNode;          // Rumble removal
   filters: BiquadFilterNode[];         // 10-band EQ
   analyser: AnalyserNode;              // Raw frequency analysis (visualization + adaptive EQ)
+  eqAnalyser: AnalyserNode;            // Post-EQ analysis for EQ popup visualizer
   bassBoost: BiquadFilterNode;         // Bass punch (adaptive frequency)
   subBoost: BiquadFilterNode;          // Sub bass (adaptive frequency)
   trebleBoost: BiquadFilterNode;       // Treble control (adaptive frequency)
@@ -705,6 +706,12 @@ export const useAudioManager = (
         analyser.fftSize = 2048;          // Good frequency resolution for detection
         analyser.smoothingTimeConstant = 0.8;
 
+        // ===== EQ ANALYSER - Post-EQ visualization =====
+        // Placed after EQ/tone processing so EQ popup reflects live band changes.
+        const eqAnalyser = audioContext.createAnalyser();
+        eqAnalyser.fftSize = 2048;
+        eqAnalyser.smoothingTimeConstant = 0.8;
+
         // ===== BASS BOOST - Adaptive punchy bass =====
         // Peaking filter - frequency auto-adjusted based on track analysis
         const bassBoost = audioContext.createBiquadFilter();
@@ -774,7 +781,8 @@ export const useAudioManager = (
         currentNode.connect(bassBoost);
         bassBoost.connect(subBoost);
         subBoost.connect(trebleBoost);
-        trebleBoost.connect(normalizerGain);
+        trebleBoost.connect(eqAnalyser);
+        eqAnalyser.connect(normalizerGain);
         normalizerGain.connect(limiter);
         limiter.connect(outputGain);
         outputGain.connect(audioContext.destination);
@@ -788,6 +796,7 @@ export const useAudioManager = (
           highPass,
           filters,
           analyser,
+          eqAnalyser,
           bassBoost,
           subBoost,
           trebleBoost,
@@ -1211,6 +1220,14 @@ export const useAudioManager = (
     return null;
   }, []);
 
+  const getEqAnalyser = useCallback(() => {
+    const chain = audioChainRef.current;
+    if (chain?.eqAnalyser && chain.connected) {
+      return chain.eqAnalyser;
+    }
+    return null;
+  }, []);
+
   const getAudioContext = useCallback(() => {
     // Return the chain context if available, otherwise the eager context so the
     // visualizer can initialise before the first play event fires.
@@ -1227,6 +1244,7 @@ export const useAudioManager = (
     handleProgressChange,
     handleSeek,
     getAnalyser,
+    getEqAnalyser,
     getAudioContext,
   };
 };
