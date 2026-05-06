@@ -7,9 +7,9 @@ const MIN_DISPLAY_FREQ_HZ = 20;
 const MAX_DISPLAY_FREQ_HZ = 20000;
 const PER_BAR_SMOOTHING = 0.22;
 const DIVIDER_GAP_PX = 2;
-const DIVIDER_BASE_ALPHA = 0.22;
-const DIVIDER_GLOW_ALPHA = 0.10;
-const DIVIDER_GLOW_BLUR = 10;
+const DIVIDER_BAND_ALPHA = 0.14;
+const DIVIDER_BAND_HEIGHT_PX = 4;
+const DIVIDER_BAND_SOFTNESS_PX = 14;
 
 interface EqualizerPopupProps {
   show: boolean;
@@ -126,40 +126,34 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
     };
 
     const drawBackground = (width: number, height: number, activeAlpha: number, _barWidth: number, _barGap: number) => {
-      // Keep only the center divider between bars and reflection.
+      // Soft center glow band between bars and reflection (no hard line).
       const half = height / 2;
-      const alpha = Math.max(DIVIDER_BASE_ALPHA, 0.16 * activeAlpha);
+      const alpha = Math.max(DIVIDER_BAND_ALPHA, 0.10 * activeAlpha);
+
+      // Horizontal fade + vertical softness.
+      const band = ctx.createLinearGradient(0, half - DIVIDER_BAND_SOFTNESS_PX, 0, half + DIVIDER_BAND_SOFTNESS_PX);
+      band.addColorStop(0, `rgba(255, 255, 255, 0)`);
+      band.addColorStop(0.45, `rgba(255, 255, 255, ${alpha * 0.35})`);
+      band.addColorStop(0.5, `rgba(255, 255, 255, ${alpha})`);
+      band.addColorStop(0.55, `rgba(255, 255, 255, ${alpha * 0.35})`);
+      band.addColorStop(1, `rgba(255, 255, 255, 0)`);
+
+      const fadeX = ctx.createLinearGradient(0, 0, width, 0);
+      fadeX.addColorStop(0, 'rgba(255,255,255,0)');
+      fadeX.addColorStop(0.15, 'rgba(255,255,255,1)');
+      fadeX.addColorStop(0.85, 'rgba(255,255,255,1)');
+      fadeX.addColorStop(1, 'rgba(255,255,255,0)');
+
       ctx.save();
-      ctx.lineWidth = 1;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.setLineDash([]);
-
-      // Subtle left→right fade so it blends with the UI.
-      const grad = ctx.createLinearGradient(0, 0, width, 0);
-      grad.addColorStop(0, `rgba(255, 255, 255, ${alpha * 0.35})`);
-      grad.addColorStop(0.2, `rgba(255, 255, 255, ${alpha * 0.85})`);
-      grad.addColorStop(0.5, `rgba(255, 255, 255, ${alpha})`);
-      grad.addColorStop(0.8, `rgba(255, 255, 255, ${alpha * 0.85})`);
-      grad.addColorStop(1, `rgba(255, 255, 255, ${alpha * 0.35})`);
-
-      // Soft glow pass (underlay)
-      ctx.save();
-      ctx.strokeStyle = grad;
-      ctx.shadowColor = `rgba(255, 255, 255, ${DIVIDER_GLOW_ALPHA})`;
-      ctx.shadowBlur = DIVIDER_GLOW_BLUR;
-      ctx.beginPath();
-      ctx.moveTo(0, half);
-      ctx.lineTo(width, half);
-      ctx.stroke();
-      ctx.restore();
-
-      // Crisp pass (overlay)
-      ctx.strokeStyle = grad;
-      ctx.beginPath();
-      ctx.moveTo(0, half);
-      ctx.lineTo(width, half);
-      ctx.stroke();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.fillStyle = band;
+      // Draw a small band area; gradient provides the softness.
+      const y = half - (DIVIDER_BAND_HEIGHT_PX / 2);
+      ctx.fillRect(0, y - DIVIDER_BAND_SOFTNESS_PX, width, DIVIDER_BAND_HEIGHT_PX + (DIVIDER_BAND_SOFTNESS_PX * 2));
+      // Apply horizontal fade by masking with destination-in.
+      ctx.globalCompositeOperation = 'destination-in';
+      ctx.fillStyle = fadeX;
+      ctx.fillRect(0, y - DIVIDER_BAND_SOFTNESS_PX, width, DIVIDER_BAND_HEIGHT_PX + (DIVIDER_BAND_SOFTNESS_PX * 2));
       ctx.restore();
     };
 
