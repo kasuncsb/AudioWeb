@@ -5,9 +5,6 @@ import { useState, useEffect, useRef } from 'react';
 
 const MIN_DISPLAY_FREQ_HZ = 20;
 const MAX_DISPLAY_FREQ_HZ = 20000;
-const ATTACK_TIME_SEC = 0.008;
-const RELEASE_TIME_SEC = 0.04;
-const DANCE_CURVE_GAMMA = 0.62;
 
 interface EqualizerPopupProps {
   show: boolean;
@@ -34,8 +31,6 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
   const [isMobileDevice, setIsMobileDevice] = useState(false);
   const [visualizerCanvas, setVisualizerCanvas] = useState<HTMLCanvasElement | null>(null);
   const visualizerRafRef = useRef<number | null>(null);
-  const smoothedBarsRef = useRef<Float32Array>(new Float32Array(0));
-  const lastFrameTimeRef = useRef<number>(0);
 
   useEffect(() => {
     const mql = window.matchMedia('(max-width: 767px)');
@@ -54,11 +49,6 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const processedAnalyzer = analyserNode;
     const processedData = processedAnalyzer ? new Float32Array(processedAnalyzer.frequencyBinCount) : null;
-
-    const ensureStateBuffers = (barCount: number) => {
-      if (smoothedBarsRef.current.length === barCount) return;
-      smoothedBarsRef.current = new Float32Array(barCount);
-    };
 
     const resizeCanvas = (width: number, height: number) => {
       const physicalWidth = Math.max(1, Math.floor(width * dpr));
@@ -127,10 +117,6 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
     };
 
     const draw = () => {
-      const nowSec = performance.now() / 1000;
-      const dt = lastFrameTimeRef.current > 0 ? Math.min(0.2, nowSec - lastFrameTimeRef.current) : 1 / 60;
-      lastFrameTimeRef.current = nowSec;
-
       const width = visualizerCanvas.clientWidth;
       const height = visualizerCanvas.clientHeight;
       resizeCanvas(width, height);
@@ -162,7 +148,6 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
 
         const availableBins = Math.max(2, maxEdgeExclusive - minIndex);
         const safeBarCount = Math.min(barCount, availableBins - 1);
-        ensureStateBuffers(safeBarCount);
 
         const logMin = Math.log(minIndex);
         const logMax = Math.log(maxEdgeExclusive);
@@ -183,17 +168,8 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
           const startIndex = edges[i];
           const endIndexExclusive = Math.max(startIndex + 1, edges[i + 1]);
           const rmsDb = integrateBandRmsDb(processedData, startIndex, endIndexExclusive, minDb, maxDb);
-          const target = normalizeDb(rmsDb, minDb, maxDb);
-
-          const prev = smoothedBarsRef.current[i];
-          const attackBlend = 1 - Math.exp(-dt / ATTACK_TIME_SEC);
-          const releaseBlend = 1 - Math.exp(-dt / RELEASE_TIME_SEC);
-          const blend = target >= prev ? attackBlend : releaseBlend;
-          const smoothed = prev + (target - prev) * blend;
-          smoothedBarsRef.current[i] = smoothed;
-
-          const danceValue = Math.pow(Math.max(0, Math.min(1, smoothed)), DANCE_CURVE_GAMMA);
-          const barHeight = danceValue * (height * 0.48);
+          const value = normalizeDb(rmsDb, minDb, maxDb);
+          const barHeight = value * (height * 0.48);
           const x = i * (barWidth + barGap);
           const yTop = (height / 2) - barHeight;
           const hue = 170 + ((i / safeBarCount) * 220);
@@ -223,8 +199,6 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
         cancelAnimationFrame(visualizerRafRef.current);
         visualizerRafRef.current = null;
       }
-      lastFrameTimeRef.current = 0;
-      smoothedBarsRef.current = new Float32Array(0);
     };
   }, [show, visualizerCanvas, analyserNode, settings.enabled]);
 
