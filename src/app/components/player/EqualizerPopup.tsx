@@ -45,7 +45,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
 
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const processedAnalyzer = analyserNode;
-    const processedData = processedAnalyzer ? new Float32Array(processedAnalyzer.frequencyBinCount) : null;
+    const processedData = processedAnalyzer ? new Uint8Array(processedAnalyzer.frequencyBinCount) : null;
 
     const draw = () => {
       const width = visualizerCanvas.clientWidth;
@@ -79,7 +79,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       ctx.stroke();
 
       if (processedAnalyzer && processedData) {
-        processedAnalyzer.getFloatFrequencyData(processedData);
+        processedAnalyzer.getByteFrequencyData(processedData);
 
         const barCount = Math.min(84, Math.max(30, Math.floor(width / 10)));
         const barGap = 2;
@@ -89,8 +89,6 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
         const binHz = nyquist / processedData.length;
         const minFreq = Math.max(20, binHz);
         const maxFreq = Math.min(20000, nyquist);
-        const minDb = -100;
-        const maxDb = -16;
 
         const drawRoundedBar = (x: number, y: number, w: number, h: number, r: number) => {
           const radius = Math.max(0, Math.min(r, w / 2, h / 2));
@@ -114,20 +112,13 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
           const rawEndIndex = Math.ceil((endFreq / nyquist) * (len - 1));
           const endIndex = Math.min(len - 1, Math.max(startIndex + 1, rawEndIndex));
 
-          let powerSum = 0;
-          let count = 0;
+          // Simple + stable: peak energy in this band.
+          let peak = 0;
           for (let j = startIndex; j <= endIndex; j++) {
-            const db = Number.isFinite(processedData[j]) ? processedData[j] : minDb;
-            const clampedDb = Math.max(minDb, Math.min(0, db));
-            const linear = Math.pow(10, clampedDb / 20);
-            powerSum += linear * linear;
-            count++;
+            const v = processedData[j] ?? 0;
+            if (v > peak) peak = v;
           }
-
-          if (count === 0) return 0;
-          const rms = Math.sqrt(powerSum / count);
-          const rmsDb = 20 * Math.log10(Math.max(rms, 1e-8));
-          return Math.max(0, Math.min(1, (rmsDb - minDb) / (maxDb - minDb)));
+          return peak / 255;
         };
 
         // Draw bars directly from original analyser spectrum (log-frequency grouped).
