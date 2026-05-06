@@ -119,14 +119,17 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       return Math.max(0, Math.min(1, (db - minDb) / Math.max(1e-6, maxDb - minDb)));
     };
 
-    const drawBackground = (width: number, height: number, activeAlpha: number, _isEqEnabled: boolean) => {
+    const drawBackground = (width: number, height: number, activeAlpha: number, barWidth: number, barGap: number) => {
       // Keep only the center divider between bars and reflection.
       const half = height / 2;
       const alpha = Math.max(0.22, 0.16 * activeAlpha);
       ctx.save();
       ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
       ctx.lineWidth = 1;
-      ctx.setLineDash([6, 6]);
+      // 1 dash = 1 bar (dash length = bar width, gap = bar gap)
+      const dash = Math.max(1, barWidth);
+      const gap = Math.max(0, barGap);
+      ctx.setLineDash([dash, gap]);
       ctx.lineDashOffset = 0;
       ctx.beginPath();
       ctx.moveTo(0, half);
@@ -142,7 +145,11 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       const height = visualizerCanvas.clientHeight;
       resizeCanvas(width, height);
       ctx.clearRect(0, 0, width, height);
-      drawBackground(width, height, 0, false);
+      const safeBarCount = Math.min(96, Math.max(32, Math.floor(width / 9)));
+      const barGap = 1.5;
+      const totalGap = (safeBarCount - 1) * barGap;
+      const barWidth = Math.max(2, (width - totalGap) / safeBarCount);
+      drawBackground(width, height, 0, barWidth, barGap);
       smoothedBarsRef.current = new Float32Array(0);
       return;
     }
@@ -154,7 +161,6 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
 
       const isEqEnabled = settings.enabled;
       const activeAlpha = isEqEnabled ? 1 : 0.35;
-      drawBackground(width, height, activeAlpha, isEqEnabled);
 
       if (processedAnalyzer && processedData) {
         processedAnalyzer.getFloatFrequencyData(processedData);
@@ -196,6 +202,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
 
         const totalGap = (safeBarCount - 1) * barGap;
         const barWidth = Math.max(2, (width - totalGap) / safeBarCount);
+        drawBackground(width, height, activeAlpha, barWidth, barGap);
         for (let i = 0; i < safeBarCount; i++) {
           const startIndex = edges[i];
           const endIndexExclusive = Math.max(startIndex + 1, edges[i + 1]);
