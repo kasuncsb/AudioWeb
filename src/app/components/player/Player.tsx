@@ -474,7 +474,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
   // Container class - background transitions smoothly when visualization toggles
   const containerClass = asPage
     ? `relative min-h-screen overflow-hidden`
-    : `fixed left-0 right-0 bottom-0 overflow-hidden z-40 top-[calc(4.5rem-1px)]`; // Start 1px higher to cover navbar border
+    : `fixed left-0 right-0 bottom-0 overflow-hidden ${isDragOver ? 'z-[90]' : 'z-40'} top-[calc(4.5rem-1px)]`; // Start 1px higher to cover navbar border
 
   const containerStyle: React.CSSProperties = {
     backgroundColor: showVisualization ? 'transparent' : '#000',
