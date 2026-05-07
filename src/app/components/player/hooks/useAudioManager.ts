@@ -482,7 +482,7 @@ export const useAudioManager = (
     const chain = audioChainRef.current;
     if (!chain?.connected) return;
 
-    if (!equalizerSettings.enabled || !equalizerSettings.normalizerEnabled || !hasSessionAnchorRef.current) {
+    if (!equalizerSettings.normalizerEnabled || !hasSessionAnchorRef.current) {
       scheduleNormalizerGain(chain, Math.max(0, volumeRef.current / 100), rampSeconds);
       return;
     }
@@ -490,7 +490,7 @@ export const useAudioManager = (
     const compensatedGain = computeNormalizedOutputGain(currentTrackLoudnessRef.current);
     scheduleNormalizerGain(chain, compensatedGain, rampSeconds);
     logger.debug(`Normalizer ${reason}: ${currentTrackLoudnessRef.current.toFixed(1)}dBFS -> ${(compensatedGain * 100).toFixed(0)}%`);
-  }, [equalizerSettings.enabled, equalizerSettings.normalizerEnabled, computeNormalizedOutputGain, scheduleNormalizerGain]);
+  }, [equalizerSettings.normalizerEnabled, computeNormalizedOutputGain, scheduleNormalizerGain]);
 
   // ===== ADAPTIVE FREQUENCY STATE =====
   const detectedFreqRef = useRef<DetectedFrequencies>(DEFAULT_FREQUENCIES);
