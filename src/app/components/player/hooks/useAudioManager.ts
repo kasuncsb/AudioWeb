@@ -45,8 +45,9 @@ const ANALYSIS_CONFIG = {
 };
 
 // Normalizer safety caps (in dB)
-const NORMALIZER_MAX_DELTA_DB = 4;       // Max relative correction for quieter/louder tracks
-const NORMALIZER_MAX_DELTA_HEAVY_EQ_DB = 2; // Tighter correction when EQ/tone boost is high
+const NORMALIZER_MAX_BOOST_DB = 4;       // General quiet-track boost ceiling
+const NORMALIZER_MAX_BOOST_HEAVY_EQ_DB = 2; // Tighter ceiling when EQ/tone boost is high
+const NORMALIZER_MIN_GAIN_DB = -24;      // Prevent near-mute drops
 
 /**
  * Check if a number is a power of 2
@@ -420,7 +421,6 @@ export const useAudioManager = (
   const fadeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isFadingRef = useRef<boolean>(false);
   const hasSessionAnchorRef = useRef<boolean>(false);
-  const sessionAnchorTrackUrlRef = useRef<string>('');
   const sessionAnchorLoudnessRef = useRef<number>(DEFAULT_FREQUENCIES.loudnessDb);
   const sessionAnchorOutputRef = useRef<number>(Math.max(0, volume / 100));
   const currentTrackLoudnessRef = useRef<number>(DEFAULT_FREQUENCIES.loudnessDb);
@@ -444,7 +444,7 @@ export const useAudioManager = (
   }, []);
 
   const getEqAwareBoostCapDb = useCallback((): number => {
-    if (!equalizerSettings.enabled) return NORMALIZER_MAX_DELTA_DB;
+    if (!equalizerSettings.enabled) return NORMALIZER_MAX_BOOST_DB;
     const eqGains = [
       equalizerSettings.band32, equalizerSettings.band64, equalizerSettings.band125,
       equalizerSettings.band250, equalizerSettings.band500, equalizerSettings.band1k,
@@ -454,29 +454,24 @@ export const useAudioManager = (
     const eqBoost = eqGains.reduce((sum, g) => sum + Math.max(0, g), 0);
     const toneBoost = Math.max(0, equalizerSettings.bassTone) * 1.7 + Math.max(0, equalizerSettings.trebleTone);
     const pressure = eqBoost + toneBoost;
-    return pressure > 18 ? NORMALIZER_MAX_DELTA_HEAVY_EQ_DB : NORMALIZER_MAX_DELTA_DB;
+    return pressure > 18 ? NORMALIZER_MAX_BOOST_HEAVY_EQ_DB : NORMALIZER_MAX_BOOST_DB;
   }, [equalizerSettings]);
 
   const computeNormalizedOutputGain = useCallback((trackLoudnessDb: number): number => {
-    const anchorOutput = Math.max(0, Math.min(1, sessionAnchorOutputRef.current));
+    const anchorOutput = Math.max(0, sessionAnchorOutputRef.current);
     if (anchorOutput === 0) return 0;
     const deltaDb = sessionAnchorLoudnessRef.current - trackLoudnessDb;
     const rawGain = anchorOutput * Math.pow(10, deltaDb / 20);
-    const maxDeltaDb = getEqAwareBoostCapDb();
-    const minGain = anchorOutput * Math.pow(10, -maxDeltaDb / 20);
-    const maxGain = anchorOutput * Math.pow(10, maxDeltaDb / 20);
-    return Math.max(Math.max(0, minGain), Math.min(Math.min(8, maxGain), rawGain));
+    const minGain = Math.pow(10, NORMALIZER_MIN_GAIN_DB / 20);
+    const maxGain = Math.pow(10, getEqAwareBoostCapDb() / 20);
+    return Math.max(minGain, Math.min(maxGain, rawGain));
   }, [getEqAwareBoostCapDb]);
 
   const captureSessionAnchor = useCallback((reason: string, loudnessDb: number, outputGain: number) => {
-    sessionAnchorTrackUrlRef.current = currentTrackUrlRef.current;
     sessionAnchorLoudnessRef.current = loudnessDb;
     sessionAnchorOutputRef.current = Math.max(0, Math.min(1, outputGain));
     hasSessionAnchorRef.current = true;
-    logger.debug(
-      `Normalizer anchor (${reason}): ${loudnessDb.toFixed(1)}dBFS @ ${(sessionAnchorOutputRef.current * 100).toFixed(0)}%` +
-      (sessionAnchorTrackUrlRef.current ? ' [track-bound]' : '')
-    );
+    logger.debug(`Normalizer anchor (${reason}): ${loudnessDb.toFixed(1)}dBFS @ ${(sessionAnchorOutputRef.current * 100).toFixed(0)}%`);
   }, []);
 
   const applyTrackCompensation = useCallback((reason: string, rampSeconds: number = 0.08) => {
@@ -542,10 +537,6 @@ export const useAudioManager = (
     const chain = audioChainRef.current;
     if (currentTrackUrlRef.current === trackUrl) {
       currentTrackLoudnessRef.current = detected.loudnessDb;
-    }
-    if (hasSessionAnchorRef.current && sessionAnchorTrackUrlRef.current === trackUrl) {
-      sessionAnchorLoudnessRef.current = detected.loudnessDb;
-      logger.debug(`Normalizer anchor refined: ${detected.loudnessDb.toFixed(1)}dBFS`);
     }
     if (chain?.connected) {
       applyDetectedFrequencies(chain, detected);
