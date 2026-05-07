@@ -520,7 +520,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
           {/* Drag and Drop Overlay - Only show when tracks are loaded */}
           {playlist.length > 0 && isDragOver && (
             <div
-              className="fixed inset-0 z-60 flex items-center justify-center p-4 pointer-events-none transition-all duration-300"
+              className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none transition-all duration-300"
               style={{
                 background: showVisualization ? 'rgba(0, 0, 0, 0.4)' : 'rgba(0, 0, 0, 0.8)',
                 backdropFilter: showVisualization ? 'none' : 'blur(20px) saturate(120%)',
