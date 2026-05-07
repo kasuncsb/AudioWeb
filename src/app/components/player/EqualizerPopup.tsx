@@ -286,7 +286,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       band16k: 0,
       bassTone: 0,
       trebleTone: 0,
-      normalizerEnabled: settings.normalizerEnabled,
+      normalizerEnabled: false,
       preset: 'flat',
       enabled: settings.enabled,
     });
@@ -300,6 +300,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
   };
 
   const handleToggleNormalizer = () => {
+    if (!settings.enabled) return;
     onUpdateSettings({
       ...settings,
       normalizerEnabled: !settings.normalizerEnabled,
@@ -836,7 +837,10 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                   </h3>
                   <button
                     onClick={handleToggleNormalizer}
-                    className={`w-full px-4 py-2 rounded-xl transition-all duration-200 text-sm font-medium border ${settings.normalizerEnabled
+                    disabled={!settings.enabled}
+                    className={`w-full px-4 py-2 rounded-xl transition-all duration-200 text-sm font-medium border ${!settings.enabled
+                      ? 'bg-white/5 text-white/30 border-white/10 cursor-not-allowed'
+                      : settings.normalizerEnabled
                         ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                         : 'bg-red-500/20 text-red-300 border-red-500/40'
                       }`}
@@ -1070,7 +1074,10 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
                     </h3>
                     <button
                       onClick={handleToggleNormalizer}
-                      className={`w-full px-4 py-2 rounded-xl transition-all duration-200 text-sm font-medium border ${settings.normalizerEnabled
+                      disabled={!settings.enabled}
+                      className={`w-full px-4 py-2 rounded-xl transition-all duration-200 text-sm font-medium border ${!settings.enabled
+                        ? 'bg-white/5 text-white/30 border-white/10 cursor-not-allowed'
+                        : settings.normalizerEnabled
                           ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                           : 'bg-red-500/20 text-red-300 border-red-500/40'
                         }`}

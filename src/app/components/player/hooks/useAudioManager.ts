@@ -50,7 +50,6 @@ const NORMALIZER_MAX_COMP_DB = 18;            // General per-track compensation 
 const NORMALIZER_MAX_COMP_HEAVY_EQ_DB = 12;  // Tighter ceiling when EQ/tone boost is high
 const NORMALIZER_MIN_COMP_DB = -18;           // Match downward range with upward baseline
 const NORMALIZER_MIN_GAIN_DB = -24;           // Absolute floor to avoid near-mute drops
-const EQ_PRESSURE_HEAVY_THRESHOLD = 18;       // Aggregate EQ/tone boost where safety scales in
 
 /**
  * Check if a number is a power of 2
@@ -457,7 +456,7 @@ export const useAudioManager = (
     const eqBoost = eqGains.reduce((sum, g) => sum + Math.max(0, g), 0);
     const toneBoost = Math.max(0, equalizerSettings.bassTone) * 1.7 + Math.max(0, equalizerSettings.trebleTone);
     const pressure = eqBoost + toneBoost;
-    return pressure > EQ_PRESSURE_HEAVY_THRESHOLD ? NORMALIZER_MAX_COMP_HEAVY_EQ_DB : NORMALIZER_MAX_COMP_DB;
+    return pressure > 18 ? NORMALIZER_MAX_COMP_HEAVY_EQ_DB : NORMALIZER_MAX_COMP_DB;
   }, [equalizerSettings]);
 
   const computeNormalizedOutputGain = useCallback((trackLoudnessDb: number): number => {
@@ -482,7 +481,7 @@ export const useAudioManager = (
     const chain = audioChainRef.current;
     if (!chain?.connected) return;
 
-    if (!equalizerSettings.normalizerEnabled || !hasSessionAnchorRef.current) {
+    if (!equalizerSettings.enabled || !equalizerSettings.normalizerEnabled || !hasSessionAnchorRef.current) {
       scheduleNormalizerGain(chain, Math.max(0, volumeRef.current / 100), rampSeconds);
       return;
     }
@@ -490,7 +489,7 @@ export const useAudioManager = (
     const compensatedGain = computeNormalizedOutputGain(currentTrackLoudnessRef.current);
     scheduleNormalizerGain(chain, compensatedGain, rampSeconds);
     logger.debug(`Normalizer ${reason}: ${currentTrackLoudnessRef.current.toFixed(1)}dBFS -> ${(compensatedGain * 100).toFixed(0)}%`);
-  }, [equalizerSettings.normalizerEnabled, computeNormalizedOutputGain, scheduleNormalizerGain]);
+  }, [equalizerSettings.enabled, equalizerSettings.normalizerEnabled, computeNormalizedOutputGain, scheduleNormalizerGain]);
 
   // ===== ADAPTIVE FREQUENCY STATE =====
   const detectedFreqRef = useRef<DetectedFrequencies>(DEFAULT_FREQUENCIES);
@@ -876,16 +875,9 @@ export const useAudioManager = (
       const actualTrebleBoost = Math.max(0, trebleTone) * 1.0;
       const totalBoost = eqBoost + actualBassBoost + actualTrebleBoost;
 
-      // Distortion safety (bass-forward): keep enough headroom to avoid overload,
-      // but preserve more low-end energy than the previous conservative tuning.
-      const preampDb = settings.enabled
-        ? -(1.2 + Math.max(0, totalBoost - 7) * 0.46 + Math.max(0, trebleTone) * 0.1)
-        : 0;
-      const preampValue = Math.max(0.18, Math.min(1.0, Math.pow(10, preampDb / 20)));
-
-      // Under heavy EQ pressure, reduce tone-stage max boost to avoid overload.
-      // Keep bass caps looser and clamp treble first for a bass-friendly voicing.
-      const pressureRatio = Math.max(0, Math.min(1, (totalBoost - 15) / 20));
+      // Reduce by 0.5dB per dB of total boost above 6dB
+      const preampDb = totalBoost > 6 ? -(totalBoost - 6) * 0.5 : 0;
+      const preampValue = Math.max(0.3, Math.min(1.0, Math.pow(10, preampDb / 20)));
 
       chain.preamp.gain.cancelScheduledValues(now);
       chain.preamp.gain.setValueAtTime(chain.preamp.gain.value, now);
@@ -903,29 +895,26 @@ export const useAudioManager = (
 
       // ===== BASS CONTROL =====
       // Bass punch at 80Hz (the "thump" you feel) — 1:1 with slider
-      const punchMax = 13.3 - (0.9 * pressureRatio);
-      const punchGain = Math.max(-6, Math.min(punchMax, bassTone * 1.0));
+      const punchGain = Math.max(-6, Math.min(12, bassTone * 1.0));
       chain.bassBoost.gain.cancelScheduledValues(now);
       chain.bassBoost.gain.setValueAtTime(chain.bassBoost.gain.value, now);
       chain.bassBoost.gain.linearRampToValueAtTime(punchGain, now + smoothTime);
 
       // Sub-bass body at 60Hz — subtler complement, symmetric cut
-      const subMax = 9.4 - (0.7 * pressureRatio);
-      const subGain = Math.max(-6, Math.min(subMax, bassTone * 0.7));
+      const subGain = Math.max(-6, Math.min(8, bassTone * 0.7));
       chain.subBoost.gain.cancelScheduledValues(now);
       chain.subBoost.gain.setValueAtTime(chain.subBoost.gain.value, now);
       chain.subBoost.gain.linearRampToValueAtTime(subGain, now + smoothTime);
 
       // ===== TREBLE CONTROL =====
       // Treble at 8kHz — 1:1 with slider, balanced with bass
-      const trebleMax = 12 - (3.5 * pressureRatio);
-      const trebleGain = Math.max(-6, Math.min(trebleMax, trebleTone * 1.0));
+      const trebleGain = Math.max(-6, Math.min(12, trebleTone * 1.0));
       chain.trebleBoost.gain.cancelScheduledValues(now);
       chain.trebleBoost.gain.setValueAtTime(chain.trebleBoost.gain.value, now);
       chain.trebleBoost.gain.linearRampToValueAtTime(trebleGain, now + smoothTime);
 
       logger.debug(`EQ: ${settings.preset}, Bass: ${punchGain.toFixed(1)}dB @ 80Hz, Sub: ${subGain.toFixed(1)}dB @ 60Hz, Treble: ${trebleGain.toFixed(1)}dB`);
-      logger.debug(`Preamp: ${(preampValue * 100).toFixed(0)}%, Total Boost: ${totalBoost.toFixed(1)}dB, Pressure: ${(pressureRatio * 100).toFixed(0)}%`);
+      logger.debug(`Preamp: ${(preampValue * 100).toFixed(0)}%, Total Boost: ${totalBoost.toFixed(1)}dB`);
 
     } catch (error) {
       logger.error('Failed to update EQ:', error);
