@@ -45,9 +45,11 @@ const ANALYSIS_CONFIG = {
 };
 
 // Normalizer safety caps (in dB)
-const NORMALIZER_MAX_BOOST_DB = 4;       // General quiet-track boost ceiling
-const NORMALIZER_MAX_BOOST_HEAVY_EQ_DB = 2; // Tighter ceiling when EQ/tone boost is high
-const NORMALIZER_MIN_GAIN_DB = -24;      // Prevent near-mute drops
+// Keep compensation window symmetric so up/down behavior feels consistent.
+const NORMALIZER_MAX_COMP_DB = 18;            // General per-track compensation ceiling
+const NORMALIZER_MAX_COMP_HEAVY_EQ_DB = 12;  // Tighter ceiling when EQ/tone boost is high
+const NORMALIZER_MIN_COMP_DB = -18;           // Match downward range with upward baseline
+const NORMALIZER_MIN_GAIN_DB = -24;           // Absolute floor to avoid near-mute drops
 
 /**
  * Check if a number is a power of 2
@@ -444,7 +446,7 @@ export const useAudioManager = (
   }, []);
 
   const getEqAwareBoostCapDb = useCallback((): number => {
-    if (!equalizerSettings.enabled) return NORMALIZER_MAX_BOOST_DB;
+    if (!equalizerSettings.enabled) return NORMALIZER_MAX_COMP_DB;
     const eqGains = [
       equalizerSettings.band32, equalizerSettings.band64, equalizerSettings.band125,
       equalizerSettings.band250, equalizerSettings.band500, equalizerSettings.band1k,
@@ -454,17 +456,18 @@ export const useAudioManager = (
     const eqBoost = eqGains.reduce((sum, g) => sum + Math.max(0, g), 0);
     const toneBoost = Math.max(0, equalizerSettings.bassTone) * 1.7 + Math.max(0, equalizerSettings.trebleTone);
     const pressure = eqBoost + toneBoost;
-    return pressure > 18 ? NORMALIZER_MAX_BOOST_HEAVY_EQ_DB : NORMALIZER_MAX_BOOST_DB;
+    return pressure > 18 ? NORMALIZER_MAX_COMP_HEAVY_EQ_DB : NORMALIZER_MAX_COMP_DB;
   }, [equalizerSettings]);
 
   const computeNormalizedOutputGain = useCallback((trackLoudnessDb: number): number => {
     const anchorOutput = Math.max(0, sessionAnchorOutputRef.current);
     if (anchorOutput === 0) return 0;
     const deltaDb = sessionAnchorLoudnessRef.current - trackLoudnessDb;
-    const rawGain = anchorOutput * Math.pow(10, deltaDb / 20);
+    const maxCompDb = getEqAwareBoostCapDb();
+    const compensatedDeltaDb = Math.max(NORMALIZER_MIN_COMP_DB, Math.min(maxCompDb, deltaDb));
+    const rawGain = anchorOutput * Math.pow(10, compensatedDeltaDb / 20);
     const minGain = Math.pow(10, NORMALIZER_MIN_GAIN_DB / 20);
-    const maxGain = Math.pow(10, getEqAwareBoostCapDb() / 20);
-    return Math.max(minGain, Math.min(maxGain, rawGain));
+    return Math.max(minGain, Math.min(8, rawGain));
   }, [getEqAwareBoostCapDb]);
 
   const captureSessionAnchor = useCallback((reason: string, loudnessDb: number, outputGain: number) => {
