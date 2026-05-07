@@ -17,6 +17,7 @@ interface EqualizerPopupProps {
   onUpdateSettings: (settings: EqualizerSettings) => void;
   showVisualization?: boolean;
   analyserNode?: AnalyserNode | null;
+  className?: string;
 }
 
 export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
@@ -27,7 +28,8 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
   onMouseDown,
   onUpdateSettings,
   showVisualization = false,
-  analyserNode = null
+  analyserNode = null,
+  className = ''
 }) => {
   // Detect mobile device based on window width
   const [isMobileDevice, setIsMobileDevice] = useState(false);
@@ -349,6 +351,7 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
   return (
     <ResizablePopup
       show={show}
+      className={className}
       position={position}
       onClose={onClose}
       onMouseDown={onMouseDown}

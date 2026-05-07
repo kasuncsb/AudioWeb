@@ -11,6 +11,7 @@ interface VisualizerPopupProps {
     onClose: () => void;
     onMouseDown: (e: React.MouseEvent) => void;
     onUpdateSettings: (settings: Partial<VisualizerSettings>) => void;
+    className?: string;
 }
 
 export const VisualizerPopup: React.FC<VisualizerPopupProps> = ({
@@ -22,6 +23,7 @@ export const VisualizerPopup: React.FC<VisualizerPopupProps> = ({
     onClose,
     onMouseDown,
     onUpdateSettings,
+    className = '',
 }) => {
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -57,7 +59,7 @@ export const VisualizerPopup: React.FC<VisualizerPopupProps> = ({
             maxHeight={800}
             defaultWidth={340}
             defaultHeight={425}
-            className="z-50"
+            className={className}
             showVisualization={showVisualization}
         >
             <div className="flex flex-col h-full overflow-hidden">

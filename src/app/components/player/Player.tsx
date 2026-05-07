@@ -43,6 +43,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
   const [showEqualizer, setShowEqualizer] = useState(false);
   const [showVisualizerPopup, setShowVisualizerPopup] = useState(false);
   const [showSleepTimer, setShowSleepTimer] = useState(false);
+  const [activePopup, setActivePopup] = useState<'playlist' | 'sleepTimer' | 'equalizer' | 'visualizer' | null>(null);
   const [isShuffling, setIsShuffling] = useState(false);
   const [skipDirection, setSkipDirection] = useState<'next' | 'prev'>('next');
   const [isRepeatLoaded, setIsRepeatLoaded] = useState(false);
@@ -108,6 +109,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
     setShowEqualizer(false);
     setShowVisualizerPopup(false);
     setShowSleepTimer(false);
+    setActivePopup(null);
   }, [isVisible]);
 
   // Load repeat mode from localStorage on mount
@@ -559,7 +561,10 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
           {showVisualization && availablePresets.length > 0 && (
             <div className="hidden md:block absolute bottom-8 right-8 z-50 pointer-events-auto">
               <button
-                onClick={() => setShowVisualizerPopup(true)}
+                onClick={() => {
+                  setShowVisualizerPopup(true);
+                  setActivePopup('visualizer');
+                }}
                 className="group flex flex-col items-end text-right gap-1 px-4 py-2 hover:bg-white/5 rounded-xl transition-all duration-300"
                 title="Visualizer Settings"
               >
@@ -643,9 +648,18 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                             onShuffleClick={shufflePlaylist}
                             repeatMode={repeatMode}
                             onRepeatToggle={() => setRepeatMode((repeatMode + 1) % 3)}
-                            onPlaylistToggle={() => setShowPlaylist(!showPlaylist)}
-                            onSleepTimerToggle={() => setShowSleepTimer(!showSleepTimer)}
-                            onEqualizerToggle={() => setShowEqualizer(!showEqualizer)}
+                            onPlaylistToggle={() => {
+                              setShowPlaylist(!showPlaylist);
+                              setActivePopup(!showPlaylist ? 'playlist' : null);
+                            }}
+                            onSleepTimerToggle={() => {
+                              setShowSleepTimer(!showSleepTimer);
+                              setActivePopup(!showSleepTimer ? 'sleepTimer' : null);
+                            }}
+                            onEqualizerToggle={() => {
+                              setShowEqualizer(!showEqualizer);
+                              setActivePopup(!showEqualizer ? 'equalizer' : null);
+                            }}
                             onVisualizationToggle={() => onVisualizationChange && onVisualizationChange(!showVisualization)}
                             sleepTimer={sleepTimer}
                             showVisualization={showVisualization}
@@ -750,9 +764,18 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                         onShuffleClick={shufflePlaylist}
                         repeatMode={repeatMode}
                         onRepeatToggle={() => setRepeatMode((repeatMode + 1) % 3)}
-                        onPlaylistToggle={() => setShowPlaylist(!showPlaylist)}
-                        onSleepTimerToggle={() => setShowSleepTimer(!showSleepTimer)}
-                        onEqualizerToggle={() => setShowEqualizer(!showEqualizer)}
+                        onPlaylistToggle={() => {
+                          setShowPlaylist(!showPlaylist);
+                          setActivePopup(!showPlaylist ? 'playlist' : null);
+                        }}
+                        onSleepTimerToggle={() => {
+                          setShowSleepTimer(!showSleepTimer);
+                          setActivePopup(!showSleepTimer ? 'sleepTimer' : null);
+                        }}
+                        onEqualizerToggle={() => {
+                          setShowEqualizer(!showEqualizer);
+                          setActivePopup(!showEqualizer ? 'equalizer' : null);
+                        }}
                         onVisualizationToggle={() => onVisualizationChange && onVisualizationChange(!showVisualization)}
                         sleepTimer={sleepTimer}
                         showVisualization={showVisualization}
@@ -787,7 +810,10 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
                   {showVisualization && availablePresets.length > 0 && (
                     <div className="w-full flex justify-center pt-2 pb-8">
                       <button
-                        onClick={() => setShowVisualizerPopup(true)}
+                        onClick={() => {
+                          setShowVisualizerPopup(true);
+                          setActivePopup('visualizer');
+                        }}
                         className="flex items-center gap-2 px-5 py-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all active:scale-95"
                       >
                         <svg className="w-4 h-4 text-white/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -822,13 +848,17 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
             playlist={playlist}
             position={popupPositions.playlist}
             onClose={() => setShowPlaylist(false)}
-            onMouseDown={(e) => handleMouseDown('playlist', e)}
+            onMouseDown={(e) => {
+              setActivePopup('playlist');
+              handleMouseDown('playlist', e);
+            }}
             onSelectTrack={selectTrack}
             onRemoveTrack={removeTrack}
             onAddTracks={handleAddTracks}
             isPlaying={isPlaying}
             isShuffling={isShuffling}
             showVisualization={showVisualization}
+            className={activePopup === 'playlist' ? 'z-[55]' : 'z-40'}
           />
 
           <SleepTimerPopup
@@ -837,7 +867,10 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
             sleepTimer={Math.floor(sleepTimer / 60)} // Display in minutes
             isTimerActive={sleepTimer > 0} // Pass true if any timer is active
             onClose={() => setShowSleepTimer(false)}
-            onMouseDown={(e) => handleMouseDown('sleepTimer', e)}
+            onMouseDown={(e) => {
+              setActivePopup('sleepTimer');
+              handleMouseDown('sleepTimer', e);
+            }}
             onSetTimer={(minutes) => setSleepTimer(minutes * 60)} // Convert minutes to seconds
             onCancelTimer={() => {
               setSleepTimer(0);
@@ -845,6 +878,7 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
               if (onSleepTimerChange) onSleepTimerChange(0, true);
             }}
             showVisualization={showVisualization}
+            className={activePopup === 'sleepTimer' ? 'z-[55]' : 'z-40'}
           />
 
           <EqualizerPopup
@@ -852,10 +886,14 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
             position={popupPositions.equalizer}
             settings={equalizerSettings}
             onClose={() => setShowEqualizer(false)}
-            onMouseDown={(e) => handleMouseDown('equalizer', e)}
+            onMouseDown={(e) => {
+              setActivePopup('equalizer');
+              handleMouseDown('equalizer', e);
+            }}
             onUpdateSettings={setEqualizerSettings}
             showVisualization={showVisualization}
             analyserNode={getEqAnalyser()}
+            className={activePopup === 'equalizer' ? 'z-[55]' : 'z-40'}
           />
 
           <VisualizerPopup
@@ -865,8 +903,12 @@ const Player: React.FC<PlayerProps> = ({ isVisible = true, onClose, asPage = fal
             availablePresets={availablePresets}
             showVisualization={showVisualization}
             onClose={() => setShowVisualizerPopup(false)}
-            onMouseDown={(e) => handleMouseDown('visualizer', e)}
+            onMouseDown={(e) => {
+              setActivePopup('visualizer');
+              handleMouseDown('visualizer', e);
+            }}
             onUpdateSettings={updateVisualizerSettings}
+            className={activePopup === 'visualizer' ? 'z-[55]' : 'z-40'}
           />
         </div>
       )}

@@ -15,6 +15,7 @@ interface PlaylistPopupProps {
   isPlaying?: boolean;
   isShuffling?: boolean;
   showVisualization?: boolean;
+  className?: string;
 }
 
 export const PlaylistPopup: React.FC<PlaylistPopupProps> = ({
@@ -28,7 +29,8 @@ export const PlaylistPopup: React.FC<PlaylistPopupProps> = ({
   onAddTracks,
   isPlaying = false,
   isShuffling = false,
-  showVisualization = false
+  showVisualization = false,
+  className = ''
 }) => {
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -41,7 +43,7 @@ export const PlaylistPopup: React.FC<PlaylistPopupProps> = ({
   return (
     <ResizablePopup
       show={show}
-      className="playlist-popup"
+      className={`playlist-popup ${className}`}
       position={position}
       onClose={onClose}
       onMouseDown={onMouseDown}

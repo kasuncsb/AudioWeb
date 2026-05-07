@@ -10,6 +10,7 @@ interface SleepTimerPopupProps {
   onSetTimer: (minutes: number) => void;
   onCancelTimer: () => void;
   showVisualization?: boolean;
+  className?: string;
 }
 
 export const SleepTimerPopup: React.FC<SleepTimerPopupProps> = ({
@@ -21,13 +22,15 @@ export const SleepTimerPopup: React.FC<SleepTimerPopupProps> = ({
   onMouseDown,
   onSetTimer,
   onCancelTimer,
-  showVisualization = false
+  showVisualization = false,
+  className = ''
 }) => {
   if (!show) return null;
 
   return (
     <ResizablePopup
       show={show}
+      className={className}
       position={position}
       onClose={onClose}
       onMouseDown={onMouseDown}
