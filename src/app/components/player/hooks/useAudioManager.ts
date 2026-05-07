@@ -876,15 +876,15 @@ export const useAudioManager = (
       const actualTrebleBoost = Math.max(0, trebleTone) * 1.0;
       const totalBoost = eqBoost + actualBassBoost + actualTrebleBoost;
 
-      // Distortion safety: keep baseline headroom whenever EQ is active, then
-      // scale attenuation more aggressively as aggregate boost rises.
+      // Distortion safety (bass-forward): keep enough headroom to avoid overload,
+      // but preserve more low-end energy than the previous conservative tuning.
       const preampDb = settings.enabled
-        ? -(3 + Math.max(0, totalBoost - 4) * 0.75)
+        ? -(2 + Math.max(0, totalBoost - 5) * 0.62 + Math.max(0, trebleTone) * 0.18)
         : 0;
       const preampValue = Math.max(0.18, Math.min(1.0, Math.pow(10, preampDb / 20)));
 
-      // Under heavy EQ pressure, reduce tone-stage max boost to avoid overload
-      // before the limiter (especially deep bass / bright treble peaks).
+      // Under heavy EQ pressure, reduce tone-stage max boost to avoid overload.
+      // Keep bass caps looser and clamp treble first for a bass-friendly voicing.
       const pressureRatio = Math.max(0, Math.min(1, (totalBoost - 12) / 16));
 
       chain.preamp.gain.cancelScheduledValues(now);
@@ -903,14 +903,14 @@ export const useAudioManager = (
 
       // ===== BASS CONTROL =====
       // Bass punch at 80Hz (the "thump" you feel) — 1:1 with slider
-      const punchMax = 12 - (3 * pressureRatio);
+      const punchMax = 12.5 - (1.5 * pressureRatio);
       const punchGain = Math.max(-6, Math.min(punchMax, bassTone * 1.0));
       chain.bassBoost.gain.cancelScheduledValues(now);
       chain.bassBoost.gain.setValueAtTime(chain.bassBoost.gain.value, now);
       chain.bassBoost.gain.linearRampToValueAtTime(punchGain, now + smoothTime);
 
       // Sub-bass body at 60Hz — subtler complement, symmetric cut
-      const subMax = 8 - (2 * pressureRatio);
+      const subMax = 8.5 - (1.2 * pressureRatio);
       const subGain = Math.max(-6, Math.min(subMax, bassTone * 0.7));
       chain.subBoost.gain.cancelScheduledValues(now);
       chain.subBoost.gain.setValueAtTime(chain.subBoost.gain.value, now);
@@ -918,7 +918,7 @@ export const useAudioManager = (
 
       // ===== TREBLE CONTROL =====
       // Treble at 8kHz — 1:1 with slider, balanced with bass
-      const trebleMax = 12 - (3 * pressureRatio);
+      const trebleMax = 12 - (3.5 * pressureRatio);
       const trebleGain = Math.max(-6, Math.min(trebleMax, trebleTone * 1.0));
       chain.trebleBoost.gain.cancelScheduledValues(now);
       chain.trebleBoost.gain.setValueAtTime(chain.trebleBoost.gain.value, now);
