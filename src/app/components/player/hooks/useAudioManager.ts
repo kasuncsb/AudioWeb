@@ -879,13 +879,13 @@ export const useAudioManager = (
       // Distortion safety (bass-forward): keep enough headroom to avoid overload,
       // but preserve more low-end energy than the previous conservative tuning.
       const preampDb = settings.enabled
-        ? -(1.5 + Math.max(0, totalBoost - 6) * 0.52 + Math.max(0, trebleTone) * 0.12)
+        ? -(1.2 + Math.max(0, totalBoost - 7) * 0.46 + Math.max(0, trebleTone) * 0.1)
         : 0;
       const preampValue = Math.max(0.18, Math.min(1.0, Math.pow(10, preampDb / 20)));
 
       // Under heavy EQ pressure, reduce tone-stage max boost to avoid overload.
       // Keep bass caps looser and clamp treble first for a bass-friendly voicing.
-      const pressureRatio = Math.max(0, Math.min(1, (totalBoost - 14) / 18));
+      const pressureRatio = Math.max(0, Math.min(1, (totalBoost - 15) / 20));
 
       chain.preamp.gain.cancelScheduledValues(now);
       chain.preamp.gain.setValueAtTime(chain.preamp.gain.value, now);
@@ -903,14 +903,14 @@ export const useAudioManager = (
 
       // ===== BASS CONTROL =====
       // Bass punch at 80Hz (the "thump" you feel) — 1:1 with slider
-      const punchMax = 13 - (1.1 * pressureRatio);
+      const punchMax = 13.3 - (0.9 * pressureRatio);
       const punchGain = Math.max(-6, Math.min(punchMax, bassTone * 1.0));
       chain.bassBoost.gain.cancelScheduledValues(now);
       chain.bassBoost.gain.setValueAtTime(chain.bassBoost.gain.value, now);
       chain.bassBoost.gain.linearRampToValueAtTime(punchGain, now + smoothTime);
 
       // Sub-bass body at 60Hz — subtler complement, symmetric cut
-      const subMax = 9 - (0.9 * pressureRatio);
+      const subMax = 9.4 - (0.7 * pressureRatio);
       const subGain = Math.max(-6, Math.min(subMax, bassTone * 0.7));
       chain.subBoost.gain.cancelScheduledValues(now);
       chain.subBoost.gain.setValueAtTime(chain.subBoost.gain.value, now);
