@@ -128,18 +128,6 @@ export const EqualizerPopup: React.FC<EqualizerPopupProps> = ({
       // Intentionally empty: no divider line/band.
     };
 
-    // EQ master OFF => spectrum bars OFF (no masked rendering, no animation loop),
-    // but keep the dashed divider visible.
-    if (!settings.enabled) {
-      const width = visualizerCanvas.clientWidth;
-      const height = visualizerCanvas.clientHeight;
-      resizeCanvas(width, height);
-      ctx.clearRect(0, 0, width, height);
-      drawBackground(width, height, 0, 0, 0);
-      smoothedBarsRef.current = new Float32Array(0);
-      return;
-    }
-
     const draw = () => {
       const width = visualizerCanvas.clientWidth;
       const height = visualizerCanvas.clientHeight;
