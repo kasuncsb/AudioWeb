@@ -29,7 +29,7 @@ jobs:
         if: github.event_name == 'push'
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 26
 
       - name: Determine bump strategy from commit message
         if: github.event_name == 'push'
